@@ -6,3 +6,5 @@ Ibn Katheer Developer Handoff.html
 
 # OS / editor cruft
 .DS_Store
+node_modules/
+dist/
