@@ -36,4 +36,14 @@ describe('validateScoringConfig', () => {
     const bad = { ...DEFAULT_SCORING_CONFIG, hifz_base: 0 };
     expect(validateScoringConfig(bad)).toContain('hifz_base must be > 0');
   });
+
+  it('flags a non-positive tajweed_base', () => {
+    const bad = { ...DEFAULT_SCORING_CONFIG, tajweed_base: 0 };
+    expect(validateScoringConfig(bad)).toContain('tajweed_base must be > 0');
+  });
+
+  it('flags a non-positive voice_max', () => {
+    const bad = { ...DEFAULT_SCORING_CONFIG, voice_max: 0 };
+    expect(validateScoringConfig(bad)).toContain('voice_max must be > 0');
+  });
 });
