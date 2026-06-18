@@ -54,6 +54,20 @@ describe('sessions — one writer per doc', () => {
     });
     await assertFails(deleteDoc(doc(judge('judgeA'), 'sessions/s4')));
   });
+
+  it('not even an admin can delete a session', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'sessions/s4b'), { judgeId: 'judgeA', enrollmentId: 'e1', questions: [] });
+    });
+    await assertFails(deleteDoc(doc(admin(), 'sessions/s4b')));
+  });
+
+  it('a judge cannot hand off their own session to another judge', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'sessions/s5'), { judgeId: 'judgeA', enrollmentId: 'e1', questions: [] });
+    });
+    await assertFails(updateDoc(doc(judge('judgeA'), 'sessions/s5'), { judgeId: 'judgeB' }));
+  });
 });
 
 describe('admin-only collections', () => {
@@ -92,6 +106,13 @@ describe('registrations — immutable master', () => {
     });
     await assertFails(updateDoc(doc(admin(), 'registrations/p1:i3'), { source: 'manual' }));
     await assertFails(deleteDoc(doc(admin(), 'registrations/p1:i3')));
+  });
+
+  it('a judge cannot read a registration', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'registrations/p1:i9'), { source: 'zeffy' });
+    });
+    await assertFails(getDoc(doc(judge('judgeA'), 'registrations/p1:i9')));
   });
 });
 
