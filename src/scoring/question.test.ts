@@ -9,6 +9,9 @@ import {
   tajweedDeduction,
   tajweedQuestionScore,
   tajweedFraction,
+  voiceFraction,
+  hifzAtFloor,
+  questionScore,
 } from './question';
 
 function q(events: QuestionEvent[], extra: Partial<Question> = {}): Question {
@@ -65,5 +68,51 @@ describe('tajweed scoring', () => {
     const question = q([ev('tajweed_minor')], { disqualified: true });
     expect(tajweedQuestionScore(question, CFG)).toBe(0);
     expect(tajweedFraction(question, CFG)).toBe(0);
+  });
+});
+
+describe('voiceFraction', () => {
+  it('is null when unrated and not disqualified (excluded from the mean)', () => {
+    expect(voiceFraction(q([], { voice: null }), CFG)).toBeNull();
+    expect(voiceFraction(q([]), CFG)).toBeNull();
+  });
+
+  it('is voice / voice_max when rated', () => {
+    expect(voiceFraction(q([], { voice: 4 }), CFG)).toBeCloseTo(0.8, 10);
+    expect(voiceFraction(q([], { voice: 0 }), CFG)).toBe(0);
+  });
+
+  it('is 0 for a disqualified question regardless of rating', () => {
+    expect(voiceFraction(q([], { voice: 5, disqualified: true }), CFG)).toBe(0);
+  });
+});
+
+describe('hifzAtFloor (auto-flag trigger)', () => {
+  it('is true when deductions reach hifz_base', () => {
+    const question = q([ev('prompted_failed'), ev('prompted_failed'), ev('prompted_failed'),
+      ev('prompted_failed'), ev('prompted_failed')]); // 10 == base
+    expect(hifzAtFloor(question, CFG)).toBe(true);
+  });
+
+  it('is false before the floor is reached', () => {
+    expect(hifzAtFloor(q([ev('prompted_failed')]), CFG)).toBe(false);
+  });
+
+  it('is false for an already-disqualified question', () => {
+    const question = q([ev('prompted_failed'), ev('prompted_failed'), ev('prompted_failed'),
+      ev('prompted_failed'), ev('prompted_failed')], { disqualified: true });
+    expect(hifzAtFloor(question, CFG)).toBe(false);
+  });
+});
+
+describe('questionScore (single-question blended, for sudden-death)', () => {
+  it('blends hifz/tajweed/voice with the configured weights', () => {
+    // hifz 1.0, tajweed 1.0, voice 5/5=1.0 -> 70 + 25 + 5 = 100
+    expect(questionScore(q([], { voice: 5 }), CFG)).toBeCloseTo(100, 10);
+  });
+
+  it('treats unrated voice as 0', () => {
+    // hifz 1.0, tajweed 1.0, voice excluded -> 70 + 25 + 0 = 95
+    expect(questionScore(q([], { voice: null }), CFG)).toBeCloseTo(95, 10);
   });
 });
