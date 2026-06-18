@@ -8,3 +8,6 @@ Ibn Katheer Developer Handoff.html
 .DS_Store
 node_modules/
 dist/
+
+# Firebase emulator debug logs
+*-debug.log
