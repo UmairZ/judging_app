@@ -1,0 +1,8 @@
+# Bulky raw design exports — kept locally, not versioned.
+# The extracted design source lives in docs/design/ instead.
+*-handoff.zip
+Ibn Katheer Developer Handoff.html
+.design-handoff-extract/
+
+# OS / editor cruft
+.DS_Store
