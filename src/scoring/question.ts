@@ -45,3 +45,25 @@ export function tajweedQuestionScore(q: Question, cfg: ScoringConfig): number {
 export function tajweedFraction(q: Question, cfg: ScoringConfig): number {
   return tajweedQuestionScore(q, cfg) / cfg.tajweed_base;
 }
+
+/** null = excluded from the voice mean (unrated, non-DQ). 0 when disqualified. */
+export function voiceFraction(q: Question, cfg: ScoringConfig): number | null {
+  if (q.disqualified) return 0;
+  if (q.voice == null) return null;
+  return q.voice / cfg.voice_max;
+}
+
+/** Auto-flag trigger: hifz deductions have reached the base (score at floor). */
+export function hifzAtFloor(q: Question, cfg: ScoringConfig): boolean {
+  return !q.disqualified && hifzDeduction(q, cfg) >= cfg.hifz_base;
+}
+
+/** Blended 0..100 score for a single question (unrated voice counts as 0). */
+export function questionScore(q: Question, cfg: ScoringConfig): number {
+  const v = voiceFraction(q, cfg);
+  return (
+    cfg.weights.hifz * hifzFraction(q, cfg) +
+    cfg.weights.tajweed * tajweedFraction(q, cfg) +
+    cfg.weights.voice * (v == null ? 0 : v)
+  );
+}
