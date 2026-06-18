@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { return request.auth != null && request.auth.token.admin == true; }
+
+    // Admin-only collections; signed-in users may read (judges need config/contestants/etc).
+    match /config/{doc}      { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /judges/{id}       { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /panels/{id}       { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /assignments/{id}  { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /contestants/{id}  { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /enrollments/{id}  { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /tiebreaks/{id}    { allow read: if isSignedIn(); allow write: if isAdmin(); }
+
+    // Immutable master: admin may create; no one updates or deletes via client.
+    match /registrations/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // One writer per session doc. A judge writes only their own (uid == judgeId).
+    // ponytail: enforces the per-judge invariant. Slot-assignment check (panel covers
+    // enrollment) omitted — add a get() chain only if writing an unassigned session is a real risk.
+    match /sessions/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.judgeId == request.auth.uid;
+      allow update: if isSignedIn()
+                    && resource.data.judgeId == request.auth.uid
+                    && request.resource.data.judgeId == request.auth.uid;
+      allow delete: if false;
+    }
+  }
+}
