@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;0,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=El+Messiri:wght@600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  @media print {
+    .ik-canvas { background: #fff !important; padding: 0 !important; }
+    .ik-page { box-shadow: none !important; }
+    .ik-card, .ik-screen-row { break-inside: avoid; }
+  }
+</style>
+</helmet>
+
+<div class="ik-canvas" style="font-family: 'IBM Plex Sans', sans-serif; background: #E3DDD0; min-height: 100vh; box-sizing: border-box; padding: 48px 24px; color: #1C2926;">
+  <div class="ik-page" style="max-width: 920px; margin: 0 auto; background: #FBF8F1; border-radius: 6px; box-shadow: 0 6px 30px rgba(20,40,36,.16); overflow: hidden;">
+
+    <!-- COVER -->
+    <div style="padding: 56px 64px 44px; background: radial-gradient(circle at 30% 0%, #1B514A, #0E2E2A); color: #fff; position: relative;">
+      <div style="position: absolute; top: 30px; right: 48px; display: flex; align-items: center; gap: 10px;"><span style="width: 60px; height: 1px; background: #3A6258;"></span><span style="width: 8px; height: 8px; background: #B99644; transform: rotate(45deg);"></span></div>
+      <div style="display: flex; align-items: center; gap: 18px; margin-bottom: 30px;">
+        <div style="width: 60px; height: 60px; border-radius: 50%; background: #FBF8F1; display: flex; align-items: center; justify-content: center; flex: none;"><span style="width: 16px; height: 16px; background: #206560; transform: rotate(45deg);"></span></div>
+        <div>
+          <div style="font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: #DCB75E; font-weight: 600;">2026 Ibn Katheer Qur'an Competition</div>
+          <div style="font-size: 14px; color: #9DBDB4; margin-top: 2px;">Judging System</div>
+        </div>
+      </div>
+      <h1 style="font-family: 'Spectral', serif; font-weight: 600; font-size: 44px; line-height: 1.08; margin: 0 0 14px; letter-spacing: -.01em;">Developer Handoff &amp; Design Tokens</h1>
+      <p style="font-size: 15.5px; line-height: 1.6; color: #C7D6D0; max-width: 640px; margin: 0;">Everything a developer needs to build the judging app to spec: the design tokens used across all screens, component patterns, the behaviors that aren't visible in a static mock, and the scoring engine reference.</p>
+      <div style="margin-top: 26px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <span style="font-size: 12.5px; font-weight: 600; color: #06211C; background: #DCB75E; padding: 6px 13px; border-radius: 999px;">Companion to &ldquo;Ibn Katheer Judging&rdquo; mockups</span>
+        <span style="font-size: 12.5px; font-weight: 600; color: #DCEAE6; border: 1px solid #3A6258; padding: 6px 13px; border-radius: 999px;">React + Vite &middot; PWA &middot; Firestore</span>
+      </div>
+    </div>
+
+    <div style="padding: 44px 64px 56px;">
+
+      <!-- TOC -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px 28px; margin-bottom: 48px; padding-bottom: 36px; border-bottom: 1px solid #EAE3D4;">
+        <div style="display: flex; align-items: baseline; gap: 12px; font-size: 14.5px;"><span style="font-family: 'Spectral', serif; color: #B99644; font-weight: 700;">1</span><span style="color: #41504B;">Design tokens &mdash; color</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px; font-size: 14.5px;"><span style="font-family: 'Spectral', serif; color: #B99644; font-weight: 700;">5</span><span style="color: #41504B;">Component patterns</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px; font-size: 14.5px;"><span style="font-family: 'Spectral', serif; color: #B99644; font-weight: 700;">2</span><span style="color: #41504B;">Typography</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px; font-size: 14.5px;"><span style="font-family: 'Spectral', serif; color: #B99644; font-weight: 700;">6</span><span style="color: #41504B;">Interaction &amp; behavior notes</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px; font-size: 14.5px;"><span style="font-family: 'Spectral', serif; color: #B99644; font-weight: 700;">3</span><span style="color: #41504B;">Spacing, radius &amp; elevation</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px; font-size: 14.5px;"><span style="font-family: 'Spectral', serif; color: #B99644; font-weight: 700;">7</span><span style="color: #41504B;">Scoring engine reference</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px; font-size: 14.5px;"><span style="font-family: 'Spectral', serif; color: #B99644; font-weight: 700;">4</span><span style="color: #41504B;">Iconography &amp; motif</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px; font-size: 14.5px;"><span style="font-family: 'Spectral', serif; color: #B99644; font-weight: 700;">8</span><span style="color: #41504B;">Screen inventory &amp; dev notes</span></div>
+      </div>
+
+      <!-- ===== 1. COLOR ===== -->
+      <div style="margin-bottom: 46px;">
+        <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px;"><span style="font-family: 'Spectral', serif; font-size: 13px; font-weight: 700; color: #B99644; border: 1px solid #DcCFAE; border-radius: 999px; padding: 4px 11px;">1</span><h2 style="font-family: 'Spectral', serif; font-weight: 600; font-size: 23px; margin: 0; color: #16413B;">Design tokens &mdash; color</h2></div>
+
+        <div style="font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #8A938E; font-weight: 600; margin-bottom: 12px;">Brand</div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 26px;">
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 8px; overflow: hidden;"><div style="height: 56px; background: #206560;"></div><div style="padding: 9px 11px;"><div style="font-size: 12.5px; font-weight: 600; color: #1C2926;">Teal 700</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A938E;">#206560</div><div style="font-size: 11px; color: #A89C82; margin-top: 3px;">Primary actions, accents</div></div></div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 8px; overflow: hidden;"><div style="height: 56px; background: #16413B;"></div><div style="padding: 9px 11px;"><div style="font-size: 12.5px; font-weight: 600; color: #1C2926;">Teal 800</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A938E;">#16413B</div><div style="font-size: 11px; color: #A89C82; margin-top: 3px;">App headers, titles</div></div></div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 8px; overflow: hidden;"><div style="height: 56px; background: #B99644;"></div><div style="padding: 9px 11px;"><div style="font-size: 12.5px; font-weight: 600; color: #1C2926;">Brass 500</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A938E;">#B99644</div><div style="font-size: 11px; color: #A89C82; margin-top: 3px;">Accent, dividers</div></div></div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 8px; overflow: hidden;"><div style="height: 56px; background: #DCB75E;"></div><div style="padding: 9px 11px;"><div style="font-size: 12.5px; font-weight: 600; color: #1C2926;">Brass Lt</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A938E;">#DCB75E</div><div style="font-size: 11px; color: #A89C82; margin-top: 3px;">Brass on green/dark</div></div></div>
+        </div>
+
+        <div style="font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #8A938E; font-weight: 600; margin-bottom: 12px;">Surfaces &amp; neutrals</div>
+        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 26px;">
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 7px; overflow: hidden;"><div style="height: 42px; background: #E3DDD0;"></div><div style="padding: 7px 9px;"><div style="font-size: 11.5px; font-weight: 600;">Canvas</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A938E;">#E3DDD0</div></div></div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 7px; overflow: hidden;"><div style="height: 42px; background: #F4EFE4;"></div><div style="padding: 7px 9px;"><div style="font-size: 11.5px; font-weight: 600;">Parchment</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A938E;">#F4EFE4</div></div></div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 7px; overflow: hidden;"><div style="height: 42px; background: #FBF8F1;"></div><div style="padding: 7px 9px;"><div style="font-size: 11.5px; font-weight: 600;">Cream</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A938E;">#FBF8F1</div></div></div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 7px; overflow: hidden;"><div style="height: 42px; background: #fff;"></div><div style="padding: 7px 9px;"><div style="font-size: 11.5px; font-weight: 600;">White</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A938E;">#FFFFFF</div></div></div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 7px; overflow: hidden;"><div style="height: 42px; background: #E6DEC9;"></div><div style="padding: 7px 9px;"><div style="font-size: 11.5px; font-weight: 600;">Border</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A938E;">#E6DEC9</div></div></div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 7px; overflow: hidden;"><div style="height: 42px; background: #1C2926;"></div><div style="padding: 7px 9px;"><div style="font-size: 11.5px; font-weight: 600;">Ink</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A938E;">#1C2926</div></div></div>
+        </div>
+        <div style="display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 26px; font-size: 12.5px; color: #5C6661;">
+          <span><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#41504B;vertical-align:middle;margin-right:6px;"></span>Body text <span style="font-family:'IBM Plex Mono',monospace;color:#8A938E;">#41504B</span></span>
+          <span><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#8A938E;vertical-align:middle;margin-right:6px;"></span>Muted <span style="font-family:'IBM Plex Mono',monospace;color:#8A938E;">#8A938E</span></span>
+          <span><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#B6AE9C;vertical-align:middle;margin-right:6px;"></span>Faint <span style="font-family:'IBM Plex Mono',monospace;color:#8A938E;">#B6AE9C</span></span>
+        </div>
+
+        <div style="font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #8A938E; font-weight: 600; margin-bottom: 12px;">Semantic &amp; data</div>
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;">
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 7px; overflow: hidden;"><div style="height: 42px; background: #C0563C;"></div><div style="padding: 7px 9px;"><div style="font-size: 11.5px; font-weight: 600;">Clay / neg.</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A938E;">#C0563C</div><div style="font-size: 10.5px; color: #A89C82; margin-top: 2px;">DQ, prompt-fail, errors</div></div></div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 7px; overflow: hidden;"><div style="height: 42px; background: #6FCBA0;"></div><div style="padding: 7px 9px;"><div style="font-size: 11.5px; font-weight: 600;">Success</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A938E;">#6FCBA0</div><div style="font-size: 10.5px; color: #A89C82; margin-top: 2px;">Synced, complete</div></div></div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 7px; overflow: hidden;"><div style="height: 42px; background: #4E78AE;"></div><div style="padding: 7px 9px;"><div style="font-size: 11.5px; font-weight: 600;">Tajweed</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A938E;">#4E78AE</div><div style="font-size: 10.5px; color: #A89C82; margin-top: 2px;">Tajweed component</div></div></div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 7px; overflow: hidden;"><div style="height: 42px; background: #5E9B86;"></div><div style="padding: 7px 9px;"><div style="font-size: 11.5px; font-weight: 600;">Voice</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A938E;">#5E9B86</div><div style="font-size: 10.5px; color: #A89C82; margin-top: 2px;">Voice component</div></div></div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 7px; overflow: hidden;"><div style="height: 42px; background: #C99A3A;"></div><div style="padding: 7px 9px;"><div style="font-size: 11.5px; font-weight: 600;">Hifz</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A938E;">#C99A3A</div><div style="font-size: 10.5px; color: #A89C82; margin-top: 2px;">Hifz component</div></div></div>
+        </div>
+        <div style="margin-top: 16px; background: #F4EFE4; border: 1px solid #E0D8C6; border-radius: 9px; padding: 13px 16px; font-size: 12.5px; color: #5C6661; line-height: 1.5;">Tints used for soft fills: <span style="font-family:'IBM Plex Mono',monospace;">#DCEAE6</span> (teal), <span style="font-family:'IBM Plex Mono',monospace;">#F6EFDA</span> (brass), <span style="font-family:'IBM Plex Mono',monospace;">#FBEEEA</span> (clay). Contrast: ink &amp; teal-800 on cream exceed WCAG AA; never place teal-700 body text on parchment below 14px.</div>
+      </div>
+
+      <!-- ===== 2. TYPE ===== -->
+      <div style="margin-bottom: 46px;">
+        <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px;"><span style="font-family: 'Spectral', serif; font-size: 13px; font-weight: 700; color: #B99644; border: 1px solid #DcCFAE; border-radius: 999px; padding: 4px 11px;">2</span><h2 style="font-family: 'Spectral', serif; font-weight: 600; font-size: 23px; margin: 0; color: #16413B;">Typography</h2></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 20px;">
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 9px; padding: 18px 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;"><span style="font-size: 13px; font-weight: 600; color: #B99644;">Spectral</span><span style="font-family: 'Spectral', serif; font-size: 34px; color: #16413B;">Aa</span></div>
+            <div style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">Display &middot; headings &middot; scores &middot; contestant names. Weights 600 / 700. Use for any large number (session score, ranks, per-question counts).</div>
+          </div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 9px; padding: 18px 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;"><span style="font-size: 13px; font-weight: 600; color: #B99644;">IBM Plex Sans</span><span style="font-size: 34px; font-weight: 600; color: #16413B;">Aa</span></div>
+            <div style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">UI &middot; body &middot; labels &middot; tabular data. Weights 400&ndash;700. Enable <span style="font-family:'IBM Plex Mono',monospace;">font-variant-numeric: tabular-nums</span> in tables/leaderboards.</div>
+          </div>
+        </div>
+        <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 9px; overflow: hidden;">
+          <div style="display: grid; grid-template-columns: 150px 1fr 110px 90px; padding: 10px 18px; background: #F4EFE4; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #8A938E; font-weight: 600;"><span>Role</span><span>Family / weight</span><span>Size</span><span>Tracking</span></div>
+          <div style="display: grid; grid-template-columns: 150px 1fr 110px 90px; padding: 9px 18px; border-top: 1px solid #F0EBDD; font-size: 13px; align-items: center;"><span style="color:#8A938E;">Page H1</span><span style="font-family:'Spectral',serif;color:#16413B;">Spectral 600</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">44&ndash;46px</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">-.01em</span></div>
+          <div style="display: grid; grid-template-columns: 150px 1fr 110px 90px; padding: 9px 18px; border-top: 1px solid #F0EBDD; font-size: 13px; align-items: center;"><span style="color:#8A938E;">Screen title</span><span style="font-family:'Spectral',serif;color:#16413B;">Spectral 600</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">22&ndash;26px</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">0</span></div>
+          <div style="display: grid; grid-template-columns: 150px 1fr 110px 90px; padding: 9px 18px; border-top: 1px solid #F0EBDD; font-size: 13px; align-items: center;"><span style="color:#8A938E;">Score / number</span><span style="font-family:'Spectral',serif;color:#16413B;">Spectral 700</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">30&ndash;46px</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">-.02em</span></div>
+          <div style="display: grid; grid-template-columns: 150px 1fr 110px 90px; padding: 9px 18px; border-top: 1px solid #F0EBDD; font-size: 13px; align-items: center;"><span style="color:#8A938E;">Body / input</span><span style="color:#41504B;">Plex Sans 400&ndash;500</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">14&ndash;16px</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">0</span></div>
+          <div style="display: grid; grid-template-columns: 150px 1fr 110px 90px; padding: 9px 18px; border-top: 1px solid #F0EBDD; font-size: 13px; align-items: center;"><span style="color:#8A938E;">Key / button</span><span style="color:#1C2926;">Plex Sans 600</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">15&ndash;19px</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">0</span></div>
+          <div style="display: grid; grid-template-columns: 150px 1fr 110px 90px; padding: 9px 18px; border-top: 1px solid #F0EBDD; font-size: 13px; align-items: center;"><span style="color:#8A938E;">Eyebrow label</span><span style="color:#8A938E;">Plex Sans 600 UPPER</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">11&ndash;12px</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">.12&ndash;.22em</span></div>
+          <div style="display: grid; grid-template-columns: 150px 1fr 110px 90px; padding: 9px 18px; border-top: 1px solid #F0EBDD; font-size: 13px; align-items: center;"><span style="color:#8A938E;">Arabic</span><span style="font-family:'El Messiri',sans-serif;color:#9C7C34;">El Messiri 600</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">20px+</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6661;">rtl</span></div>
+        </div>
+      </div>
+
+      <!-- ===== 3. SPACING ===== -->
+      <div style="margin-bottom: 46px;">
+        <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px;"><span style="font-family: 'Spectral', serif; font-size: 13px; font-weight: 700; color: #B99644; border: 1px solid #DcCFAE; border-radius: 999px; padding: 4px 11px;">3</span><h2 style="font-family: 'Spectral', serif; font-weight: 600; font-size: 23px; margin: 0; color: #16413B;">Spacing, radius &amp; elevation</h2></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px;">
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 9px; padding: 18px 20px;">
+            <div style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #8A938E; font-weight: 600; margin-bottom: 12px;">Spacing &mdash; 4px base</div>
+            <div style="font-size: 13px; color: #5C6661; line-height: 1.9;">Inner padding <span style="font-family:'IBM Plex Mono',monospace; color:#16413B;">12&ndash;24</span><br>Card gap <span style="font-family:'IBM Plex Mono',monospace; color:#16413B;">8&ndash;14</span><br>Frame gap <span style="font-family:'IBM Plex Mono',monospace; color:#16413B;">28</span><br>Section gap <span style="font-family:'IBM Plex Mono',monospace; color:#16413B;">64</span></div>
+          </div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 9px; padding: 18px 20px;">
+            <div style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #8A938E; font-weight: 600; margin-bottom: 12px;">Radius</div>
+            <div style="display: flex; gap: 9px; align-items: flex-end; margin-bottom: 10px;"><span style="width: 34px; height: 34px; background: #DCEAE6; border: 1px solid #BcD3CD; border-radius: 6px;"></span><span style="width: 34px; height: 34px; background: #DCEAE6; border: 1px solid #BcD3CD; border-radius: 9px;"></span><span style="width: 34px; height: 34px; background: #DCEAE6; border: 1px solid #BcD3CD; border-radius: 13px;"></span><span style="width: 34px; height: 34px; background: #DCEAE6; border: 1px solid #BcD3CD; border-radius: 999px;"></span></div>
+            <div style="font-size: 12.5px; color: #5C6661; line-height: 1.6;"><span style="font-family:'IBM Plex Mono',monospace;color:#16413B;">6</span> frames &middot; <span style="font-family:'IBM Plex Mono',monospace;color:#16413B;">8&ndash;9</span> buttons/inputs &middot; <span style="font-family:'IBM Plex Mono',monospace;color:#16413B;">11&ndash;13</span> key cards &middot; <span style="font-family:'IBM Plex Mono',monospace;color:#16413B;">999</span> pills</div>
+          </div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 9px; padding: 18px 20px;">
+            <div style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #8A938E; font-weight: 600; margin-bottom: 12px;">Elevation</div>
+            <div style="font-size: 12.5px; color: #5C6661; line-height: 1.7;">Card <span style="font-family:'IBM Plex Mono',monospace;color:#16413B;">0 6px 22px rgba(20,40,36,.14)</span><br>Button <span style="font-family:'IBM Plex Mono',monospace;color:#16413B;">0 2px 6px /.28 (teal)</span><br>Modal <span style="font-family:'IBM Plex Mono',monospace;color:#16413B;">0 24px 60px /.3</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 4. ICONOGRAPHY ===== -->
+      <div style="margin-bottom: 46px;">
+        <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px;"><span style="font-family: 'Spectral', serif; font-size: 13px; font-weight: 700; color: #B99644; border: 1px solid #DcCFAE; border-radius: 999px; padding: 4px 11px;">4</span><h2 style="font-family: 'Spectral', serif; font-weight: 600; font-size: 23px; margin: 0; color: #16413B;">Iconography &amp; motif</h2></div>
+        <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 9px; padding: 20px 22px; display: flex; gap: 28px; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <span style="width: 12px; height: 12px; background: #B99644; transform: rotate(45deg);"></span>
+            <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 54px; height: 1px; background: #C9BD9E;"></span><span style="width: 7px; height: 7px; background: #B99644; transform: rotate(45deg);"></span><span style="width: 54px; height: 1px; background: #C9BD9E;"></span></div>
+          </div>
+          <div style="font-size: 13px; color: #5C6661; line-height: 1.6; flex: 1;">The only decorative motif is the <strong style="color:#16413B;">brass diamond</strong> (a 45&deg;-rotated square) and thin rule, drawn from the logo's gold dots. Use sparingly as section dividers and accents. UI icons: a simple line set (Lucide/Phosphor) at 1.5px stroke; functional glyphs already in use &mdash; <span style="font-family:'IBM Plex Mono',monospace;">+ &minus; &#8635; &#9888; &#128274;</span>. Do not introduce illustrative or filled icon styles.</div>
+        </div>
+      </div>
+
+      <!-- ===== 5. COMPONENTS ===== -->
+      <div style="margin-bottom: 46px;">
+        <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px;"><span style="font-family: 'Spectral', serif; font-size: 13px; font-weight: 700; color: #B99644; border: 1px solid #DcCFAE; border-radius: 999px; padding: 4px 11px;">5</span><h2 style="font-family: 'Spectral', serif; font-weight: 600; font-size: 23px; margin: 0; color: #16413B;">Component patterns</h2></div>
+        <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 9px; padding: 22px; display: flex; flex-direction: column; gap: 20px;">
+          <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+            <span style="background: #206560; color: #fff; font-size: 14px; font-weight: 600; padding: 11px 22px; border-radius: 8px;">Primary</span>
+            <span style="background: #fff; color: #206560; font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 8px; border: 1.5px solid #BcD3CD;">Secondary</span>
+            <span style="background: #fff; color: #C0563C; font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 8px; border: 1.5px solid #E0B6AA;">Destructive</span>
+            <span style="font-size: 12.5px; color: #8A938E;">Buttons &mdash; radius 8, padding 10&ndash;13&times;20&ndash;22, min height 44px touch target.</span>
+          </div>
+          <div style="height: 1px; background: #F0EBDD;"></div>
+          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 40px; height: 40px; border-radius: 10px; border: 1.5px solid #C9BD9E; color: #9C7C34; font-size: 22px; display: flex; align-items: center; justify-content: center;">&minus;</div><span style="font-family: 'Spectral', serif; font-size: 24px; font-weight: 700; color: #16413B;">3</span><div style="width: 50px; height: 50px; border-radius: 12px; background: #206560; color: #fff; font-size: 26px; display: flex; align-items: center; justify-content: center;">+</div></div>
+            <span style="font-size: 12.5px; color: #8A938E;">Stepper &mdash; the deduction-key control. <strong style="color:#16413B;">+</strong> appends an event, <strong style="color:#16413B;">&minus;</strong> pops one. + is the larger, primary target. <code style="font-family:'IBM Plex Mono',monospace;">:active</code> scales to .92&ndash;.93.</span>
+          </div>
+          <div style="height: 1px; background: #F0EBDD;"></div>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #8A938E; background: #F0ECE0; padding: 5px 11px; border-radius: 999px;"><span style="width: 7px; height: 7px; border-radius: 999px; background: #B6AE9C;"></span>Not started</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #9C7C34; background: #F6EFDA; padding: 5px 11px; border-radius: 999px;"><span style="width: 7px; height: 7px; border-radius: 999px; background: #B99644;"></span>In progress</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #206560; background: #DCEAE6; padding: 5px 11px; border-radius: 999px;"><span style="width: 7px; height: 7px; border-radius: 999px; background: #2A7A73;"></span>Graded</span>
+            <span style="font-size: 12.5px; color: #8A938E;">Status pills &mdash; derived from session docs (none / exists / finalized).</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 6. INTERACTION NOTES ===== -->
+      <div style="margin-bottom: 46px;">
+        <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px;"><span style="font-family: 'Spectral', serif; font-size: 13px; font-weight: 700; color: #B99644; border: 1px solid #DcCFAE; border-radius: 999px; padding: 4px 11px;">6</span><h2 style="font-family: 'Spectral', serif; font-weight: 600; font-size: 23px; margin: 0; color: #16413B;">Interaction &amp; behavior notes</h2></div>
+        <div style="font-size: 13.5px; color: #5C6661; margin-bottom: 16px; line-height: 1.55;">The behaviors a static mock can't show &mdash; this is where builds drift from intent. Read alongside spec &sect;3, &sect;5, &sect;9.</div>
+        <div style="display: flex; flex-direction: column; gap: 11px;">
+          <div class="ik-card" style="display: flex; gap: 15px; background: #fff; border: 1px solid #EAE3D4; border-radius: 10px; padding: 14px 17px;"><span style="font-family:'Spectral',serif; font-size: 15px; font-weight: 700; color: #B99644; flex: none; width: 22px;">&bull;</span><div><div style="font-size: 14.5px; font-weight: 600; color: #16413B;">Running score recomputes locally on every tap</div><div style="font-size: 13px; color: #5C6661; line-height: 1.55;">No spinner, ever, for grading. The shared scoring module runs on-device; raw deduction events sync as the source of truth. Score = <code style="font-family:'IBM Plex Mono',monospace;">70&middot;H + 25&middot;T + 5&middot;V</code> recomputed each render.</div></div></div>
+          <div class="ik-card" style="display: flex; gap: 15px; background: #fff; border: 1px solid #EAE3D4; border-radius: 10px; padding: 14px 17px;"><span style="font-family:'Spectral',serif; font-size: 15px; font-weight: 700; color: #B99644; flex: none; width: 22px;">&bull;</span><div><div style="font-size: 14.5px; font-weight: 600; color: #16413B;">Steppers, not undo</div><div style="font-size: 13px; color: #5C6661; line-height: 1.55;">Each key is <code style="font-family:'IBM Plex Mono',monospace;">+ / &minus;</code>. <strong>+</strong> appends a timestamped event to <code style="font-family:'IBM Plex Mono',monospace;">events[]</code>; <strong>&minus;</strong> pops the most recent of that type. <strong>Reset points</strong> clears the active question's marks, voice, and DQ flag. There is no global undo &mdash; correction is per-key.</div></div></div>
+          <div class="ik-card" style="display: flex; gap: 15px; background: #FBEEEA; border: 1px solid #E6CCC2; border-radius: 10px; padding: 14px 17px;"><span style="font-family:'Spectral',serif; font-size: 15px; font-weight: 700; color: #C0563C; flex: none; width: 22px;">&#9888;</span><div><div style="font-size: 14.5px; font-weight: 600; color: #16413B;">Auto-flag DQ prompt &mdash; the single knob</div><div style="font-size: 13px; color: #5C6661; line-height: 1.55;">When a question's <code style="font-family:'IBM Plex Mono',monospace;">hifz_deduction</code> reaches <code style="font-family:'IBM Plex Mono',monospace;">hifz_base</code> (hifz hits 0), show the &ldquo;Call it?&rdquo; prompt. <strong>Confirm</strong> &rarr; question DQ'd (hifz <em>and</em> tajweed = 0). <strong>Dismiss</strong> &rarr; keep it, tajweed still counts, and set a <code style="font-family:'IBM Plex Mono',monospace;">dismissed</code> flag so it never re-prompts. Never DQ silently.</div></div></div>
+          <div class="ik-card" style="display: flex; gap: 15px; background: #fff; border: 1px solid #EAE3D4; border-radius: 10px; padding: 14px 17px;"><span style="font-family:'Spectral',serif; font-size: 15px; font-weight: 700; color: #B99644; flex: none; width: 22px;">&bull;</span><div><div style="font-size: 14.5px; font-weight: 600; color: #16413B;">Voice &amp; style is per-question</div><div style="font-size: 13px; color: #5C6661; line-height: 1.55;">Rated 0&ndash;5 on each question, alongside the deduction keys. <code style="font-family:'IBM Plex Mono',monospace;">V = mean(voice/voice_max)</code> over <em>rated</em> questions only; unrated questions don't drag it to 0 (shown as &ldquo;pending&rdquo;).</div></div></div>
+          <div class="ik-card" style="display: flex; gap: 15px; background: #fff; border: 1px solid #EAE3D4; border-radius: 10px; padding: 14px 17px;"><span style="font-family:'Spectral',serif; font-size: 15px; font-weight: 700; color: #B99644; flex: none; width: 22px;">&bull;</span><div><div style="font-size: 14.5px; font-weight: 600; color: #16413B;">Lazy session creation &amp; completeness</div><div style="font-size: 13px; color: #5C6661; line-height: 1.55;">A <code style="font-family:'IBM Plex Mono',monospace;">sessions</code> doc only exists after the judge's first input &mdash; its absence <em>is</em> &ldquo;not started.&rdquo; Completeness = started sessions / panel size (e.g. &ldquo;2 / 3&rdquo;); distinguish <em>in progress</em> from <em>finalized</em> so admin knows if a partial score is still moving.</div></div></div>
+          <div class="ik-card" style="display: flex; gap: 15px; background: #fff; border: 1px solid #EAE3D4; border-radius: 10px; padding: 14px 17px;"><span style="font-family:'Spectral',serif; font-size: 15px; font-weight: 700; color: #B99644; flex: none; width: 22px;">&bull;</span><div><div style="font-size: 14.5px; font-weight: 600; color: #16413B;">Offline-first &amp; never final</div><div style="font-size: 13px; color: #5C6661; line-height: 1.55;">Write local first (&ldquo;Saved locally&rdquo;), sync when online. Per-judge document ownership &rarr; last-write-wins, no conflicts. Sessions are always editable; reopening recomputes from the raw event log.</div></div></div>
+          <div class="ik-card" style="display: flex; gap: 15px; background: #fff; border: 1px solid #EAE3D4; border-radius: 10px; padding: 14px 17px;"><span style="font-family:'Spectral',serif; font-size: 15px; font-weight: 700; color: #B99644; flex: none; width: 22px;">&bull;</span><div><div style="font-size: 14.5px; font-weight: 600; color: #16413B;">Tie-break order</div><div style="font-size: 13px; color: #5C6661; line-height: 1.55;">Sort by score &rarr; H&#772; &rarr; T&#772; &rarr; total <code style="font-family:'IBM Plex Mono',monospace;">prompted_failed</code> (asc) &rarr; then sudden-death question (panel-averaged, placement only) or manual override with an audit note.</div></div></div>
+        </div>
+      </div>
+
+      <!-- ===== 7. SCORING REFERENCE ===== -->
+      <div style="margin-bottom: 46px;">
+        <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px;"><span style="font-family: 'Spectral', serif; font-size: 13px; font-weight: 700; color: #B99644; border: 1px solid #DcCFAE; border-radius: 999px; padding: 4px 11px;">7</span><h2 style="font-family: 'Spectral', serif; font-weight: 600; font-size: 23px; margin: 0; color: #16413B;">Scoring engine reference</h2></div>
+        <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 18px;">
+          <div class="ik-card" style="background: #0E2E2A; border-radius: 10px; padding: 20px 22px; color: #DCEAE6; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.85;">
+            <div style="color: #6E8C84;"># per session, score in [0,100]</div>
+            <div><span style="color:#DCB75E;">session</span> = 70&middot;H + 25&middot;T + 5&middot;V</div>
+            <div style="margin-top: 10px; color: #6E8C84;"># per question q</div>
+            <div>hifz_q = dq ? 0 : max(0, 10 &minus; ded_h)</div>
+            <div>taj_q&nbsp; = dq ? 0 : max(0, 10 &minus; ded_t)</div>
+            <div style="margin-top: 10px; color: #6E8C84;"># component = mean of fractions</div>
+            <div>H = mean(hifz_q / 10)</div>
+            <div>T = mean(taj_q / 10)</div>
+            <div>V = mean(voice / 5)&nbsp;&nbsp;<span style="color:#6E8C84;">rated q only</span></div>
+          </div>
+          <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 10px; overflow: hidden;">
+            <div style="padding: 11px 16px; background: #F4EFE4; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #8A938E; font-weight: 600;">Default config (live-editable)</div>
+            <div style="padding: 6px 16px;">
+              <div style="display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #F0EBDD; font-size: 13px;"><span style="color:#5C6661;">Weights H / T / V</span><span style="font-family:'IBM Plex Mono',monospace; color:#16413B;">70 / 25 / 5</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #F0EBDD; font-size: 13px;"><span style="color:#5C6661;">hifz_base</span><span style="font-family:'IBM Plex Mono',monospace; color:#16413B;">10</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #F0EBDD; font-size: 13px;"><span style="color:#5C6661;">tajweed_base</span><span style="font-family:'IBM Plex Mono',monospace; color:#16413B;">10</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #F0EBDD; font-size: 13px;"><span style="color:#5C6661;">voice_max</span><span style="font-family:'IBM Plex Mono',monospace; color:#16413B;">5</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #F0EBDD; font-size: 13px;"><span style="color:#5C6661;">prompted_fixed / failed</span><span style="font-family:'IBM Plex Mono',monospace; color:#16413B;">1 / 2</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #F0EBDD; font-size: 13px;"><span style="color:#5C6661;">tajweed major / minor</span><span style="font-family:'IBM Plex Mono',monospace; color:#16413B;">1 / 0.5</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 7px 0; font-size: 13px;"><span style="color:#5C6661;">self_corrected</span><span style="font-family:'IBM Plex Mono',monospace; color:#16413B;">0</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 14px; background: #F6EFDA; border: 1px solid #E4D2A4; border-radius: 9px; padding: 13px 16px; font-size: 12.5px; color: #6B5A28; line-height: 1.55;"><strong>One module, two consumers.</strong> Ship scoring as a single pure TypeScript module imported by both the judge app (live score) and admin (leaderboard). Nothing scoring-related is hardcoded &mdash; all knobs live in <code style="font-family:'IBM Plex Mono',monospace;">config/scoring</code>; scores recompute at read time. <strong>hifz_base</strong> is the single spread knob <em>and</em> the DQ auto-flag trigger.</div>
+      </div>
+
+      <!-- ===== 8. SCREEN INVENTORY ===== -->
+      <div>
+        <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px;"><span style="font-family: 'Spectral', serif; font-size: 13px; font-weight: 700; color: #B99644; border: 1px solid #DcCFAE; border-radius: 999px; padding: 4px 11px;">8</span><h2 style="font-family: 'Spectral', serif; font-weight: 600; font-size: 23px; margin: 0; color: #16413B;">Screen inventory &amp; dev notes</h2></div>
+        <div class="ik-card" style="border: 1px solid #EAE3D4; border-radius: 10px; overflow: hidden;">
+          <div class="ik-screen-row" style="display: grid; grid-template-columns: 30px 200px 1fr; padding: 13px 18px; border-bottom: 1px solid #F0EBDD; align-items: baseline;"><span style="font-family:'Spectral',serif; font-weight:700; color:#B99644;">1</span><span style="font-size: 14px; font-weight: 600; color: #16413B;">Live grading <span style="font-size:11px; color:#9C7C34; font-weight:600;">judge</span></span><span style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">Centerpiece. Local scoring, steppers, per-q voice, auto-flag, reset, add-question. Offline-safe, no spinners.</span></div>
+          <div class="ik-screen-row" style="display: grid; grid-template-columns: 30px 200px 1fr; padding: 13px 18px; border-bottom: 1px solid #F0EBDD; align-items: baseline;"><span style="font-family:'Spectral',serif; font-weight:700; color:#B99644;">2</span><span style="font-size: 14px; font-weight: 600; color: #16413B;">Welcome + queue <span style="font-size:11px; color:#9C7C34; font-weight:600;">judge</span></span><span style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">No login. Queue status derived from session docs; photos cached for offline.</span></div>
+          <div class="ik-screen-row" style="display: grid; grid-template-columns: 30px 200px 1fr; padding: 13px 18px; border-bottom: 1px solid #F0EBDD; align-items: baseline;"><span style="font-family:'Spectral',serif; font-weight:700; color:#B99644;">3</span><span style="font-size: 14px; font-weight: 600; color: #16413B;">Review &amp; edit <span style="font-size:11px; color:#9C7C34; font-weight:600;">judge</span></span><span style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">Reopen any graded session; recompute from events. Nothing is locked.</span></div>
+          <div class="ik-screen-row" style="display: grid; grid-template-columns: 30px 200px 1fr; padding: 13px 18px; border-bottom: 1px solid #F0EBDD; align-items: baseline;"><span style="font-family:'Spectral',serif; font-weight:700; color:#B99644;">4</span><span style="font-size: 14px; font-weight: 600; color: #16413B;">Leaderboard + tie-break <span style="font-size:11px; color:#206560; font-weight:600;">admin</span></span><span style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">Per category&times;division. Completeness, spread flags, tie resolution. Online-preferred. CSV/print export.</span></div>
+          <div class="ik-screen-row" style="display: grid; grid-template-columns: 30px 200px 1fr; padding: 13px 18px; border-bottom: 1px solid #F0EBDD; align-items: baseline;"><span style="font-family:'Spectral',serif; font-weight:700; color:#B99644;">5</span><span style="font-size: 14px; font-weight: 600; color: #16413B;">Registrations + promote <span style="font-size:11px; color:#206560; font-weight:600;">admin</span></span><span style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">Immutable master; promote &rarr; contestant + enrollment(s). Unmapped categories surfaced, never dropped.</span></div>
+          <div class="ik-screen-row" style="display: grid; grid-template-columns: 30px 200px 1fr; padding: 13px 18px; border-bottom: 1px solid #F0EBDD; align-items: baseline;"><span style="font-family:'Spectral',serif; font-weight:700; color:#B99644;">6</span><span style="font-size: 14px; font-weight: 600; color: #16413B;">Scoring &amp; panels config <span style="font-size:11px; color:#206560; font-weight:600;">admin</span></span><span style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">Live weight sliders (block save unless = 100). Panels&times;slots grid; a panel can cover many slots.</span></div>
+          <div class="ik-screen-row" style="display: grid; grid-template-columns: 30px 200px 1fr; padding: 13px 18px; border-bottom: 1px solid #F0EBDD; align-items: baseline;"><span style="font-family:'Spectral',serif; font-weight:700; color:#B99644;">7</span><span style="font-size: 14px; font-weight: 600; color: #16413B;">Structure editor <span style="font-size:11px; color:#206560; font-weight:600;">admin</span></span><span style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">Divisions master + per-category min-questions &amp; enabled divisions. Slots regenerate automatically.</span></div>
+          <div class="ik-screen-row" style="display: grid; grid-template-columns: 30px 200px 1fr; padding: 13px 18px; border-bottom: 1px solid #F0EBDD; align-items: baseline;"><span style="font-family:'Spectral',serif; font-weight:700; color:#B99644;">8</span><span style="font-size: 14px; font-weight: 600; color: #16413B;">Contestant management <span style="font-size:11px; color:#206560; font-weight:600;">admin</span></span><span style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">Edit fields, photo, enrollments, active. Division lives per enrollment, not per person.</span></div>
+          <div class="ik-screen-row" style="display: grid; grid-template-columns: 30px 200px 1fr; padding: 13px 18px; border-bottom: 1px solid #F0EBDD; align-items: baseline;"><span style="font-family:'Spectral',serif; font-weight:700; color:#B99644;">9</span><span style="font-size: 14px; font-weight: 600; color: #16413B;">Admin sign-in + unlock <span style="font-size:11px; color:#206560; font-weight:600;">admin</span></span><span style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">One credential. On judge laptops, logo long-press &rarr; password prompt. Admin never resident on a judge device.</span></div>
+          <div class="ik-screen-row" style="display: grid; grid-template-columns: 30px 200px 1fr; padding: 13px 18px; border-bottom: 1px solid #F0EBDD; align-items: baseline;"><span style="font-family:'Spectral',serif; font-weight:700; color:#B99644;">10</span><span style="font-size: 14px; font-weight: 600; color: #16413B;">Device provisioning <span style="font-size:11px; color:#206560; font-weight:600;">admin</span></span><span style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">Pick judge for seat &rarr; mint judge-scoped token (persists, offline) &rarr; land on welcome. Same flow for swaps.</span></div>
+          <div class="ik-screen-row" style="display: grid; grid-template-columns: 30px 200px 1fr; padding: 13px 18px; align-items: baseline;"><span style="font-family:'Spectral',serif; font-weight:700; color:#B99644;">11</span><span style="font-size: 14px; font-weight: 600; color: #16413B;">Projector leaderboard <span style="font-size:11px; color:#5C6661; font-weight:600;">display</span></span><span style="font-size: 12.5px; color: #5C6661; line-height: 1.5;">Read-only, big-type, auto-cycles categories. Renders whatever has synced.</span></div>
+        </div>
+        <div style="margin-top: 16px; font-size: 12.5px; color: #8A938E; line-height: 1.55;">All eleven are in the companion file <strong style="color:#5C6661;">Ibn Katheer Judging.dc.html</strong>. The live grading screen there is fully interactive &mdash; tap the keys to validate scoring behavior against this reference.</div>
+      </div>
+
+      <!-- footer -->
+      <div style="margin-top: 48px; padding-top: 22px; border-top: 1px solid #EAE3D4; display: flex; align-items: center; gap: 12px; color: #8A938E; font-size: 12.5px;">
+        <span style="width: 7px; height: 7px; background: #B99644; transform: rotate(45deg);"></span>
+        2026 Ibn Katheer Qur'an Competition &mdash; judging system handoff. Tokens &amp; behaviors derived from the design + technical spec v1.1.
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+</body>
+</html>

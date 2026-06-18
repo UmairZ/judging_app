@@ -1,9 +1,11 @@
 # Qur'an Contest Judging App — Technical Specification
 
-**Version:** 1.1 (decisions folded in)
+**Version:** 1.2 (design-handoff reconciliation)
 **Purpose:** A judging/grading web application for a Qur'an memorization contest. Replaces last year's Google Forms workflow with a comprehensive, offline-tolerant, multi-judge app and a live leaderboard.
 
 > **Scope note:** This app is **grading-only**. It does **not** generate or store the recitation questions/starting points — judges bring those themselves. The app records deductions, computes scores, manages contestants, and produces leaderboards.
+
+> **Changelog v1.1 → v1.2:** reconciled with the Claude-design handoff — **voice is rated per question** (not session-level); a **DQ now zeros all three components** (hifz, tajweed, voice) for that question; live grading uses **per-deduction −/+ steppers + "Reset points"** instead of a global undo (raw event log still canonical); a fresh session reads **95** (unrated voice contributes 0 — accepted, no renormalization).
 
 > **Changelog v1.0 → v1.1:** single-knob DQ (auto-flag = question hits hifz-0; manual DQ zeros the whole question); lazy session creation; `enrollment_score` averages only started sessions; sudden-death tie-break mechanism defined; admin-provisioned judge devices (no judge logins) + explicit Firestore security rules; multi-category tickets → multiple enrollments; ID-based registration dedupe; refund handling dropped (deposit model — a refund means "attended", not "withdrawn"); authentic ajzā' wording; webhook payload shape, ticket `type`, exact question labels, and webhook signing all deferred to a **test endpoint** capture.
 
@@ -21,7 +23,7 @@
 | **Enrollment** | One contestant entered in one category (with a division). A contestant may have multiple enrollments — and a single registration ticket can create several (see §7). |
 | **Session** | One judge's grading of one enrollment. Created **lazily** on the judge's first input. Each enrollment has at most one session per judge on the assigned panel (so the expected session count = that panel's size). |
 | **Question** | A single spot-test prompt within a session. Minimum count per category; judges may add more. |
-| **DQ (disqualified question)** | A question zeroed out as a write-off. Zeros **all** components (hifz **and** tajweed) for that question. |
+| **DQ (disqualified question)** | A question zeroed out as a write-off. Zeros **all three** components (hifz, tajweed, **and** voice) for that question. |
 
 ---
 
@@ -82,8 +84,12 @@ tajweed_fraction(q) = tajweed_question_score(q) / tajweed_base
 ```
 H = mean over all questions of hifz_fraction(q)
 T = mean over all questions of tajweed_fraction(q)
-V = voice_raw / voice_max          // voice is a single session-level rating, default voice_max = 5
+voice_fraction(q) = q.disqualified ? 0 : (q.voice / voice_max)   // q.voice is per-question, 0..voice_max, default voice_max = 5
+V = mean of voice_fraction(q) over { questions that are rated OR disqualified };  0 if none qualify
 ```
+
+- **Voice is rated per question** ("rate as you go", 0–`voice_max`), not once at session end. `V` averages only questions that have a voice rating; a question that's been **DQ'd counts as 0** (write-off), and a not-yet-rated question is simply excluded from the voice mean.
+- **A fresh/started session reads ~95, not 100:** with no voice yet rated, `V = 0`, so `session_score = 70·1 + 25·1 + 5·0 = 95`. This is accepted as-is (no renormalization) — the score climbs to 100 only once voice is rated full.
 
 **Averaging (not summing) is intentional:** it normalizes the differing question counts across categories (3/4/5/6) and makes *added questions* fair — an extra question refines the estimate rather than advantaging or penalizing the contestant.
 
@@ -98,15 +104,15 @@ enrollment_score = mean of the session_scores from the assigned panel's STARTED 
 
 ### 3.5 Disqualified questions (single-knob model)
 
-Each question has a boolean `disqualified`. When true, **all** components for that question are 0 (hifz **and** tajweed). Voice is session-level and unaffected directly.
+Each question has a boolean `disqualified`. When true, **all three** components for that question are 0 (hifz, tajweed, **and** voice) — the whole passage is written off.
 
 There is **one knob** — `hifz_base` — driving both the score floor and the DQ trigger:
 
 1. **Auto-flag.** As soon as a question's `hifz_deduction(q)` reaches `hifz_base` (i.e. its hifz score has hit 0), the UI **prompts** the judge: *"Call it? This question's hifz has bottomed out."* The hifz score is already 0 from deductions; the prompt is the judge's chance to write off the **whole** question.
-   - **Confirm** → the question becomes a DQ (hifz **and tajweed** both 0).
-   - **Dismiss** → the question stays; hifz is 0 (naturally), **tajweed still counts**.
+   - **Confirm** → the question becomes a DQ (hifz, tajweed, **and voice** all 0).
+   - **Dismiss** → the question stays; hifz is 0 (naturally), **tajweed and voice still count**.
    - Auto-flag never disqualifies silently.
-2. **Manual DQ.** A judge may tap "Disqualify question" at any time (discretionary). A manual DQ zeros the **whole** question (hifz + tajweed) — it is the explicit "this passage is a write-off" action.
+2. **Manual DQ.** A judge may tap "Disqualify question" at any time (discretionary). A manual DQ zeros the **whole** question (hifz + tajweed + voice) — it is the explicit "this passage is a write-off" action.
 
 Because the DQ trigger is `hifz_base`, there is no separate threshold to tune or keep in sync: raise `hifz_base` and both the score floor and the auto-flag point move together. Since scores derive from raw data, changing `hifz_base` recomputes consistently across all sessions.
 
@@ -266,14 +272,14 @@ The whole session (including its questions) is **one document**, owned by one ju
 {
   "enrollmentId": "string",
   "judgeId": "string",
-  "voiceRaw": 0,                 // 0..voice_max
   "questions": [
     {
       "index": 0,
       "isAdded": false,          // true if beyond the category minimum
       "isTieBreak": false,       // sudden-death question — excluded from primary score (see §3.7/§8.7)
       "disqualified": false,
-      "events": [                // ordered log → enables undo + audit; counts derived
+      "voice": null,             // per-question voice rating, 0..voice_max; null until rated
+      "events": [                // ordered log → audit + recompute; counts derived
         { "type": "prompted_fixed",  "ts": "timestamp" },
         { "type": "prompted_failed", "ts": "timestamp" },
         { "type": "self_corrected",  "ts": "timestamp" },
@@ -286,7 +292,7 @@ The whole session (including its questions) is **one document**, owned by one ju
   "finalizedAt": "timestamp | null"   // soft state only — sessions remain editable
 }
 ```
-Per-question counts (`prompted_fixed`, etc.) are **derived** from `events`. Storing the event log gives precise undo (pop last event) and a full audit trail; data volume is trivial (a few dozen events per session).
+Per-question deduction counts (`prompted_fixed`, etc.) are **derived** from `events`; **`voice` is per question** (§3.3). The event log is the canonical raw record (full audit + recompute); data volume is trivial (a few dozen events per session). Correcting a mis-tap removes one event of that type (the **−/+ steppers**, §9.3) rather than popping the global last event.
 
 ### `tiebreaks/{tiebreakId}` — owns the resolution + audit
 ```jsonc
@@ -422,10 +428,10 @@ List of contestants in the judge's assigned slots, each with **photo** + name + 
 ### 9.3 Live grading screen (centerpiece)
 For the selected enrollment (session doc created lazily on first input):
 - One card per question (minimum count pre-created in the UI; **"Add question"** button appends more, marked `isAdded`).
-- Big tap targets per question: **Self-corrected (0)**, **Prompted −1**, **Prompted-failed −2**, **Tajweed major −1**, **Tajweed minor −0.5**. Each tap appends an event; a **running per-question tally** and **running session score** update live.
-- **Undo** (pop last event).
-- **Disqualify question** button (manual DQ → whole question to 0); plus **auto-flag prompt** when a question's hifz hits 0 (judge confirms a full DQ or dismisses, leaving tajweed counting — §3.5).
-- **Voice/style** rated once at session end (0–`voice_max` slider).
+- Each deduction has its own **−/+ stepper** (big tap targets): **Self-corrected (0)**, **Prompted −1**, **Prompted-failed −2**, **Tajweed major −1**, **Tajweed minor −0.5**. Tapping **+** appends an event; tapping **−** removes one event of that type (corrects a mis-tap — no separate global undo). A **running per-question tally** and **running session score** update live (never a spinner).
+- **Reset points** clears the active question's marks.
+- **Disqualify question** button (manual DQ → whole question to 0 across hifz, tajweed, and voice); plus **auto-flag prompt** when a question's hifz hits 0 (judge confirms a full DQ or dismisses, leaving tajweed + voice counting — §3.5).
+- **Voice/style** rated **per question** (0–`voice_max`), alongside that question's hifz/tajweed.
 - Auto-saves locally continuously (offline-safe); syncs when online.
 
 ### 9.4 Review/edit prior sessions
