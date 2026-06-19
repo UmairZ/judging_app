@@ -107,6 +107,13 @@ export default function StructurePanels() {
       categories: prev.categories.map(c => c.id === catId ? { ...c, minQuestions: v } : c),
     }));
   }
+  function setCatLabel(catId: string, label: string) {
+    setEdited(prev => ({ ...prev, categories: prev.categories.map(c => c.id === catId ? { ...c, label } : c) }));
+  }
+  function setCatDesc(catId: string, desc: string) {
+    // the sub-line doubles as the Zeffy match label, so edits keep registration mapping in sync
+    setEdited(prev => ({ ...prev, categories: prev.categories.map(c => c.id === catId ? { ...c, zeffyLabels: [desc] } : c) }));
+  }
   function toggleCatDivision(catId: string, divId: string) {
     setEdited(prev => ({
       ...prev,
@@ -204,8 +211,8 @@ export default function StructurePanels() {
 
         <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
-          {/* ── Divisions card ── */}
-          <div style={{ flex: '0 0 340px' }}>
+          {/* ── Divisions card (order:2 → shown after Categories) ── */}
+          <div style={{ flex: '0 0 340px', order: 2 }}>
             <div style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 10 }}>
               Divisions master list
             </div>
@@ -279,11 +286,19 @@ export default function StructurePanels() {
                   key={cat.id}
                   style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.6fr', alignItems: 'center', padding: '14px 22px', borderBottom: idx < edited.categories.length - 1 ? `1px solid #F0EBDD` : 'none' }}
                 >
-                  <div>
-                    <div style={{ fontFamily: serif, fontSize: 17, fontWeight: 600, color: C.greenDeep }}>{cat.label}</div>
-                    {cat.zeffyLabels?.[0] && (
-                      <div style={{ fontSize: 11.5, color: C.muted }}>{cat.zeffyLabels[0]}</div>
-                    )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingRight: 12 }}>
+                    <input
+                      value={cat.label}
+                      onChange={e => setCatLabel(cat.id, e.target.value)}
+                      placeholder="Category name"
+                      style={{ fontFamily: serif, fontSize: 17, fontWeight: 600, color: C.greenDeep, border: 'none', borderBottom: `1px solid ${C.line}`, outline: 'none', background: 'transparent', padding: '2px 0', width: '100%', boxSizing: 'border-box' }}
+                    />
+                    <input
+                      value={cat.zeffyLabels?.[0] ?? ''}
+                      onChange={e => setCatDesc(cat.id, e.target.value)}
+                      placeholder="Description (Zeffy label)"
+                      style={{ fontSize: 11.5, color: C.muted, border: 'none', borderBottom: `1px solid ${C.line}`, outline: 'none', background: 'transparent', padding: '2px 0', width: '100%', boxSizing: 'border-box' }}
+                    />
                   </div>
                   <Stepper value={cat.minQuestions} onChange={v => setMinQ(cat.id, v)} />
                   <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
@@ -383,9 +398,6 @@ export default function StructurePanels() {
       ══════════════════════════════════════════════════════════ */}
       <div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 22 }}>
-          <span style={{ fontFamily: serif, fontSize: 13, fontWeight: 600, color: C.brass, background: '#fff', border: `1px solid #DcCFAE`, borderRadius: 999, padding: '5px 13px' }}>
-            Panels
-          </span>
           <h2 style={{ fontFamily: serif, fontWeight: 600, fontSize: 24, margin: 0, color: C.greenDeep }}>
             Panels &amp; assignment
           </h2>
