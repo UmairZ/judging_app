@@ -1,7 +1,9 @@
-import { onRequest } from 'firebase-functions/v2/https';
+import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 import { handleZeffyWebhook, verifyZeffyRequest } from '../../src/zeffy/webhook';
+import { judgeClaims, adminClaims } from '../../src/auth/claims';
 
 initializeApp();
 const db = getFirestore();
@@ -46,5 +48,38 @@ export const zeffyWebhook = onRequest({ region: 'us-central1', invoker: 'public'
     res.status(200).json({ ok: true, processed: result.processed });
   } catch {
     res.status(500).send('error');
+  }
+});
+
+// Mint a judge custom token (uid == judgeId, role claims) so an admin can
+// provision a device. Admin-only; the client signs in with the returned token.
+export const mintJudgeToken = onCall({ region: 'us-central1', invoker: 'public' }, async (req) => {
+  if (req.auth?.token.admin !== true) throw new HttpsError('permission-denied', 'admin only');
+  const judgeId = (req.data as { judgeId?: unknown })?.judgeId;
+  if (typeof judgeId !== 'string' || !judgeId) throw new HttpsError('invalid-argument', 'judgeId required');
+  const token = await getAuth().createCustomToken(judgeId, judgeClaims(judgeId));
+  return { token };
+});
+
+// One-time bootstrap: set the {admin:true} claim on an existing user by email.
+// Secret-guarded (ADMIN_BOOTSTRAP_TOKEN in functions/.env) — no admin claim exists yet
+// to gate it, so it cannot be a callable. Used once for the first organizer account.
+export const bootstrapAdmin = onRequest({ region: 'us-central1', invoker: 'public' }, async (req, res) => {
+  const expected = process.env.ADMIN_BOOTSTRAP_TOKEN;
+  if (!expected || req.query.token !== expected) {
+    res.status(403).send('forbidden');
+    return;
+  }
+  const email = typeof req.query.email === 'string' ? req.query.email : '';
+  if (!email) {
+    res.status(400).send('email required');
+    return;
+  }
+  try {
+    const user = await getAuth().getUserByEmail(email);
+    await getAuth().setCustomUserClaims(user.uid, adminClaims());
+    res.status(200).json({ ok: true, uid: user.uid });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: String((err as Error)?.message) });
   }
 });
