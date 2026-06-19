@@ -190,11 +190,11 @@ export default function GradingScreen() {
               </div>
 
               {/* voice — per question */}
-              <SectionLabel color={C.voiceBar} style={{ marginTop: 18 }}>Sawt — voice &amp; style</SectionLabel>
+              <SectionLabel color={C.voiceBar} style={{ marginTop: 18 }}>Sawt — voice &amp; delivery</SectionLabel>
               <div style={{ background: '#fff', border: `1px solid ${C.cardLine}`, borderRadius: 12, padding: '13px 18px', display: 'flex', alignItems: 'center', gap: 22 }}>
                 <div style={{ flex: 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <span style={{ fontSize: 16, fontWeight: 600, color: C.ink }}>Voice &amp; style</span>
+                    <span style={{ fontSize: 16, fontWeight: 600, color: C.ink }}>Voice &amp; delivery</span>
                     <span style={{ fontSize: 11.5, fontWeight: 700, color: aq.voice == null ? C.brassDark : '#6FA98C' }}>{aq.voice == null ? 'not yet rated' : `rated ${aq.voice}/${CFG.voice_max}`}</span>
                   </div>
                   <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>This question · rate as you go · 0–{CFG.voice_max}</div>
