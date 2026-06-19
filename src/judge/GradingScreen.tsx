@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useDocData, writeDoc, now } from '../data/db';
+import type { SessionDoc } from '../data/types';
 import {
   DEFAULT_SCORING_CONFIG as CFG,
   sessionScore,
@@ -51,7 +53,6 @@ const TAJWEED_KEYS: KeyDef[] = [
 ];
 
 const PANEL_SIZE = 3;
-const MIN_QUESTIONS = 4; // 5 Ajzā' minimum (demo enrollment)
 
 function freshQuestion(index: number, isAdded = false): Question {
   return { index, events: [], voice: null, disqualified: false, isAdded, isTieBreak: false };
@@ -60,22 +61,43 @@ function freshQuestion(index: number, isAdded = false): Question {
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 const pct = (f: number) => `${Math.round(f * 100)}%`;
 
-export default function GradingScreen({ contestant, onEnd }: { contestant: { name: string; slotLabel: string }; onEnd: () => void }) {
-  const [questions, setQuestions] = useState<Question[]>(() =>
-    Array.from({ length: MIN_QUESTIONS }, (_, i) => freshQuestion(i)),
-  );
+export default function GradingScreen({ contestant, enrollmentId, judgeId, minQuestions, onEnd }: { contestant: { name: string; slotLabel: string }; enrollmentId: string; judgeId: string; minQuestions: number; onEnd: () => void }) {
+  const sessionId = `${enrollmentId}__${judgeId}`;
+  const { data: sessionDoc, loading } = useDocData<SessionDoc>(`sessions/${sessionId}`);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
+  const seeded = useRef(false);
+  const dirty = useRef(false);
 
-  const session: Session = { enrollmentId: 'demo', judgeId: 'demo', questions };
+  // Seed from the existing session doc, or a fresh minimum set of questions.
+  useEffect(() => {
+    if (seeded.current || loading) return;
+    setQuestions(sessionDoc?.questions?.length ? sessionDoc.questions : Array.from({ length: minQuestions }, (_, i) => freshQuestion(i)));
+    seeded.current = true;
+  }, [loading, sessionDoc, minQuestions]);
+
+  // Persist on every real edit — lazy creation: the doc only appears once the judge grades.
+  useEffect(() => {
+    if (!seeded.current || !dirty.current) return;
+    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions, updatedAt: now() }, true);
+  }, [questions, sessionId, enrollmentId, judgeId]);
+
+  if (!questions.length) {
+    return <div style={{ width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.parchment, color: C.muted, fontFamily: serif }}>Loading…</div>;
+  }
+
+  const session: Session = { enrollmentId, judgeId, questions };
   const aq = questions[active];
   const counts = countEvents(aq);
   const score = sessionScore(session, CFG);
   const { H, T, V } = componentMeans(session, CFG);
   const showPrompt = hifzAtFloor(aq, CFG) && !dismissed.has(active);
 
-  const patch = (i: number, fn: (q: Question) => Question) =>
+  const patch = (i: number, fn: (q: Question) => Question) => {
+    dirty.current = true;
     setQuestions((qs) => qs.map((q, idx) => (idx === i ? fn(q) : q)));
+  };
 
   const inc = (type: DeductionEventType) =>
     patch(active, (q) => ({ ...q, events: [...q.events, { type, ts: new Date().toISOString() }] }));
@@ -94,8 +116,10 @@ export default function GradingScreen({ contestant, onEnd }: { contestant: { nam
   };
   const dismissPrompt = () => setDismissed((d) => new Set(d).add(active));
   const confirmDQ = () => { manualDQ(); dismissPrompt(); };
-  const addQuestion = () =>
+  const addQuestion = () => {
+    dirty.current = true;
     setQuestions((qs) => { setActive(qs.length); return [...qs, freshQuestion(qs.length, true)]; });
+  };
 
   return (
     <div style={{ width: '100%', height: '100vh', background: C.parchment, overflow: 'hidden', display: 'flex', flexDirection: 'column', color: C.ink, position: 'relative' }}>
@@ -136,7 +160,7 @@ export default function GradingScreen({ contestant, onEnd }: { contestant: { nam
           {/* question rail */}
           <div style={{ width: 244, flex: 'none', borderRight: `1px solid ${C.line}`, background: C.cream, display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '16px 18px 10px', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
-              <span>Questions</span><span style={{ color: '#B6AE9C' }}>min {MIN_QUESTIONS}</span>
+              <span>Questions</span><span style={{ color: '#B6AE9C' }}>min {minQuestions}</span>
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {questions.map((q, i) => {

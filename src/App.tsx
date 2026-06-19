@@ -6,13 +6,10 @@ import { C, serif, arabic } from './ui/theme';
 
 function Routed() {
   const { role, loading } = useAuth();
-  const [judgePreview, setJudgePreview] = useState(false);
-
   if (loading) return <Splash />;
   if (role === 'admin') return <AdminApp />;
   if (role === 'judge') return <JudgeApp />;
-  if (judgePreview) return <JudgeApp />;
-  return <AdminLogin onJudgePreview={() => setJudgePreview(true)} />;
+  return <AdminLogin />;
 }
 
 export default function App() {
@@ -27,7 +24,7 @@ function Splash() {
   return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.canvas, color: C.muted, fontFamily: serif }}>Loading…</div>;
 }
 
-function AdminLogin({ onJudgePreview }: { onJudgePreview: () => void }) {
+function AdminLogin() {
   const { signInAdmin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -67,7 +64,7 @@ function AdminLogin({ onJudgePreview }: { onJudgePreview: () => void }) {
       {import.meta.env.DEV && (
         <div style={{ marginTop: 26, fontSize: 12.5, color: C.muted }}>
           <div>Dev · emulator admin: <code>admin@ibnkatheer.local</code> / <code>admin123</code></div>
-          <button onClick={onJudgePreview} style={{ marginTop: 8, background: 'transparent', border: 'none', color: C.green, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>Preview judge app (sample data)</button>
+          <button onClick={() => signInAdmin('j1@judge.local', 'judge123')} style={{ marginTop: 8, background: 'transparent', border: 'none', color: C.green, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>Sign in as a judge (j1)</button>
         </div>
       )}
     </div>
