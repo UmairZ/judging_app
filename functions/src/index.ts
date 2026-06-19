@@ -9,7 +9,7 @@ const db = getFirestore();
 // Zeffy payment.completed receiver. Verifies a secret URL token + the contest
 // campaign_id, then writes one immutable registration per item (idempotent via
 // create()). Env (ZEFFY_TOKEN, ZEFFY_CAMPAIGN_ID) comes from functions/.env.
-export const zeffyWebhook = onRequest({ region: 'us-central1' }, async (req, res) => {
+export const zeffyWebhook = onRequest({ region: 'us-central1', invoker: 'public' }, async (req, res) => {
   // Fail CLOSED if secrets aren't configured — never fall back to empty/permissive values.
   const expectedToken = process.env.ZEFFY_TOKEN;
   const expectedCampaign = process.env.ZEFFY_CAMPAIGN_ID;
