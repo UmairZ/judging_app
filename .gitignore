@@ -11,3 +11,8 @@ dist/
 
 # Firebase emulator debug logs
 *-debug.log
+
+# Firebase Functions
+functions/node_modules/
+functions/lib/
+functions/.env
