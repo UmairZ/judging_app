@@ -399,6 +399,7 @@ export default function Registrations() {
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
 
   const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
 
@@ -476,6 +477,8 @@ export default function Registrations() {
       // to the registration doc. "Promoted" status is computed from contestants collection.
 
       setDrawer(null);
+      setFlash(regId ? `Promoted ${name} → see Contestants ✓` : `Created ${name} → see Contestants ✓`);
+      setTimeout(() => setFlash(null), 4000);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Write failed');
     } finally {
@@ -535,6 +538,12 @@ export default function Registrations() {
           </button>
         </div>
       </div>
+
+      {flash && (
+        <div style={{ padding: '10px 22px', fontSize: 13, fontWeight: 600, color: C.green, background: C.pillGreen, borderBottom: `1px solid ${C.line}` }}>
+          {flash}
+        </div>
+      )}
 
       {/* quick-add drawer (shown at top when regId is null) */}
       {drawer && drawer.regId === null && !busy && (
