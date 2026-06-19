@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useCollection, useDocData, writeDoc } from '../data/db';
+import { useCollection, useDocData, writeDoc, removeDoc } from '../data/db';
 import type { JudgeDoc, PanelDoc, AssignmentDoc } from '../data/types';
 import {
   DEFAULT_STRUCTURE_CONFIG,
@@ -133,6 +133,14 @@ export default function StructurePanels() {
     setNewJudgeName('');
   }
 
+  async function removeJudge(id: string) {
+    if (!window.confirm('Remove this judge? They will be unassigned from all panels.')) return;
+    // pull from any panel first so no dangling judgeId is left behind
+    await Promise.all(panels.filter(p => p.judgeIds.includes(id)).map(p =>
+      writeDoc('panels/' + p.id, { name: p.name, judgeIds: p.judgeIds.filter(j => j !== id) }, false)));
+    await removeDoc('judges/' + id);
+  }
+
   // ── Panels ──────────────────────────────────────────────────────────────
   const [expandedPanelId, setExpandedPanelId] = useState<string | null>(null);
   const [newPanelName, setNewPanelName] = useState('');
@@ -157,12 +165,8 @@ export default function StructurePanels() {
   async function assignSlot(slot: { category: string; division: string }, panelId: string) {
     const sid = slotId(slot);
     const existing = assignments.find(a => a.category === slot.category && a.division === slot.division);
-    // clicking same panel → deassign
     if (existing?.panelId === panelId) {
-      // toggle off — set panelId to empty string to keep doc but clear assignment, or just write empty
-      // to keep it simple: overwrite with empty panelId sentinel means "unassigned"
-      // but spec says clicking another panel reassigns, so we just always assign/reassign
-      await writeDoc('assignments/' + sid, { category: slot.category, division: slot.division, panelId }, false);
+      await removeDoc('assignments/' + sid); // clicking the assigned panel toggles the slot off
     } else {
       await writeDoc('assignments/' + sid, { category: slot.category, division: slot.division, panelId }, false);
     }
@@ -348,6 +352,7 @@ export default function StructurePanels() {
                 <span style={{ width: 7, height: 7, borderRadius: 999, background: j.active ? C.green : C.muted, flexShrink: 0 }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: C.ink, flex: 1 }}>{j.name}</span>
                 <span style={{ fontSize: 11.5, color: j.active ? C.green : C.muted, fontWeight: 600 }}>{j.active ? 'Active' : 'Inactive'}</span>
+                <button onClick={() => removeJudge(j.id)} title="Remove judge" style={{ fontSize: 17, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}>×</button>
               </div>
             ))}
             {judges.length === 0 && (
