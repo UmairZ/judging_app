@@ -120,6 +120,10 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
     dirty.current = true;
     setQuestions((qs) => { setActive(qs.length); return [...qs, freshQuestion(qs.length, true)]; });
   };
+  const finalize = () => {
+    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions, updatedAt: now(), finalizedAt: now() }, true);
+    onEnd();
+  };
 
   return (
     <div style={{ width: '100%', height: '100vh', background: C.parchment, overflow: 'hidden', display: 'flex', flexDirection: 'column', color: C.ink, position: 'relative' }}>
@@ -150,7 +154,8 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
                 <span style={{ fontSize: 16, color: '#9DBDB4' }}>/ 100</span>
               </div>
             </div>
-            <span onClick={onEnd} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>End session</span>
+            <span onClick={onEnd} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>Save &amp; exit</span>
+            <span onClick={finalize} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#06211C', background: C.gold, padding: '11px 18px', borderRadius: 5 }}>Finish</span>
           </div>
         </div>
 
