@@ -1,5 +1,5 @@
-import GradingScreen from './judge/GradingScreen';
+import JudgeApp from './judge/JudgeApp';
 
 export default function App() {
-  return <GradingScreen />;
+  return <JudgeApp />;
 }

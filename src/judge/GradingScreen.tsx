@@ -60,7 +60,7 @@ function freshQuestion(index: number, isAdded = false): Question {
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 const pct = (f: number) => `${Math.round(f * 100)}%`;
 
-export default function GradingScreen() {
+export default function GradingScreen({ contestant, onEnd }: { contestant: { name: string; slotLabel: string }; onEnd: () => void }) {
   const [questions, setQuestions] = useState<Question[]>(() =>
     Array.from({ length: MIN_QUESTIONS }, (_, i) => freshQuestion(i)),
   );
@@ -107,8 +107,8 @@ export default function GradingScreen() {
           </div>
           <div style={{ marginLeft: 16, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontFamily: serif, fontSize: 22, fontWeight: 600, color: '#fff' }}>Aisha Siddiqua</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#06211C', background: C.gold, padding: '3px 10px', borderRadius: 999 }}>5 Ajzā' · Sisters</span>
+              <span style={{ fontFamily: serif, fontSize: 22, fontWeight: 600, color: '#fff' }}>{contestant.name}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#06211C', background: C.gold, padding: '3px 10px', borderRadius: 999 }}>{contestant.slotLabel}</span>
             </div>
             <div style={{ fontSize: 13, color: '#9DBDB4', marginTop: 3 }}>
               Contestant 7 of 18 · Sisters' Panel · You are <span style={{ color: '#CFE2DB' }}>Judge 2 of {PANEL_SIZE}</span>
@@ -126,7 +126,7 @@ export default function GradingScreen() {
                 <span style={{ fontSize: 16, color: '#9DBDB4' }}>/ 100</span>
               </div>
             </div>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>End session</span>
+            <span onClick={onEnd} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>End session</span>
           </div>
         </div>
 
