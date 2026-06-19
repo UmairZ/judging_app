@@ -1,3 +1,5 @@
+import GradingScreen from './judge/GradingScreen';
+
 export default function App() {
-  return <main>Ibn Katheer Judging — foundation ready.</main>;
+  return <GradingScreen />;
 }
