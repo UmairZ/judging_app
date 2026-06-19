@@ -98,8 +98,7 @@ export default function GradingScreen() {
     setQuestions((qs) => { setActive(qs.length); return [...qs, freshQuestion(qs.length, true)]; });
 
   return (
-    <div style={{ minHeight: '100vh', background: C.canvas, padding: 28, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: 1440, maxWidth: '100%', height: 900, background: C.parchment, borderRadius: 6, boxShadow: '0 8px 30px rgba(11,32,29,.28)', overflow: 'hidden', display: 'flex', flexDirection: 'column', color: C.ink, position: 'relative' }}>
+    <div style={{ width: '100%', height: '100vh', background: C.parchment, overflow: 'hidden', display: 'flex', flexDirection: 'column', color: C.ink, position: 'relative' }}>
 
         {/* ---- header ---- */}
         <div style={{ height: 92, flex: 'none', display: 'flex', alignItems: 'center', padding: '0 30px', background: C.greenDeep }}>
@@ -260,7 +259,6 @@ export default function GradingScreen() {
           </div>
         </div>
       </div>
-    </div>
   );
 }
 
