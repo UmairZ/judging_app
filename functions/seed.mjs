@@ -70,6 +70,12 @@ async function main() {
   const admin = await auth.createUser({ email: 'admin@ibnkatheer.local', password: 'admin123' }).catch(() => auth.getUserByEmail('admin@ibnkatheer.local'));
   await auth.setCustomUserClaims(admin.uid, { admin: true });
 
+  // Judge auth users — uid == judgeId, so session writes pass the per-judge rule. Sign in jX@judge.local / judge123.
+  for (const jid of ['j1', 'j2', 'j3']) {
+    const ju = await auth.createUser({ uid: jid, email: `${jid}@judge.local`, password: 'judge123' }).catch(() => auth.getUser(jid));
+    await auth.setCustomUserClaims(ju.uid, { role: 'judge', judgeId: jid });
+  }
+
   console.log('seed complete: 3 contestants in (5·sisters), 8 sessions, 1 pending registration, admin user');
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
