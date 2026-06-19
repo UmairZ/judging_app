@@ -196,7 +196,7 @@ export default function GradingScreen() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                     <span style={{ fontSize: 16, fontWeight: 600, color: C.ink }}>Voice &amp; delivery</span>
                   </div>
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>This question · rate as you go · 0–{CFG.voice_max}</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>rate as you go · 0–{CFG.voice_max}</div>
                 </div>
                 <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 9 }}>
                   {Array.from({ length: CFG.voice_max + 1 }, (_, n) => {
