@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useCollection, useDocData, writeDoc } from '../data/db';
 import type { JudgeDoc, PanelDoc, AssignmentDoc } from '../data/types';
 import {
@@ -61,11 +61,14 @@ export default function StructurePanels() {
   // ── Structure local edit state ──────────────────────────────────────────
   const [edited, setEdited] = useState<StructureConfig>(DEFAULT_STRUCTURE_CONFIG);
   const [structureSaved, setStructureSaved] = useState(false);
+  const seeded = useRef(false);
 
+  // Seed local edit state ONCE from the loaded doc — never re-seed, or live snapshots
+  // (which fire twice with offline cache) would clobber in-progress edits.
   useEffect(() => {
-    if (structureData) {
-      setEdited({ divisions: structureData.divisions, categories: structureData.categories });
-    }
+    if (seeded.current || !structureData) return;
+    setEdited({ divisions: structureData.divisions, categories: structureData.categories });
+    seeded.current = true;
   }, [structureData]);
 
   const slots = generateSlots(edited);
