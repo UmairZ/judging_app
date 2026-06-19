@@ -190,7 +190,8 @@ export default function GradingScreen() {
               </div>
 
               {/* voice — per question */}
-              <div style={{ marginTop: 16, background: '#fff', border: `1px solid ${C.cardLine}`, borderRadius: 12, padding: '13px 18px', display: 'flex', alignItems: 'center', gap: 22 }}>
+              <SectionLabel color={C.voiceBar} style={{ marginTop: 18 }}>Sawt — voice &amp; style</SectionLabel>
+              <div style={{ background: '#fff', border: `1px solid ${C.cardLine}`, borderRadius: 12, padding: '13px 18px', display: 'flex', alignItems: 'center', gap: 22 }}>
                 <div style={{ flex: 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                     <span style={{ fontSize: 16, fontWeight: 600, color: C.ink }}>Voice &amp; style</span>
