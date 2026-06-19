@@ -16,12 +16,13 @@
     ]
   },
   "emulators": {
-    "firestore": {
-      "port": 8080
-    },
+    "firestore": { "port": 8080 },
+    "auth": { "port": 9099 },
+    "storage": { "port": 9199 },
     "singleProjectMode": true,
-    "ui": {
-      "enabled": false
-    }
+    "ui": { "enabled": true }
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }
