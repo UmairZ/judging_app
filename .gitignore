@@ -16,3 +16,6 @@ dist/
 functions/node_modules/
 functions/lib/
 functions/.env
+
+# Firebase deploy cache
+.firebase/
