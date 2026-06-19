@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useDocData, writeDoc } from '../data/db';
 import {
   DEFAULT_SCORING_CONFIG,
@@ -76,9 +76,12 @@ export default function ScoringConfig() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Seed local state once the doc loads
+  // Seed local state ONCE — re-seeding on every live snapshot would wipe slider edits.
+  const seeded = useRef(false);
   useEffect(() => {
-    if (data) setEdited(data);
+    if (seeded.current || !data) return;
+    setEdited(data);
+    seeded.current = true;
   }, [data]);
 
   const errors = validateScoringConfig(edited);
