@@ -10,21 +10,29 @@ const db = getFirestore();
 // campaign_id, then writes one immutable registration per item (idempotent via
 // create()). Env (ZEFFY_TOKEN, ZEFFY_CAMPAIGN_ID) comes from functions/.env.
 export const zeffyWebhook = onRequest({ region: 'us-central1' }, async (req, res) => {
-  const expected = {
-    token: process.env.ZEFFY_TOKEN ?? '',
-    campaignId: process.env.ZEFFY_CAMPAIGN_ID ?? '',
-  };
+  // Fail CLOSED if secrets aren't configured — never fall back to empty/permissive values.
+  const expectedToken = process.env.ZEFFY_TOKEN;
+  const expectedCampaign = process.env.ZEFFY_CAMPAIGN_ID;
+  if (!expectedToken || !expectedCampaign) {
+    res.status(500).send('misconfigured');
+    return;
+  }
+
   const payload = req.body;
   const token = typeof req.query.token === 'string' ? req.query.token : null;
-  const campaignId = payload?.data?.campaign_id ?? '';
+  const campaignId = typeof payload?.data?.campaign_id === 'string' ? payload.data.campaign_id : '';
 
-  if (!verifyZeffyRequest({ token, campaignId }, expected)) {
+  // Reject empty token/campaign before comparing, then verify against the configured secrets.
+  if (!token || !campaignId || !verifyZeffyRequest({ token, campaignId }, { token: expectedToken, campaignId: expectedCampaign })) {
     res.status(403).send('forbidden');
     return;
   }
 
   try {
     const result = await handleZeffyWebhook(payload, async (id, doc) => {
+      // Path-injection guard: the doc id derives from attacker-controllable payment/item ids.
+      // Reject anything but the safe charset (UUIDs + ':' separator) before touching Firestore.
+      if (!/^[A-Za-z0-9:_-]{1,1500}$/.test(id)) throw new Error('invalid registration id');
       try {
         await db.doc(`registrations/${id}`).create({ ...doc, createdAt: FieldValue.serverTimestamp() });
         return 'written';
