@@ -420,12 +420,6 @@ export default function Registrations() {
     setDrawer({ regId: reg.id, fullName, gender, resolved, divisions });
   };
 
-  // Open quick-add drawer (no registration)
-  const openQuickAdd = () => {
-    setError(null);
-    setDrawer({ regId: null, fullName: '', gender: null, resolved: [], divisions: {} });
-  };
-
   const closeDrawer = () => {
     setDrawer(null);
     setError(null);
@@ -520,40 +514,13 @@ export default function Registrations() {
         <span style={{ fontSize: 12, color: C.muted, marginLeft: 10 }}>
           immutable · {registrations.length} records
         </span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button
-            onClick={openQuickAdd}
-            style={{
-              fontSize: 12.5,
-              fontWeight: 600,
-              color: '#fff',
-              background: C.green,
-              borderRadius: 6,
-              padding: '7px 14px',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            + Quick-add
-          </button>
-        </div>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: C.muted }}>To add someone manually, use <strong style={{ color: C.sub }}>Contestants → + New</strong>.</span>
       </div>
 
       {flash && (
         <div style={{ padding: '10px 22px', fontSize: 13, fontWeight: 600, color: C.green, background: C.pillGreen, borderBottom: `1px solid ${C.line}` }}>
           {flash}
         </div>
-      )}
-
-      {/* quick-add drawer (shown at top when regId is null) */}
-      {drawer && drawer.regId === null && !busy && (
-        <PromoteDrawer
-          state={drawer}
-          structure={structure}
-          onClose={closeDrawer}
-          onChange={setDrawer}
-          onSubmit={handleSubmit}
-        />
       )}
 
       {/* table header */}

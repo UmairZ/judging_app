@@ -61,6 +61,7 @@ export default function StructurePanels() {
   // ── Structure local edit state ──────────────────────────────────────────
   const [edited, setEdited] = useState<StructureConfig>(DEFAULT_STRUCTURE_CONFIG);
   const [structureSaved, setStructureSaved] = useState(false);
+  const [subTab, setSubTab] = useState<'structure' | 'panels'>('structure');
   const seeded = useRef(false);
 
   // Seed local edit state ONCE from the loaded doc — never re-seed, or live snapshots
@@ -205,9 +206,12 @@ export default function StructurePanels() {
         ]}
       />
 
-      {/* STEP 1 — Structure */}
+      <SubTabBar tab={subTab} onTab={setSubTab} />
+
+      {/* TAB — Structure */}
+      {subTab === 'structure' && (
       <div>
-        <StepHeader n={1} title="Structure" desc="Categories and divisions — together they generate the slots judges score." />
+        <StepHeader title="Categories & divisions" desc="Together they generate the slots judges score." />
 
         <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
@@ -348,12 +352,13 @@ export default function StructurePanels() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* ══════════════════════════════════════════════════════════
-          SECTION 2: Judges
-      ══════════════════════════════════════════════════════════ */}
+      {/* TAB — Panels & Judges */}
+      {subTab === 'panels' && (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
       <div>
-        <StepHeader n={2} title="Judges" desc="Everyone who scores. Add them here, then group them into panels below." />
+        <StepHeader title="Judges" desc="Everyone who scores. Add them here, then group them into panels below." />
         <div style={{ background: C.cream, borderRadius: 6, boxShadow: '0 6px 22px rgba(20,40,36,.14)', overflow: 'hidden', maxWidth: 480 }}>
           <div style={{ padding: '15px 20px', borderBottom: `1px solid ${C.line}`, display: 'flex', alignItems: 'center' }}>
             <span style={{ fontFamily: serif, fontSize: 16, fontWeight: 600, color: C.greenDeep }}>Judges</span>
@@ -395,7 +400,7 @@ export default function StructurePanels() {
           SECTION 3: Panels & Assignment grid
       ══════════════════════════════════════════════════════════ */}
       <div>
-        <StepHeader n={3} title="Panels & assignment" desc="Group judges into panels, then assign each panel to the slots it scores." />
+        <StepHeader title="Panels & assignment" desc="Group judges into panels, then assign each panel to the slots it scores." />
 
         <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
@@ -571,17 +576,38 @@ export default function StructurePanels() {
           </div>
         </div>
       </div>
+      </div>
+      )}
 
     </div>
   );
 }
 
-function StepHeader({ n, title, desc }: { n: number; title: string; desc: string }) {
+function StepHeader({ n, title, desc }: { n?: number; title: string; desc: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 18 }}>
-      <span style={{ width: 30, height: 30, borderRadius: '50%', background: C.green, color: '#fff', fontFamily: serif, fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{n}</span>
+      {n != null && (
+        <span style={{ width: 30, height: 30, borderRadius: '50%', background: C.green, color: '#fff', fontFamily: serif, fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{n}</span>
+      )}
       <h2 style={{ fontFamily: serif, fontWeight: 600, fontSize: 21, margin: 0, color: C.greenDeep }}>{title}</h2>
       <span style={{ fontSize: 13, color: C.muted }}>{desc}</span>
+    </div>
+  );
+}
+
+function SubTabBar({ tab, onTab }: { tab: 'structure' | 'panels'; onTab: (t: 'structure' | 'panels') => void }) {
+  const item = (id: 'structure' | 'panels', label: string) => {
+    const on = tab === id;
+    return (
+      <button onClick={() => onTab(id)} style={{ fontFamily: serif, fontSize: 16, fontWeight: 600, padding: '9px 20px', borderRadius: 8, cursor: 'pointer', border: on ? 'none' : `1px solid ${C.cardLine}`, background: on ? C.greenDeep : '#fff', color: on ? '#fff' : C.sub }}>
+        {label}
+      </button>
+    );
+  };
+  return (
+    <div style={{ display: 'flex', gap: 9 }}>
+      {item('structure', 'Structure')}
+      {item('panels', 'Panels & Judges')}
     </div>
   );
 }

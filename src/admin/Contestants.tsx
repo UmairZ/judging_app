@@ -180,6 +180,13 @@ export default function Contestants() {
     }
   }
 
+  // ── add contestant (manual, was Registrations' Quick-add) ─────────────────
+  async function handleNewContestant() {
+    const cid = crypto.randomUUID();
+    await writeDoc('contestants/' + cid, { fullName: 'New contestant', gender: null, photoUrl: null, registrationId: null, fields: {}, active: true });
+    setSelectedId(cid); // opens the edit panel to fill in name + enrollments
+  }
+
   // ── remove contestant ─────────────────────────────────────────────────────
 
   async function handleRemove() {
@@ -216,14 +223,24 @@ export default function Contestants() {
             padding: '14px 18px',
             borderBottom: `1px solid ${C.line}`,
             background: C.greenDeep,
+            display: 'flex',
+            alignItems: 'center',
           }}
         >
-          <div style={{ fontFamily: serif, fontSize: 17, fontWeight: 600, color: '#fff' }}>
-            Contestants
+          <div>
+            <div style={{ fontFamily: serif, fontSize: 17, fontWeight: 600, color: '#fff' }}>
+              Contestants
+            </div>
+            <div style={{ fontSize: 12, color: '#9DBDB4', marginTop: 2 }}>
+              {contestants.length} total
+            </div>
           </div>
-          <div style={{ fontSize: 12, color: '#9DBDB4', marginTop: 2 }}>
-            {contestants.length} total
-          </div>
+          <button
+            onClick={handleNewContestant}
+            style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 700, color: '#06211C', background: C.gold, border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}
+          >
+            + New
+          </button>
         </div>
 
         {contestants.length === 0 && (
