@@ -160,19 +160,12 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
   }
 
   // ── Panels ──────────────────────────────────────────────────────────────
-  const [expandedPanelId, setExpandedPanelId] = useState<string | null>(null);
-  const [newPanelName, setNewPanelName] = useState('');
-  const [addingPanel, setAddingPanel] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null); // panel whose judges dropdown is open
   const [editingPanelId, setEditingPanelId] = useState<string | null>(null);
   const [editingPanelName, setEditingPanelName] = useState('');
 
-  async function createPanel() {
-    if (!newPanelName.trim()) return;
-    const id = crypto.randomUUID();
-    await writeDoc('panels/' + id, { name: newPanelName.trim(), judgeIds: [] });
-    setNewPanelName('');
-    setAddingPanel(false);
-    setExpandedPanelId(id);
+  async function addPanelRow() {
+    await writeDoc('panels/' + crypto.randomUUID(), { name: 'New panel', judgeIds: [] });
   }
 
   function startRenamePanel(p: PanelDoc & { id: string }) {
@@ -187,7 +180,7 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
     if (!window.confirm('Delete this panel? Its slot assignments will be cleared.')) return;
     await Promise.all(assignments.filter(a => a.panelId === id).map(a => removeDoc('assignments/' + a.id)));
     await removeDoc('panels/' + id);
-    if (expandedPanelId === id) setExpandedPanelId(null);
+    if (openDropdown === id) setOpenDropdown(null);
   }
 
   async function togglePanelJudge(panel: PanelDoc & { id: string }, judgeId: string) {
@@ -370,243 +363,133 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
       {section === 'panels' && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
       <div>
-        <StepHeader title="Judges" desc="Everyone who scores. Add them here, then group them into panels below." />
-        <div style={{ background: C.cream, borderRadius: 6, boxShadow: '0 6px 22px rgba(20,40,36,.14)', overflow: 'hidden', maxWidth: 480 }}>
-          <div style={{ padding: '15px 20px', borderBottom: `1px solid ${C.line}`, display: 'flex', alignItems: 'center' }}>
-            <span style={{ fontFamily: serif, fontSize: 16, fontWeight: 600, color: C.greenDeep }}>Judges</span>
-            <span style={{ marginLeft: 10, fontSize: 12, color: C.muted }}>{judges.length} total</span>
-          </div>
-          <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {judges.map(j => (
-              <div key={j.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 9, padding: '10px 14px' }}>
-                <span style={{ width: 7, height: 7, borderRadius: 999, background: j.active ? C.green : C.muted, flexShrink: 0 }} />
-                {editingJudgeId === j.id ? (
-                  <input
-                    autoFocus
-                    value={editingJudgeName}
-                    onChange={e => setEditingJudgeName(e.target.value)}
-                    onBlur={() => commitRenameJudge(j.id)}
-                    onKeyDown={e => { if (e.key === 'Enter') commitRenameJudge(j.id); if (e.key === 'Escape') setEditingJudgeId(null); }}
-                    style={{ flex: 1, fontSize: 14, fontWeight: 600, color: C.ink, border: 'none', outline: 'none', background: 'transparent' }}
-                  />
-                ) : (
-                  <span style={{ fontSize: 14, fontWeight: 600, color: C.ink, flex: 1 }}>{j.name}</span>
-                )}
-                <span style={{ fontSize: 11.5, color: j.active ? C.green : C.muted, fontWeight: 600 }}>{j.active ? 'Active' : 'Inactive'}</span>
-                <button onClick={() => startRenameJudge(j)} title="Rename judge" style={{ fontSize: 15, color: '#B6AE9C', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✎</button>
-                <button onClick={() => removeJudge(j.id)} title="Remove judge" style={{ fontSize: 17, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}>×</button>
-              </div>
-            ))}
-            {judges.length === 0 && (
-              <div style={{ fontSize: 13.5, color: C.muted, padding: '8px 0', textAlign: 'center' }}>No judges yet.</div>
-            )}
-          </div>
-          {/* add judge */}
-          <div style={{ padding: '12px 18px', borderTop: `1px solid ${C.line}`, display: 'flex', gap: 8 }}>
+        <StepHeader title="Judges" desc="The roster — group them into panels in the grid below." />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          {judges.map(j => (
+            <div key={j.id} style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 999, padding: '6px 8px 6px 13px' }}>
+              <span style={{ width: 7, height: 7, borderRadius: 999, background: j.active ? C.green : C.muted, flexShrink: 0 }} />
+              {editingJudgeId === j.id ? (
+                <input
+                  autoFocus
+                  value={editingJudgeName}
+                  onChange={e => setEditingJudgeName(e.target.value)}
+                  onBlur={() => commitRenameJudge(j.id)}
+                  onKeyDown={e => { if (e.key === 'Enter') commitRenameJudge(j.id); if (e.key === 'Escape') setEditingJudgeId(null); }}
+                  style={{ width: `${Math.max(6, editingJudgeName.length)}ch`, fontSize: 13.5, fontWeight: 600, color: C.ink, border: 'none', outline: 'none', background: 'transparent' }}
+                />
+              ) : (
+                <span onClick={() => startRenameJudge(j)} title="Click to rename" style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, cursor: 'pointer' }}>{j.name}</span>
+              )}
+              <button onClick={() => removeJudge(j.id)} title="Remove judge" style={{ fontSize: 15, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <input
-              placeholder="Judge full name"
+              placeholder="Add judge…"
               value={newJudgeName}
               onChange={e => setNewJudgeName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') addJudge(); }}
-              style={{ flex: 1, fontSize: 13.5, padding: '8px 11px', border: `1px solid ${C.cardLine}`, borderRadius: 7, outline: 'none', background: '#fff' }}
+              style={{ width: 150, fontSize: 13, padding: '7px 11px', border: `1px solid ${C.cardLine}`, borderRadius: 999, outline: 'none', background: '#fff' }}
             />
-            <button
-              onClick={addJudge}
-              style={{ fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}
-            >
-              + Add Judge
-            </button>
+            <button onClick={addJudge} style={{ fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>+ Add</button>
           </div>
+          {judges.length === 0 && <span style={{ fontSize: 13, color: C.muted }}>No judges yet.</span>}
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════
-          SECTION 3: Panels & Assignment grid
-      ══════════════════════════════════════════════════════════ */}
+      {/* ── Panels & assignment: one unified grid ── */}
       <div>
-        <StepHeader title="Panels & assignment" desc="Group judges into panels, then assign each panel to the slots it scores." />
+        <StepHeader title="Panels & assignment" desc="Each row is a panel — name it, pick its judges, and tap the slots it scores." />
 
-        <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-
-          {/* ── Panels list ── */}
-          <div style={{ flex: '0 0 320px' }}>
-            <div style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 10 }}>
-              Panels
-            </div>
-            <div style={{ background: C.cream, borderRadius: 6, boxShadow: '0 6px 22px rgba(20,40,36,.14)', overflow: 'hidden' }}>
-              <div style={{ padding: '15px 20px', borderBottom: `1px solid ${C.line}`, display: 'flex', alignItems: 'center' }}>
-                <span style={{ fontFamily: serif, fontSize: 16, fontWeight: 600, color: C.greenDeep }}>Panels</span>
-                <button
-                  onClick={() => setAddingPanel(true)}
-                  style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '7px 14px', cursor: 'pointer' }}
-                >
-                  + New panel
-                </button>
+        <div style={{ background: C.cream, borderRadius: 8, boxShadow: '0 6px 22px rgba(20,40,36,.14)', padding: '18px 20px' }}>
+          {slots.length === 0 ? (
+            <div style={{ padding: '28px 8px', textAlign: 'center', color: C.muted, fontSize: 14 }}>No slots yet — set up Categories &amp; Divisions first.</div>
+          ) : (
+            <>
+              {/* column header — slots */}
+              <div style={{ display: 'grid', gridTemplateColumns: `280px repeat(${slots.length}, minmax(72px, 1fr))`, gap: 6, marginBottom: 8, alignItems: 'end' }}>
+                <span style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, alignSelf: 'center' }}>Panel ↓ / Slot →</span>
+                {slots.map(slot => (
+                  <span key={slotId(slot)} style={{ fontSize: 11.5, fontWeight: 600, color: C.greenDeep, textAlign: 'center', lineHeight: 1.25 }}>
+                    {catLabel(slot.category)}<br /><span style={{ color: C.muted, fontWeight: 500 }}>{divLabel(slot.division)}</span>
+                  </span>
+                ))}
               </div>
-              {addingPanel && (
-                <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.line}`, display: 'flex', gap: 8 }}>
-                  <input
-                    autoFocus
-                    placeholder="Panel name"
-                    value={newPanelName}
-                    onChange={e => setNewPanelName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') createPanel(); if (e.key === 'Escape') setAddingPanel(false); }}
-                    style={{ flex: 1, fontSize: 13.5, padding: '7px 11px', border: `1px solid ${C.cardLine}`, borderRadius: 7, outline: 'none', background: '#fff' }}
-                  />
-                  <button onClick={createPanel} style={{ fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '7px 12px', cursor: 'pointer' }}>Create</button>
-                  <button onClick={() => setAddingPanel(false)} style={{ fontSize: 12.5, color: C.muted, background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
-                </div>
-              )}
-              <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {panels.length === 0 && (
-                  <div style={{ fontSize: 13.5, color: C.muted, padding: '10px 4px', textAlign: 'center' }}>No panels yet — create one.</div>
-                )}
-                {panels.map((panel, pidx) => {
-                  const open = expandedPanelId === panel.id;
-                  const color = panelColor(pidx);
-                  const assignedSlots = assignments.filter(a => a.panelId === panel.id);
-                  return (
-                    <div key={panel.id} style={{ border: `1px solid ${C.cardLine}`, borderRadius: 9, overflow: 'hidden', background: '#fff' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px' }}>
-                        <span style={{ width: 10, height: 10, borderRadius: 999, background: color, flexShrink: 0 }} />
-                        {editingPanelId === panel.id ? (
-                          <input
-                            autoFocus
-                            value={editingPanelName}
-                            onChange={e => setEditingPanelName(e.target.value)}
-                            onBlur={() => commitRenamePanel(panel.id)}
-                            onKeyDown={e => { if (e.key === 'Enter') commitRenamePanel(panel.id); if (e.key === 'Escape') setEditingPanelId(null); }}
-                            style={{ flex: 1, fontSize: 14, fontWeight: 600, color: C.ink, border: 'none', outline: 'none', background: 'transparent' }}
-                          />
-                        ) : (
-                          <span onClick={() => setExpandedPanelId(open ? null : panel.id)} style={{ fontSize: 14, fontWeight: 600, color: C.ink, flex: 1, cursor: 'pointer' }}>{panel.name}</span>
-                        )}
-                        <span style={{ fontSize: 12, color: C.muted }}>{panel.judgeIds.length} judge{panel.judgeIds.length !== 1 ? 's' : ''}</span>
-                        <span style={{ fontSize: 11, color: C.muted }}>{assignedSlots.length} slot{assignedSlots.length !== 1 ? 's' : ''}</span>
-                        <button onClick={() => startRenamePanel(panel)} title="Rename panel" style={{ fontSize: 15, color: '#B6AE9C', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✎</button>
-                        <button onClick={() => deletePanel(panel.id)} title="Delete panel" style={{ fontSize: 17, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}>×</button>
-                        <span onClick={() => setExpandedPanelId(open ? null : panel.id)} style={{ fontSize: 11, color: C.muted, cursor: 'pointer' }}>{open ? '▲' : '▼'}</span>
-                      </div>
-                      {open && (
-                        <div style={{ padding: '0 14px 12px' }}>
-                          <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.07em' }}>Judges</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                            {judges.length === 0 && <span style={{ fontSize: 13, color: C.muted }}>No judges added yet.</span>}
-                            {judges.map(j => {
-                              const checked = panel.judgeIds.includes(j.id);
-                              return (
-                                <label key={j.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13.5 }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => togglePanelJudge(panel, j.id)}
-                                    style={{ accentColor: color, width: 15, height: 15 }}
-                                  />
-                                  <span style={{ color: checked ? C.ink : C.sub, fontWeight: checked ? 600 : 400 }}>{j.name}</span>
-                                </label>
-                              );
-                            })}
-                          </div>
+
+              {/* panel rows */}
+              {panels.map((panel, pidx) => {
+                const color = panelColor(pidx);
+                const dropdownOpen = openDropdown === panel.id;
+                return (
+                  <div key={panel.id} style={{ display: 'grid', gridTemplateColumns: `280px repeat(${slots.length}, minmax(72px, 1fr))`, gap: 6, marginBottom: 6, alignItems: 'stretch' }}>
+                    {/* left: name + judges dropdown + delete */}
+                    <div style={{ position: 'relative', background: '#fff', border: `1px solid ${C.line}`, borderRadius: 8, padding: '0 8px 0 12px', display: 'flex', alignItems: 'center', gap: 7, minHeight: 44 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: 999, background: color, flexShrink: 0 }} />
+                      {editingPanelId === panel.id ? (
+                        <input
+                          autoFocus
+                          value={editingPanelName}
+                          onChange={e => setEditingPanelName(e.target.value)}
+                          onBlur={() => commitRenamePanel(panel.id)}
+                          onKeyDown={e => { if (e.key === 'Enter') commitRenamePanel(panel.id); if (e.key === 'Escape') setEditingPanelId(null); }}
+                          style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: C.ink, border: 'none', outline: 'none', background: 'transparent' }}
+                        />
+                      ) : (
+                        <span onClick={() => startRenamePanel(panel)} title="Click to rename" style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: C.ink, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{panel.name}</span>
+                      )}
+                      <button onClick={() => setOpenDropdown(dropdownOpen ? null : panel.id)} title="Assign judges" style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 600, color: C.brassDark, background: C.pill, border: 'none', borderRadius: 999, padding: '4px 9px', cursor: 'pointer' }}>
+                        {panel.judgeIds.length} {panel.judgeIds.length === 1 ? 'judge' : 'judges'} {dropdownOpen ? '▴' : '▾'}
+                      </button>
+                      <button onClick={() => deletePanel(panel.id)} title="Delete panel" style={{ flexShrink: 0, fontSize: 16, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}>×</button>
+                      {dropdownOpen && (
+                        <div style={{ position: 'absolute', top: '100%', left: 8, marginTop: 5, zIndex: 50, background: '#fff', border: `1px solid ${C.cardLine}`, borderRadius: 8, boxShadow: '0 10px 28px rgba(20,40,36,.2)', padding: '9px 11px', minWidth: 190, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          {judges.length === 0 && <span style={{ fontSize: 12.5, color: C.muted }}>Add judges in the roster above.</span>}
+                          {judges.map(j => {
+                            const checked = panel.judgeIds.includes(j.id);
+                            return (
+                              <label key={j.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                                <input type="checkbox" checked={checked} onChange={() => togglePanelJudge(panel, j.id)} style={{ accentColor: color, width: 14, height: 14 }} />
+                                <span style={{ color: checked ? C.ink : C.sub, fontWeight: checked ? 600 : 400 }}>{j.name}</span>
+                              </label>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+                    {/* slot cells */}
+                    {slots.map(slot => {
+                      const asgn = assignments.find(a => a.category === slot.category && a.division === slot.division);
+                      const isAssigned = asgn?.panelId === panel.id;
+                      const isOther = asgn && asgn.panelId !== panel.id;
+                      const otherPanelIdx = isOther ? panels.findIndex(p => p.id === asgn.panelId) : -1;
+                      return (
+                        <button
+                          key={slotId(slot)}
+                          onClick={() => assignSlot(slot, panel.id)}
+                          title={isOther ? `Reassign from ${panels.find(p => p.id === asgn?.panelId)?.name ?? '?'}` : isAssigned ? 'Click to unassign' : 'Assign this panel'}
+                          style={{ borderRadius: 6, border: 'none', cursor: 'pointer', background: isAssigned ? color : isOther ? panelColor(otherPanelIdx) + '30' : '#F0ECE0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isAssigned ? '#fff' : isOther ? panelColor(otherPanelIdx) : 'transparent', fontSize: 15, transition: 'background .15s' }}
+                        >
+                          {isAssigned ? '✓' : isOther ? '·' : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
 
-          {/* ── Assignment grid ── */}
-          <div style={{ flex: '1 1 560px', minWidth: 0 }}>
-            <div style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 10 }}>
-              Panels × slots assignment
-            </div>
-            <div style={{ background: C.cream, borderRadius: 6, boxShadow: '0 6px 22px rgba(20,40,36,.14)', overflow: 'hidden' }}>
-              <div style={{ padding: '16px 22px', borderBottom: `1px solid ${C.line}`, display: 'flex', alignItems: 'center' }}>
-                <span style={{ fontFamily: serif, fontSize: 17, fontWeight: 600, color: C.greenDeep }}>Assignment grid</span>
-                <span style={{ fontSize: 12, color: C.muted, marginLeft: 10 }}>
-                  {slots.length} slot{slots.length !== 1 ? 's' : ''} · {panels.length} panel{panels.length !== 1 ? 's' : ''}
-                </span>
+              {/* add panel row */}
+              <button onClick={addPanelRow} style={{ marginTop: 4, width: 280, fontSize: 13, fontWeight: 600, color: C.brassDark, background: 'none', border: `1.5px dashed ${C.cardLine}`, borderRadius: 8, padding: '10px 0', cursor: 'pointer' }}>+ Add panel</button>
+
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 14, lineHeight: 1.5 }}>
+                Each slot points to one panel; a panel can cover many. Slot columns come from <strong style={{ color: C.sub }}>Categories &amp; Divisions</strong>.
               </div>
-              {slots.length === 0 || panels.length === 0 ? (
-                <div style={{ padding: '32px 22px', textAlign: 'center', color: C.muted, fontSize: 14 }}>
-                  {slots.length === 0 ? 'No slots — configure structure first.' : 'No panels yet — create one on the left.'}
-                </div>
-              ) : (
-                <div style={{ padding: '18px 20px', overflowX: 'auto' }}>
-                  {/* grid header */}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: `140px repeat(${slots.length}, minmax(52px, 1fr))`,
-                    gap: 6,
-                    marginBottom: 6,
-                  }}>
-                    <span />
-                    {slots.map(slot => (
-                      <span key={slotId(slot)} style={{ fontSize: 10.5, fontWeight: 600, color: C.muted, textAlign: 'center', lineHeight: 1.2 }}>
-                        {catLabel(slot.category)}<br />{divLabel(slot.division).slice(0, 4)}
-                      </span>
-                    ))}
-                  </div>
-                  {/* panel rows */}
-                  {panels.map((panel, pidx) => {
-                    const color = panelColor(pidx);
-                    return (
-                      <div
-                        key={panel.id}
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: `140px repeat(${slots.length}, minmax(52px, 1fr))`,
-                          gap: 6,
-                          marginBottom: 6,
-                          alignItems: 'stretch',
-                        }}
-                      >
-                        <div style={{ fontSize: 13, fontWeight: 600, color: C.ink, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: 999, background: color, flexShrink: 0 }} />
-                            {panel.name}
-                          </div>
-                          <span style={{ fontSize: 11, color: C.muted, fontWeight: 400, marginLeft: 14 }}>{panel.judgeIds.length} judge{panel.judgeIds.length !== 1 ? 's' : ''}</span>
-                        </div>
-                        {slots.map(slot => {
-                          const asgn = assignments.find(a => a.category === slot.category && a.division === slot.division);
-                          const isAssigned = asgn?.panelId === panel.id;
-                          const isOther = asgn && asgn.panelId !== panel.id;
-                          const otherPanelIdx = isOther ? panels.findIndex(p => p.id === asgn.panelId) : -1;
-                          return (
-                            <button
-                              key={slotId(slot)}
-                              onClick={() => assignSlot(slot, panel.id)}
-                              title={isOther ? `Reassign from ${panels.find(p => p.id === asgn?.panelId)?.name ?? '?'}` : isAssigned ? 'Click to unassign' : 'Assign this panel'}
-                              style={{
-                                height: 42,
-                                borderRadius: 6,
-                                border: 'none',
-                                cursor: 'pointer',
-                                background: isAssigned ? color : isOther ? panelColor(otherPanelIdx) + '30' : '#F0ECE0',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: isAssigned ? '#fff' : isOther ? panelColor(otherPanelIdx) : 'transparent',
-                                fontSize: 15,
-                                transition: 'background .15s',
-                              }}
-                            >
-                              {isAssigned ? '✓' : isOther ? '·' : ''}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 14, lineHeight: 1.5 }}>
-                    Each slot points to one panel; a panel can cover many. Editing categories or divisions regenerates the slot columns automatically.
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+            </>
+          )}
         </div>
       </div>
+
+      {/* click-away to close any open judges dropdown */}
+      {openDropdown && <div onClick={() => setOpenDropdown(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
       </div>
       )}
 
