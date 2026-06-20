@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useCollection, useDocData } from '../data/db';
-import type { JudgeDoc } from '../data/types';
+import type { JudgeDoc, PanelDoc } from '../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, type StructureConfig } from '../domain/structure';
 import { C, serif } from '../ui/theme';
 import WelcomeScreen from './WelcomeScreen';
@@ -18,9 +18,11 @@ export default function JudgeApp() {
 
   const items = useJudgeQueue(judgeId);
   const judges = useCollection<JudgeDoc>('judges');
+  const panels = useCollection<PanelDoc>('panels');
   const structure = useDocData<StructureConfig>('config/structure').data ?? DEFAULT_STRUCTURE_CONFIG;
 
   const judgeName = judges.find((j) => j.id === judgeId)?.name ?? 'Judge';
+  const myPanel = panels.find((p) => p.judgeIds.includes(judgeId));
   const slots = [...new Set(items.map((i) => i.slotLabel))];
   const subtitle = slots.length ? slots.join(' · ') : 'Your assigned contestants';
 
@@ -34,12 +36,20 @@ export default function JudgeApp() {
     content = <WelcomeScreen name={judgeName} subtitle={subtitle} onStart={() => setScreen('queue')} />;
   } else if (screen === 'grading' && selected) {
     const minQuestions = structure.categories.find((c) => c.id === selected.category)?.minQuestions ?? 4;
+    const meta = {
+      position: items.findIndex((i) => i.enrollmentId === selected.enrollmentId) + 1,
+      total: items.length,
+      panelName: myPanel?.name ?? '',
+      judgeIndex: myPanel ? myPanel.judgeIds.indexOf(judgeId) + 1 : 0,
+      panelSize: myPanel?.judgeIds.length ?? 0,
+    };
     content = (
       <GradingScreen
         contestant={{ name: selected.name, slotLabel: selected.slotLabel }}
         enrollmentId={selected.enrollmentId}
         judgeId={judgeId}
         minQuestions={minQuestions}
+        meta={meta}
         onEnd={() => setScreen('queue')}
       />
     );
