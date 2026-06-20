@@ -58,7 +58,7 @@ function freshQuestion(index: number, isAdded = false): Question {
 
 const pct = (f: number) => `${Math.round(f * 100)}%`;
 
-export default function GradingScreen({ contestant, enrollmentId, judgeId, minQuestions, meta, onEnd }: { contestant: { name: string; slotLabel: string }; enrollmentId: string; judgeId: string; minQuestions: number; meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number }; onEnd: () => void }) {
+export default function GradingScreen({ contestant, enrollmentId, judgeId, minQuestions, meta, onEnd, tieBreak = false }: { contestant: { name: string; slotLabel: string }; enrollmentId: string; judgeId: string; minQuestions: number; meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number }; onEnd: () => void; tieBreak?: boolean }) {
   const sessionId = `${enrollmentId}__${judgeId}`;
   const { data: sessionDoc, loading } = useDocData<SessionDoc>(`sessions/${sessionId}`);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -68,21 +68,32 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const dirty = useRef(false);
   const [notes, setNotes] = useState('');
   const [locked, setLocked] = useState(false); // finalized → read-only until the judge reopens
+  const primaryRef = useRef<Question[]>([]); // tie-break mode: the untouched primary questions to merge back
 
-  // Seed from the existing session doc, or a fresh minimum set of questions.
+  // Seed from the existing session doc. In tie-break mode we grade one isTieBreak
+  // question, keeping the primary questions intact (merged back on save).
   useEffect(() => {
     if (seeded.current || loading) return;
-    setQuestions(sessionDoc?.questions?.length ? sessionDoc.questions : Array.from({ length: minQuestions }, (_, i) => freshQuestion(i)));
+    const docQs = sessionDoc?.questions ?? [];
+    if (tieBreak) {
+      primaryRef.current = docQs.filter((q) => !q.isTieBreak);
+      const existing = docQs.find((q) => q.isTieBreak);
+      setQuestions([existing ?? { ...freshQuestion(0, true), isTieBreak: true }]);
+      setActive(0);
+    } else {
+      setQuestions(docQs.length ? docQs : Array.from({ length: minQuestions }, (_, i) => freshQuestion(i)));
+      setLocked(sessionDoc?.finalizedAt != null);
+    }
     setNotes(sessionDoc?.notes ?? '');
-    setLocked(sessionDoc?.finalizedAt != null);
     seeded.current = true;
-  }, [loading, sessionDoc, minQuestions]);
+  }, [loading, sessionDoc, minQuestions, tieBreak]);
 
   // Persist on every real edit — lazy creation: the doc only appears once the judge grades.
   useEffect(() => {
     if (!seeded.current || !dirty.current) return;
-    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions, notes, updatedAt: now() }, true);
-  }, [questions, notes, sessionId, enrollmentId, judgeId]);
+    const payloadQs = tieBreak ? [...primaryRef.current, ...questions] : questions;
+    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions: payloadQs, notes, updatedAt: now() }, true);
+  }, [questions, notes, sessionId, enrollmentId, judgeId, tieBreak]);
 
   if (!questions.length) {
     return <div style={{ width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.parchment, color: C.muted, fontFamily: serif }}>Loading…</div>;
@@ -91,7 +102,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const session: Session = { enrollmentId, judgeId, questions };
   const aq = questions[active];
   const counts = countEvents(aq);
-  const score = sessionScore(session, CFG);
+  const score = tieBreak ? questionScore(aq, CFG) : sessionScore(session, CFG);
   const { H, T, V } = componentMeans(session, CFG);
   const showPrompt = hifzAtFloor(aq, CFG) && !dismissed.has(active);
 
@@ -139,6 +150,10 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
     dirty.current = true; // subsequent edits will persist again
     void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, finalizedAt: null, updatedAt: now() }, true);
   };
+  const submitTieBreak = () => {
+    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions: [...primaryRef.current, ...questions], notes, updatedAt: now() }, true);
+    onEnd();
+  };
 
   return (
     <div style={{ width: '100%', height: '100vh', background: C.parchment, overflow: 'hidden', display: 'flex', flexDirection: 'column', color: C.ink, position: 'relative' }}>
@@ -154,9 +169,15 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
               <span style={{ fontSize: 12, fontWeight: 600, color: '#06211C', background: C.gold, padding: '3px 10px', borderRadius: 999 }}>{contestant.slotLabel}</span>
             </div>
             <div style={{ fontSize: 13, color: '#9DBDB4', marginTop: 3 }}>
-              Contestant {meta.position} of {meta.total}
-              {meta.panelName && <> · {meta.panelName}</>}
-              {meta.panelSize > 0 && <> · You are <span style={{ color: '#CFE2DB' }}>Judge {meta.judgeIndex} of {meta.panelSize}</span></>}
+              {tieBreak ? (
+                <span style={{ color: C.gold, fontWeight: 600 }}>⚖︎ Sudden-death tie-break — grade one question</span>
+              ) : (
+                <>
+                  Contestant {meta.position} of {meta.total}
+                  {meta.panelName && <> · {meta.panelName}</>}
+                  {meta.panelSize > 0 && <> · You are <span style={{ color: '#CFE2DB' }}>Judge {meta.judgeIndex} of {meta.panelSize}</span></>}
+                </>
+              )}
             </div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 26 }}>
@@ -165,14 +186,23 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
               {locked ? 'Graded · locked' : 'Saved locally'}
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9DBDB4', fontWeight: 600 }}>Session score</div>
+              <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9DBDB4', fontWeight: 600 }}>{tieBreak ? 'Tie-break score' : 'Session score'}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, justifyContent: 'flex-end' }}>
                 <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 46, lineHeight: 1, color: C.gold }}>{score.toFixed(1)}</span>
                 <span style={{ fontSize: 16, color: '#9DBDB4' }}>/ 100</span>
               </div>
             </div>
-            <span onClick={onEnd} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>{locked ? 'Back to queue' : 'Save & exit'}</span>
-            <span onClick={locked ? reopen : finalize} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#06211C', background: C.gold, padding: '11px 18px', borderRadius: 5 }}>{locked ? 'Reopen to edit' : 'Finish'}</span>
+            {tieBreak ? (
+              <>
+                <span onClick={onEnd} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>Cancel</span>
+                <span onClick={submitTieBreak} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#06211C', background: C.gold, padding: '11px 18px', borderRadius: 5 }}>Submit tie-break</span>
+              </>
+            ) : (
+              <>
+                <span onClick={onEnd} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>{locked ? 'Back to queue' : 'Save & exit'}</span>
+                <span onClick={locked ? reopen : finalize} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#06211C', background: C.gold, padding: '11px 18px', borderRadius: 5 }}>{locked ? 'Reopen to edit' : 'Finish'}</span>
+              </>
+            )}
           </div>
         </div>
 
@@ -185,7 +215,8 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
         {/* ---- body ---- */}
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
 
-          {/* question rail */}
+          {/* question rail (hidden in tie-break mode — single question) */}
+          {!tieBreak && (
           <div style={{ width: 244, flex: 'none', borderRight: `1px solid ${C.line}`, background: C.cream, display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '16px 18px 10px', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
               <span>Questions</span><span style={{ color: '#B6AE9C' }}>min {minQuestions}</span>
@@ -211,6 +242,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
               {!locked && <div onClick={addQuestion} style={{ cursor: 'pointer', marginTop: 2, borderRadius: 8, padding: '11px 13px', border: `1.5px dashed #C9BD9E`, color: C.brassDark, fontSize: 13, fontWeight: 600, textAlign: 'center' }}>+ Add question</div>}
             </div>
           </div>
+          )}
 
           {/* main — active question (locked → read-only) */}
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '24px 30px', position: 'relative', overflow: 'auto', opacity: locked ? 0.55 : 1, pointerEvents: locked ? 'none' : 'auto' }}>
@@ -293,7 +325,8 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
             )}
           </div>
 
-          {/* side — score breakdown + completeness */}
+          {/* side — score breakdown + completeness (hidden in tie-break mode) */}
+          {!tieBreak && (
           <div style={{ width: 296, flex: 'none', borderLeft: `1px solid ${C.line}`, background: C.cream, padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
             <div>
               <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 12 }}>Score breakdown</div>
@@ -319,6 +352,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
   );

@@ -1,9 +1,19 @@
 import type { Question, Session, ScoringConfig, ComponentMeans } from './types';
-import { hifzFraction, tajweedFraction, voiceFraction } from './question';
+import { hifzFraction, tajweedFraction, voiceFraction, questionScore } from './question';
 
 /** Primary questions = everything except tie-break questions. */
 function primaryQuestions(session: Session): Question[] {
   return session.questions.filter((q) => !q.isTieBreak);
+}
+
+/**
+ * Mean blended (0..100) score of the tie-break questions across a contestant's
+ * sessions — how the panel ranks a sudden-death. null when none graded yet.
+ */
+export function tieBreakMean(sessions: Session[], cfg: ScoringConfig): number | null {
+  const tbQs = sessions.flatMap((s) => s.questions.filter((q) => q.isTieBreak));
+  if (tbQs.length === 0) return null;
+  return tbQs.reduce((a, q) => a + questionScore(q, cfg), 0) / tbQs.length;
 }
 
 export function componentMeans(session: Session, cfg: ScoringConfig): ComponentMeans {
