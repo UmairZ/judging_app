@@ -3,18 +3,22 @@ import { verifyZeffyRequest, handleZeffyWebhook, type RegistrationWriter } from 
 import { PAYLOAD_THREE_CATS } from './__fixtures__/payloads';
 import type { RegistrationDoc } from '../data/types';
 
-const EXPECTED = { token: 'secret-123', campaignId: 'c0000000-0000-4000-8000-000000000000' };
+const EXPECTED = { token: 'secret-123', eventTitle: '2026 Ibn Katheer Quran Competition' };
 
 describe('verifyZeffyRequest', () => {
-  it('accepts the right token and campaign', () => {
-    expect(verifyZeffyRequest({ token: 'secret-123', campaignId: EXPECTED.campaignId }, EXPECTED)).toBe(true);
+  it('accepts the right token and event title', () => {
+    expect(verifyZeffyRequest({ token: 'secret-123', eventTitle: EXPECTED.eventTitle }, EXPECTED)).toBe(true);
+  });
+  it('tolerates surrounding whitespace in the title', () => {
+    expect(verifyZeffyRequest({ token: 'secret-123', eventTitle: '  2026 Ibn Katheer Quran Competition ' }, EXPECTED)).toBe(true);
   });
   it('rejects a wrong or missing token', () => {
-    expect(verifyZeffyRequest({ token: 'nope', campaignId: EXPECTED.campaignId }, EXPECTED)).toBe(false);
-    expect(verifyZeffyRequest({ token: null, campaignId: EXPECTED.campaignId }, EXPECTED)).toBe(false);
+    expect(verifyZeffyRequest({ token: 'nope', eventTitle: EXPECTED.eventTitle }, EXPECTED)).toBe(false);
+    expect(verifyZeffyRequest({ token: null, eventTitle: EXPECTED.eventTitle }, EXPECTED)).toBe(false);
   });
-  it('rejects a foreign campaign', () => {
-    expect(verifyZeffyRequest({ token: 'secret-123', campaignId: 'other' }, EXPECTED)).toBe(false);
+  it('rejects a payload for a different competition', () => {
+    expect(verifyZeffyRequest({ token: 'secret-123', eventTitle: 'Some Other Fundraiser' }, EXPECTED)).toBe(false);
+    expect(verifyZeffyRequest({ token: 'secret-123', eventTitle: '' }, EXPECTED)).toBe(false);
   });
 });
 

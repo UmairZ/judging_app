@@ -8,25 +8,32 @@ import { judgeClaims } from '../../src/auth/claims';
 initializeApp();
 const db = getFirestore();
 
-// Zeffy payment.completed receiver. Verifies a secret URL token + the contest
-// campaign_id, then writes one immutable registration per item (idempotent via
-// create()). Env (ZEFFY_TOKEN, ZEFFY_CAMPAIGN_ID) comes from functions/.env.
+// Zeffy payment.completed receiver. Zeffy fans EVERY form's submissions into the
+// one webhook, so we verify a secret URL token + match the event title
+// (payload.data.description) to this competition, then write one immutable
+// registration per item (idempotent via create()). Env (ZEFFY_TOKEN,
+// ZEFFY_EVENT_TITLE) comes from functions/.env.
 export const zeffyWebhook = onRequest({ region: 'us-central1', invoker: 'public' }, async (req, res) => {
   // Fail CLOSED if secrets aren't configured — never fall back to empty/permissive values.
   const expectedToken = process.env.ZEFFY_TOKEN;
-  const expectedCampaign = process.env.ZEFFY_CAMPAIGN_ID;
-  if (!expectedToken || !expectedCampaign) {
+  const expectedEventTitle = process.env.ZEFFY_EVENT_TITLE;
+  if (!expectedToken || !expectedEventTitle) {
     res.status(500).send('misconfigured');
     return;
   }
 
   const payload = req.body;
   const token = typeof req.query.token === 'string' ? req.query.token : null;
-  const campaignId = typeof payload?.data?.campaign_id === 'string' ? payload.data.campaign_id : '';
+  const eventTitle = typeof payload?.data?.description === 'string' ? payload.data.description : '';
 
-  // Reject empty token/campaign before comparing, then verify against the configured secrets.
-  if (!token || !campaignId || !verifyZeffyRequest({ token, campaignId }, { token: expectedToken, campaignId: expectedCampaign })) {
+  // Reject empty token/title before comparing, then verify against the configured values.
+  // A non-matching title means the payload is for a different competition — ignore it (200, no-op).
+  if (!token || token !== expectedToken) {
     res.status(403).send('forbidden');
+    return;
+  }
+  if (!verifyZeffyRequest({ token, eventTitle }, { token: expectedToken, eventTitle: expectedEventTitle })) {
+    res.status(200).json({ ok: true, ignored: true });
     return;
   }
 
