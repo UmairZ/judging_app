@@ -133,11 +133,22 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
 
   // ── Judges ──────────────────────────────────────────────────────────────
   const [newJudgeName, setNewJudgeName] = useState('');
+  const [editingJudgeId, setEditingJudgeId] = useState<string | null>(null);
+  const [editingJudgeName, setEditingJudgeName] = useState('');
 
   async function addJudge() {
     if (!newJudgeName.trim()) return;
     await writeDoc('judges/' + crypto.randomUUID(), { name: newJudgeName.trim(), active: true });
     setNewJudgeName('');
+  }
+
+  function startRenameJudge(j: JudgeDoc & { id: string }) {
+    setEditingJudgeId(j.id);
+    setEditingJudgeName(j.name);
+  }
+  function commitRenameJudge(id: string) {
+    if (editingJudgeName.trim()) writeDoc('judges/' + id, { name: editingJudgeName.trim() }, true);
+    setEditingJudgeId(null);
   }
 
   async function removeJudge(id: string) {
@@ -152,6 +163,8 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
   const [expandedPanelId, setExpandedPanelId] = useState<string | null>(null);
   const [newPanelName, setNewPanelName] = useState('');
   const [addingPanel, setAddingPanel] = useState(false);
+  const [editingPanelId, setEditingPanelId] = useState<string | null>(null);
+  const [editingPanelName, setEditingPanelName] = useState('');
 
   async function createPanel() {
     if (!newPanelName.trim()) return;
@@ -160,6 +173,21 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
     setNewPanelName('');
     setAddingPanel(false);
     setExpandedPanelId(id);
+  }
+
+  function startRenamePanel(p: PanelDoc & { id: string }) {
+    setEditingPanelId(p.id);
+    setEditingPanelName(p.name);
+  }
+  function commitRenamePanel(id: string) {
+    if (editingPanelName.trim()) writeDoc('panels/' + id, { name: editingPanelName.trim() }, true);
+    setEditingPanelId(null);
+  }
+  async function deletePanel(id: string) {
+    if (!window.confirm('Delete this panel? Its slot assignments will be cleared.')) return;
+    await Promise.all(assignments.filter(a => a.panelId === id).map(a => removeDoc('assignments/' + a.id)));
+    await removeDoc('panels/' + id);
+    if (expandedPanelId === id) setExpandedPanelId(null);
   }
 
   async function togglePanelJudge(panel: PanelDoc & { id: string }, judgeId: string) {
@@ -352,8 +380,20 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
             {judges.map(j => (
               <div key={j.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 9, padding: '10px 14px' }}>
                 <span style={{ width: 7, height: 7, borderRadius: 999, background: j.active ? C.green : C.muted, flexShrink: 0 }} />
-                <span style={{ fontSize: 14, fontWeight: 600, color: C.ink, flex: 1 }}>{j.name}</span>
+                {editingJudgeId === j.id ? (
+                  <input
+                    autoFocus
+                    value={editingJudgeName}
+                    onChange={e => setEditingJudgeName(e.target.value)}
+                    onBlur={() => commitRenameJudge(j.id)}
+                    onKeyDown={e => { if (e.key === 'Enter') commitRenameJudge(j.id); if (e.key === 'Escape') setEditingJudgeId(null); }}
+                    style={{ flex: 1, fontSize: 14, fontWeight: 600, color: C.ink, border: 'none', outline: 'none', background: 'transparent' }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 14, fontWeight: 600, color: C.ink, flex: 1 }}>{j.name}</span>
+                )}
                 <span style={{ fontSize: 11.5, color: j.active ? C.green : C.muted, fontWeight: 600 }}>{j.active ? 'Active' : 'Inactive'}</span>
+                <button onClick={() => startRenameJudge(j)} title="Rename judge" style={{ fontSize: 15, color: '#B6AE9C', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✎</button>
                 <button onClick={() => removeJudge(j.id)} title="Remove judge" style={{ fontSize: 17, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}>×</button>
               </div>
             ))}
@@ -427,19 +467,26 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
                   const assignedSlots = assignments.filter(a => a.panelId === panel.id);
                   return (
                     <div key={panel.id} style={{ border: `1px solid ${C.cardLine}`, borderRadius: 9, overflow: 'hidden', background: '#fff' }}>
-                      <button
-                        onClick={() => setExpandedPanelId(open ? null : panel.id)}
-                        style={{
-                          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                          padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
-                        }}
-                      >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px' }}>
                         <span style={{ width: 10, height: 10, borderRadius: 999, background: color, flexShrink: 0 }} />
-                        <span style={{ fontSize: 14, fontWeight: 600, color: C.ink, flex: 1 }}>{panel.name}</span>
+                        {editingPanelId === panel.id ? (
+                          <input
+                            autoFocus
+                            value={editingPanelName}
+                            onChange={e => setEditingPanelName(e.target.value)}
+                            onBlur={() => commitRenamePanel(panel.id)}
+                            onKeyDown={e => { if (e.key === 'Enter') commitRenamePanel(panel.id); if (e.key === 'Escape') setEditingPanelId(null); }}
+                            style={{ flex: 1, fontSize: 14, fontWeight: 600, color: C.ink, border: 'none', outline: 'none', background: 'transparent' }}
+                          />
+                        ) : (
+                          <span onClick={() => setExpandedPanelId(open ? null : panel.id)} style={{ fontSize: 14, fontWeight: 600, color: C.ink, flex: 1, cursor: 'pointer' }}>{panel.name}</span>
+                        )}
                         <span style={{ fontSize: 12, color: C.muted }}>{panel.judgeIds.length} judge{panel.judgeIds.length !== 1 ? 's' : ''}</span>
-                        <span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>{assignedSlots.length} slot{assignedSlots.length !== 1 ? 's' : ''}</span>
-                        <span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>{open ? '▲' : '▼'}</span>
-                      </button>
+                        <span style={{ fontSize: 11, color: C.muted }}>{assignedSlots.length} slot{assignedSlots.length !== 1 ? 's' : ''}</span>
+                        <button onClick={() => startRenamePanel(panel)} title="Rename panel" style={{ fontSize: 15, color: '#B6AE9C', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✎</button>
+                        <button onClick={() => deletePanel(panel.id)} title="Delete panel" style={{ fontSize: 17, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}>×</button>
+                        <span onClick={() => setExpandedPanelId(open ? null : panel.id)} style={{ fontSize: 11, color: C.muted, cursor: 'pointer' }}>{open ? '▲' : '▼'}</span>
+                      </div>
                       {open && (
                         <div style={{ padding: '0 14px 12px' }}>
                           <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.07em' }}>Judges</div>
