@@ -7,6 +7,8 @@ import {
   componentMeans,
   hifzFraction,
   tajweedFraction,
+  voiceFraction,
+  questionScore,
   hifzAtFloor,
   countEvents,
   type Question,
@@ -58,7 +60,6 @@ function freshQuestion(index: number, isAdded = false): Question {
   return { index, events: [], voice: null, disqualified: false, isAdded, isTieBreak: false };
 }
 
-const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 const pct = (f: number) => `${Math.round(f * 100)}%`;
 
 export default function GradingScreen({ contestant, enrollmentId, judgeId, minQuestions, onEnd }: { contestant: { name: string; slotLabel: string }; enrollmentId: string; judgeId: string; minQuestions: number; onEnd: () => void }) {
@@ -120,6 +121,12 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
     dirty.current = true;
     setQuestions((qs) => { setActive(qs.length); return [...qs, freshQuestion(qs.length, true)]; });
   };
+  const removeQuestion = (i: number) => {
+    dirty.current = true;
+    const newLen = questions.length - 1;
+    setQuestions((qs) => qs.filter((_, idx) => idx !== i));
+    setActive((a) => Math.min(Math.max(0, a > i ? a - 1 : a), Math.max(0, newLen - 1)));
+  };
   const finalize = () => {
     void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions, updatedAt: now(), finalizedAt: now() }, true);
     onEnd();
@@ -170,16 +177,21 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
             <div style={{ flex: 1, overflow: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {questions.map((q, i) => {
                 const isActive = i === active;
-                const hs = hifzFraction(q, CFG) * CFG.hifz_base;
-                const ts = tajweedFraction(q, CFG) * CFG.tajweed_base;
+                const total = q.disqualified ? 0 : Math.round(questionScore(q, CFG));
+                const vf = voiceFraction(q, CFG);
                 return (
                   <div key={i} onClick={() => setActive(i)} style={{ cursor: 'pointer', borderRadius: 8, padding: '11px 13px', border: `1.5px solid ${isActive ? C.brass : q.disqualified ? C.failLine : C.line}`, background: isActive ? '#FCF7E9' : q.disqualified ? C.failBg : '#fff' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                       <span style={{ fontSize: 13.5, fontWeight: 600, color: isActive ? C.ink : q.disqualified ? '#9A6A5C' : '#41504B' }}>Question {i + 1}{q.isAdded ? ' +' : ''}</span>
-                      <span style={{ fontFamily: serif, fontSize: 17, fontWeight: 600, color: q.disqualified ? C.fail : isActive ? C.brassDark : C.green }}>{q.disqualified ? 'DQ' : fmt(hs)}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {q.isAdded && (
+                          <button onClick={(e) => { e.stopPropagation(); removeQuestion(i); }} title="Remove question" style={{ fontSize: 15, lineHeight: 1, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>×</button>
+                        )}
+                        <span style={{ fontFamily: serif, fontSize: 17, fontWeight: 600, color: q.disqualified ? C.fail : isActive ? C.brassDark : C.green }}>{q.disqualified ? 'DQ' : total}</span>
+                      </span>
                     </div>
                     <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
-                      {q.disqualified ? 'Disqualified' : `Hifz ${fmt(hs)} · Taj ${fmt(ts)}`}
+                      {q.disqualified ? 'Disqualified' : `Hifz ${pct(hifzFraction(q, CFG))} · Tajweed ${pct(tajweedFraction(q, CFG))} · Sawt ${vf == null ? '—' : pct(vf)}`}
                     </div>
                   </div>
                 );
