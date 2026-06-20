@@ -12,6 +12,9 @@ dist/
 # Firebase emulator debug logs
 *-debug.log
 
+# Playwright / local QA scratch (screenshots + a11y snapshots)
+.playwright-mcp/
+
 # Firebase Functions
 functions/node_modules/
 functions/lib/
