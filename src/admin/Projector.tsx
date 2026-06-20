@@ -8,7 +8,7 @@ import {
   type ScoringConfig,
   type EnrollmentSummary,
 } from '../scoring';
-import { DEFAULT_STRUCTURE_CONFIG, generateSlots, slotId, type StructureConfig } from '../domain/structure';
+import { DEFAULT_STRUCTURE_CONFIG, generateSlots, type StructureConfig } from '../domain/structure';
 import { C, serif, pct } from '../ui/theme';
 
 interface Row {
@@ -49,8 +49,6 @@ export default function Projector() {
   }, [slotIdx, slots.length]);
 
   const slot = slots[slotIdx] ?? slots[0];
-  const nextSlotIdx = slots.length > 0 ? (slotIdx + 1) % slots.length : 0;
-  const nextSlot = slots[nextSlotIdx];
 
   const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
   const divLabel = (id: string) => structure.divisions.find((d) => d.id === id)?.label ?? id;
@@ -77,7 +75,6 @@ export default function Projector() {
   // ── derived display values ──────────────────────────────────────────────────
 
   const [first, second, third, ...rest] = rows;
-  const nextSlotLabel = nextSlot ? `${catLabel(nextSlot.category)} · ${divLabel(nextSlot.division)}` : '';
 
   // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -99,8 +96,6 @@ export default function Projector() {
   const TEXT_RANKED = '#6E8C84';
   const TEXT_RANKED_NAME = '#DCEAE6';
   const TEXT_RANKED_SCORE = '#C7D6D0';
-  const TEXT_FOOTER = '#6E8C84';
-  const LIVE_DOT = '#6FCBA0';
   const DIVIDER = '#3A6258';
 
   return (
@@ -396,32 +391,6 @@ export default function Projector() {
         </div>
       )}
 
-      {/* ── FOOTER ───────────────────────────────────────────────────────────── */}
-      <div
-        style={{
-          marginTop: 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          fontSize: 12.5,
-          color: TEXT_FOOTER,
-          paddingTop: 16,
-        }}
-      >
-        <span
-          style={{
-            width: 7,
-            height: 7,
-            borderRadius: 999,
-            background: LIVE_DOT,
-            display: 'inline-block',
-            flexShrink: 0,
-          }}
-        />
-        {slots.length > 1 && nextSlot && slotId(nextSlot) !== slotId(slot)
-          ? `Live · ← → to change · auto-advances to ${nextSlotLabel}`
-          : 'Live'}
-      </div>
     </div>
   );
 }
