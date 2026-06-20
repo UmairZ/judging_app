@@ -5,9 +5,6 @@ import {
   DEFAULT_SCORING_CONFIG as CFG,
   sessionScore,
   componentMeans,
-  hifzFraction,
-  tajweedFraction,
-  voiceFraction,
   questionScore,
   hifzAtFloor,
   countEvents,
@@ -45,7 +42,7 @@ const serif = "'Spectral', serif";
 /* ---- the five deduction keys, grouped as in the design ---- */
 type KeyDef = { type: DeductionEventType; label: string; tag: string; tagColor: string; tagBg: string; desc: string };
 const HIFZ_KEYS: KeyDef[] = [
-  { type: 'self_corrected', label: 'Self-corrected', tag: '0 pts', tagColor: C.sub, tagBg: '#F0ECE0', desc: 'Slipped but caught and fixed it themselves — no penalty, tracked only.' },
+  { type: 'self_corrected', label: 'Self-corrected', tag: '−0', tagColor: C.sub, tagBg: '#F0ECE0', desc: 'Slipped but caught and fixed it themselves — no penalty, tracked only.' },
   { type: 'prompted_fixed', label: 'Prompted', tag: '−1', tagColor: C.brassDark, tagBg: C.pill, desc: 'Needed a hint to recall the next word, then continued.' },
   { type: 'prompted_failed', label: 'Prompted-failed', tag: '−2', tagColor: C.fail, tagBg: C.failBg, desc: 'Hint given, but still could not continue the passage.' },
 ];
@@ -54,7 +51,6 @@ const TAJWEED_KEYS: KeyDef[] = [
   { type: 'tajweed_minor', label: 'Tajweed minor', tag: '−0.5', tagColor: C.sub, tagBg: '#F0ECE0', desc: 'A slight imperfection in articulation or pronunciation.' },
 ];
 
-const PANEL_SIZE = 3;
 
 function freshQuestion(index: number, isAdded = false): Question {
   return { index, events: [], voice: null, disqualified: false, isAdded, isTieBreak: false };
@@ -62,7 +58,7 @@ function freshQuestion(index: number, isAdded = false): Question {
 
 const pct = (f: number) => `${Math.round(f * 100)}%`;
 
-export default function GradingScreen({ contestant, enrollmentId, judgeId, minQuestions, onEnd }: { contestant: { name: string; slotLabel: string }; enrollmentId: string; judgeId: string; minQuestions: number; onEnd: () => void }) {
+export default function GradingScreen({ contestant, enrollmentId, judgeId, minQuestions, meta, onEnd }: { contestant: { name: string; slotLabel: string }; enrollmentId: string; judgeId: string; minQuestions: number; meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number }; onEnd: () => void }) {
   const sessionId = `${enrollmentId}__${judgeId}`;
   const { data: sessionDoc, loading } = useDocData<SessionDoc>(`sessions/${sessionId}`);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -146,7 +142,9 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
               <span style={{ fontSize: 12, fontWeight: 600, color: '#06211C', background: C.gold, padding: '3px 10px', borderRadius: 999 }}>{contestant.slotLabel}</span>
             </div>
             <div style={{ fontSize: 13, color: '#9DBDB4', marginTop: 3 }}>
-              Contestant 7 of 18 · Sisters' Panel · You are <span style={{ color: '#CFE2DB' }}>Judge 2 of {PANEL_SIZE}</span>
+              Contestant {meta.position} of {meta.total}
+              {meta.panelName && <> · {meta.panelName}</>}
+              {meta.panelSize > 0 && <> · You are <span style={{ color: '#CFE2DB' }}>Judge {meta.judgeIndex} of {meta.panelSize}</span></>}
             </div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 26 }}>
@@ -178,7 +176,6 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
               {questions.map((q, i) => {
                 const isActive = i === active;
                 const total = q.disqualified ? 0 : Math.round(questionScore(q, CFG));
-                const vf = voiceFraction(q, CFG);
                 return (
                   <div key={i} onClick={() => setActive(i)} style={{ cursor: 'pointer', borderRadius: 8, padding: '11px 13px', border: `1.5px solid ${isActive ? C.brass : q.disqualified ? C.failLine : C.line}`, background: isActive ? '#FCF7E9' : q.disqualified ? C.failBg : '#fff' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -189,9 +186,6 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
                         )}
                         <span style={{ fontFamily: serif, fontSize: 17, fontWeight: 600, color: q.disqualified ? C.fail : isActive ? C.brassDark : C.green }}>{q.disqualified ? 'DQ' : total}</span>
                       </span>
-                    </div>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
-                      {q.disqualified ? 'Disqualified' : `Hifz ${pct(hifzFraction(q, CFG))} · Tajweed ${pct(tajweedFraction(q, CFG))} · Sawt ${vf == null ? '—' : pct(vf)}`}
                     </div>
                   </div>
                 );
@@ -258,7 +252,6 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
               <div onClick={resetQ} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1.5px solid #D8D0BE', borderRadius: 8, padding: '13px 20px', fontSize: 15, fontWeight: 600, color: C.sub }}>
                 <span style={{ fontSize: 17, color: C.brassDark }}>↺</span> Reset points
               </div>
-              <span style={{ fontSize: 12.5, color: C.muted }}>Clears this question. Tap − to correct a single mis-tap.</span>
               <div onClick={manualDQ} style={{ marginLeft: 'auto', cursor: 'pointer', background: '#fff', border: '1.5px solid #E0B6AA', borderRadius: 8, padding: '13px 22px', fontSize: 15, fontWeight: 600, color: C.fail }}>Disqualify question</div>
             </div>
 
@@ -293,7 +286,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
             <div style={{ marginTop: 'auto', background: C.parchment, border: '1px solid #E0D8C6', borderRadius: 9, padding: '13px 15px' }}>
               <div style={{ fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 5 }}>Panel completeness</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                <span style={{ fontFamily: serif, fontSize: 20, fontWeight: 600, color: C.greenDeep }}>1 / {PANEL_SIZE}</span>
+                <span style={{ fontFamily: serif, fontSize: 20, fontWeight: 600, color: C.greenDeep }}>1 / {meta.panelSize || '—'}</span>
                 <span style={{ fontSize: 12.5, color: C.muted }}>judges started</span>
               </div>
             </div>
