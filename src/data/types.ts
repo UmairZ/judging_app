@@ -48,6 +48,7 @@ export interface SessionDoc {
   enrollmentId: string;
   judgeId: string;
   questions: Question[];
+  notes?: string;
   updatedAt: unknown; // Firestore Timestamp
   finalizedAt: unknown | null;
 }
