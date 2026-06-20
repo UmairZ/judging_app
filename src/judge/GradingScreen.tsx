@@ -66,19 +66,21 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
   const seeded = useRef(false);
   const dirty = useRef(false);
+  const [notes, setNotes] = useState('');
 
   // Seed from the existing session doc, or a fresh minimum set of questions.
   useEffect(() => {
     if (seeded.current || loading) return;
     setQuestions(sessionDoc?.questions?.length ? sessionDoc.questions : Array.from({ length: minQuestions }, (_, i) => freshQuestion(i)));
+    setNotes(sessionDoc?.notes ?? '');
     seeded.current = true;
   }, [loading, sessionDoc, minQuestions]);
 
   // Persist on every real edit — lazy creation: the doc only appears once the judge grades.
   useEffect(() => {
     if (!seeded.current || !dirty.current) return;
-    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions, updatedAt: now() }, true);
-  }, [questions, sessionId, enrollmentId, judgeId]);
+    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions, notes, updatedAt: now() }, true);
+  }, [questions, notes, sessionId, enrollmentId, judgeId]);
 
   if (!questions.length) {
     return <div style={{ width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.parchment, color: C.muted, fontFamily: serif }}>Loading…</div>;
@@ -124,7 +126,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
     setActive((a) => Math.min(Math.max(0, a > i ? a - 1 : a), Math.max(0, newLen - 1)));
   };
   const finalize = () => {
-    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions, updatedAt: now(), finalizedAt: now() }, true);
+    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions, notes, updatedAt: now(), finalizedAt: now() }, true);
     onEnd();
   };
 
@@ -184,7 +186,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
                         {q.isAdded && (
                           <button onClick={(e) => { e.stopPropagation(); removeQuestion(i); }} title="Remove question" style={{ fontSize: 15, lineHeight: 1, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>×</button>
                         )}
-                        <span style={{ fontFamily: serif, fontSize: 17, fontWeight: 600, color: q.disqualified ? C.fail : isActive ? C.brassDark : C.green }}>{q.disqualified ? 'DQ' : total}</span>
+                        <span style={{ fontFamily: serif, fontSize: 17, fontWeight: 600, color: q.disqualified ? C.fail : isActive ? C.brassDark : C.green }}>{q.disqualified ? 'DQ' : <>{total}<span style={{ fontSize: 11, fontWeight: 500, color: C.muted }}> / 100</span></>}</span>
                       </span>
                     </div>
                   </div>
@@ -282,6 +284,15 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
               <Bar label="Hifz · 70%" labelColor={C.brassDark} value={pct(H)} frac={H} color={C.hifzBar} />
               <Bar label="Tajweed · 25%" labelColor={C.tajBar} value={pct(T)} frac={T} color={C.tajBar} />
               <Bar label="Voice · 5%" labelColor={C.voiceBar} value={questions.some((q) => q.voice != null || q.disqualified) ? pct(V) : 'pending'} frac={V} color={C.voiceBar} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 8 }}>Notes</div>
+              <textarea
+                value={notes}
+                onChange={(e) => { dirty.current = true; setNotes(e.target.value); }}
+                placeholder="Private notes for this contestant…"
+                style={{ width: '100%', minHeight: 104, resize: 'vertical', boxSizing: 'border-box', background: '#fff', border: `1px solid ${C.line}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, lineHeight: 1.5, color: C.ink, fontFamily: 'inherit', outline: 'none' }}
+              />
             </div>
             <div style={{ marginTop: 'auto', background: C.parchment, border: '1px solid #E0D8C6', borderRadius: 9, padding: '13px 15px' }}>
               <div style={{ fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 5 }}>Panel completeness</div>
