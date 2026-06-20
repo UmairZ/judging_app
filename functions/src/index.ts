@@ -9,15 +9,15 @@ initializeApp();
 const db = getFirestore();
 
 // Zeffy payment.completed receiver. Zeffy fans EVERY form's submissions into the
-// one webhook, so we verify a secret URL token + match the event title
-// (payload.data.description) to this competition, then write one immutable
-// registration per item (idempotent via create()). Env (ZEFFY_TOKEN,
-// ZEFFY_EVENT_TITLE) comes from functions/.env.
+// one webhook, so we verify a secret URL token (the security boundary) + match the
+// event title (payload.data.description) to this competition, then write one
+// immutable registration per item (idempotent via create()). The secret token is
+// env (ZEFFY_TOKEN from functions/.env); the event-title filter is admin-editable
+// in-app at config/zeffy { eventTitle } so renaming the event needs no redeploy.
 export const zeffyWebhook = onRequest({ region: 'us-central1', invoker: 'public' }, async (req, res) => {
-  // Fail CLOSED if secrets aren't configured — never fall back to empty/permissive values.
+  // Fail CLOSED if the secret isn't configured — never fall back to a permissive value.
   const expectedToken = process.env.ZEFFY_TOKEN;
-  const expectedEventTitle = process.env.ZEFFY_EVENT_TITLE;
-  if (!expectedToken || !expectedEventTitle) {
+  if (!expectedToken) {
     res.status(500).send('misconfigured');
     return;
   }
@@ -26,12 +26,20 @@ export const zeffyWebhook = onRequest({ region: 'us-central1', invoker: 'public'
   const token = typeof req.query.token === 'string' ? req.query.token : null;
   const eventTitle = typeof payload?.data?.description === 'string' ? payload.data.description : '';
 
-  // Reject empty token/title before comparing, then verify against the configured values.
-  // A non-matching title means the payload is for a different competition — ignore it (200, no-op).
+  // Token is the security boundary — reject anything without the secret (before any Firestore read).
   if (!token || token !== expectedToken) {
     res.status(403).send('forbidden');
     return;
   }
+
+  // The competition filter is admin-editable in-app at config/zeffy.eventTitle.
+  const cfg = await db.doc('config/zeffy').get();
+  const expectedEventTitle = typeof cfg.data()?.eventTitle === 'string' ? (cfg.data()!.eventTitle as string) : '';
+  if (!expectedEventTitle.trim()) {
+    res.status(500).send('event title not configured');
+    return;
+  }
+  // A non-matching title means the payload is for a different competition — ignore it (200, no-op).
   if (!verifyZeffyRequest({ token, eventTitle }, { token: expectedToken, eventTitle: expectedEventTitle })) {
     res.status(200).json({ ok: true, ignored: true });
     return;
