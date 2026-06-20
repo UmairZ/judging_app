@@ -152,21 +152,6 @@ export default function Projector() {
             src="/ibn-katheer-logo.svg"
             alt=""
             style={{ width: 30, height: 30, objectFit: 'contain' }}
-            onError={(e) => {
-              // Fallback: render a green diamond if logo not found
-              (e.currentTarget as HTMLImageElement).style.display = 'none';
-            }}
-          />
-          {/* Fallback diamond shown behind img; img hides it when it loads */}
-          <span
-            style={{
-              position: 'absolute',
-              width: 15,
-              height: 15,
-              background: C.green,
-              transform: 'rotate(45deg)',
-              display: 'inline-block',
-            }}
           />
         </div>
 
