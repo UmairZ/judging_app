@@ -22,5 +22,5 @@ export {
   hifzAtFloor,
   questionScore,
 } from './question';
-export { componentMeans, sessionScore } from './session';
+export { componentMeans, sessionScore, tieBreakMean } from './session';
 export { enrollmentSummary, compareForLeaderboard } from './enrollment';

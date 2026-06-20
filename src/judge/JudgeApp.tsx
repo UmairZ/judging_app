@@ -1,30 +1,58 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useCollection, useDocData } from '../data/db';
-import type { JudgeDoc, PanelDoc } from '../data/types';
+import type { JudgeDoc, PanelDoc, AssignmentDoc, TiebreakDoc, SessionDoc, ContestantDoc } from '../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, type StructureConfig } from '../domain/structure';
+import { enrollmentId } from '../domain/ids';
 import { C, serif } from '../ui/theme';
 import WelcomeScreen from './WelcomeScreen';
-import QueueScreen from './QueueScreen';
+import Dashboard, { type TieBreakItem } from './Dashboard';
 import GradingScreen from './GradingScreen';
 import { useJudgeQueue, type JudgeQueueItem } from './useJudgeQueue';
 
 export default function JudgeApp() {
   const { user, signInAdmin } = useAuth();
   const judgeId = user?.uid ?? '';
-  const [screen, setScreen] = useState<'welcome' | 'queue' | 'grading'>('welcome');
+  const [screen, setScreen] = useState<'welcome' | 'dashboard' | 'grading' | 'tiebreak'>('welcome');
   const [selected, setSelected] = useState<JudgeQueueItem | null>(null);
+  const [tbTarget, setTbTarget] = useState<TieBreakItem | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
 
   const items = useJudgeQueue(judgeId);
   const judges = useCollection<JudgeDoc>('judges');
   const panels = useCollection<PanelDoc>('panels');
+  const assignments = useCollection<AssignmentDoc>('assignments');
+  const tiebreaks = useCollection<TiebreakDoc>('tiebreaks');
+  const sessions = useCollection<SessionDoc>('sessions');
+  const contestants = useCollection<ContestantDoc>('contestants');
   const structure = useDocData<StructureConfig>('config/structure').data ?? DEFAULT_STRUCTURE_CONFIG;
 
   const judgeName = judges.find((j) => j.id === judgeId)?.name ?? 'Judge';
   const myPanel = panels.find((p) => p.judgeIds.includes(judgeId));
   const slots = [...new Set(items.map((i) => i.slotLabel))];
   const subtitle = slots.length ? slots.join(' · ') : 'Your assigned contestants';
+  const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
+  const divLabel = (id: string) => structure.divisions.find((d) => d.id === id)?.label ?? id;
+  const panelMeta = { panelName: myPanel?.name ?? '', judgeIndex: myPanel ? myPanel.judgeIds.indexOf(judgeId) + 1 : 0, panelSize: myPanel?.judgeIds.length ?? 0 };
+
+  // Sudden-death rounds the admin started for this judge's panel.
+  const tieBreaks: TieBreakItem[] = tiebreaks
+    .filter((t) => t.method === 'question' && assignments.find((a) => a.category === t.category && a.division === t.division)?.panelId === myPanel?.id)
+    .flatMap((t) =>
+      (t.contestantIds ?? []).map((cid) => {
+        const enr = enrollmentId(cid, t.category);
+        const sess = sessions.find((s) => s.id === `${enr}__${judgeId}`);
+        return {
+          roundId: t.id,
+          contestantId: cid,
+          name: contestants.find((c) => c.id === cid)?.fullName ?? '—',
+          enrollmentId: enr,
+          category: t.category,
+          slotLabel: `${catLabel(t.category)} · ${divLabel(t.division)}`,
+          graded: !!sess?.questions?.some((q) => q.isTieBreak),
+        };
+      }),
+    );
 
   // Hidden admin re-entry: long-press the top-left corner for ~1.2s.
   const pressTimer = useRef<number | null>(null);
@@ -33,16 +61,10 @@ export default function JudgeApp() {
 
   let content;
   if (screen === 'welcome') {
-    content = <WelcomeScreen name={judgeName} subtitle={subtitle} onStart={() => setScreen('queue')} />;
+    content = <WelcomeScreen name={judgeName} subtitle={subtitle} onStart={() => setScreen('dashboard')} />;
   } else if (screen === 'grading' && selected) {
     const minQuestions = structure.categories.find((c) => c.id === selected.category)?.minQuestions ?? 4;
-    const meta = {
-      position: items.findIndex((i) => i.enrollmentId === selected.enrollmentId) + 1,
-      total: items.length,
-      panelName: myPanel?.name ?? '',
-      judgeIndex: myPanel ? myPanel.judgeIds.indexOf(judgeId) + 1 : 0,
-      panelSize: myPanel?.judgeIds.length ?? 0,
-    };
+    const meta = { position: items.findIndex((i) => i.enrollmentId === selected.enrollmentId) + 1, total: items.length, ...panelMeta };
     content = (
       <GradingScreen
         contestant={{ name: selected.name, slotLabel: selected.slotLabel }}
@@ -50,11 +72,31 @@ export default function JudgeApp() {
         judgeId={judgeId}
         minQuestions={minQuestions}
         meta={meta}
-        onEnd={() => setScreen('queue')}
+        onEnd={() => setScreen('dashboard')}
+      />
+    );
+  } else if (screen === 'tiebreak' && tbTarget) {
+    content = (
+      <GradingScreen
+        contestant={{ name: tbTarget.name, slotLabel: tbTarget.slotLabel }}
+        enrollmentId={tbTarget.enrollmentId}
+        judgeId={judgeId}
+        minQuestions={1}
+        meta={{ position: 0, total: 0, ...panelMeta }}
+        tieBreak
+        onEnd={() => setScreen('dashboard')}
       />
     );
   } else {
-    content = <QueueScreen items={items} onSelect={(c) => { setSelected(c); setScreen('grading'); }} />;
+    content = (
+      <Dashboard
+        judgeName={judgeName}
+        items={items}
+        tieBreaks={tieBreaks}
+        onGrade={(c) => { setSelected(c); setScreen('grading'); }}
+        onTieBreak={(t) => { setTbTarget(t); setScreen('tiebreak'); }}
+      />
+    );
   }
 
   return (

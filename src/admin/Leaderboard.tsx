@@ -8,7 +8,9 @@ import {
   type ScoringConfig,
   type EnrollmentSummary,
 } from '../scoring';
+import { tieBreakMean } from '../scoring';
 import { DEFAULT_STRUCTURE_CONFIG, generateSlots, slotId, type StructureConfig, type Slot } from '../domain/structure';
+import { enrollmentId } from '../domain/ids';
 import { C, serif, pct } from '../ui/theme';
 
 interface Row {
@@ -47,7 +49,18 @@ export default function Leaderboard() {
 
   // tie-break resolution for this slot (if recorded)
   const tb = tiebreaks.find((t) => t.category === slot?.category && t.division === slot?.division);
-  const tbOrder: string[] = ((tb?.resolution as { order?: string[] } | undefined)?.order) ?? [];
+  const rawOrder: string[] = ((tb?.resolution as { order?: string[] } | undefined)?.order) ?? [];
+  // A sudden-death's order is computed live from the panel's tie-break grades; empty
+  // (= still in progress) until every tied contestant has at least one grade in.
+  const tbOrder: string[] = (() => {
+    if (tb?.method !== 'question') return rawOrder;
+    const scored = (tb.contestantIds ?? []).map((cid) => ({
+      cid,
+      m: tieBreakMean(sessions.filter((s) => s.enrollmentId === enrollmentId(cid, tb.category)), cfg),
+    }));
+    if (scored.length === 0 || scored.some((x) => x.m == null)) return [];
+    return [...scored].sort((a, b) => (b.m as number) - (a.m as number)).map((x) => x.cid);
+  })();
   const tbIdx = (cid: string) => {
     const i = tbOrder.indexOf(cid);
     return i < 0 ? Number.POSITIVE_INFINITY : i;
