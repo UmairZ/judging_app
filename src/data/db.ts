@@ -38,6 +38,31 @@ export function useDocData<T>(path: string): { data: WithId<T> | null; loading: 
   return state;
 }
 
+/**
+ * Real save status for a single doc, for the offline-first judge UI:
+ *  - 'offline' — no network; writes are queued in the local cache, safe on device
+ *  - 'saving'  — online with un-acknowledged local writes in flight
+ *  - 'saved'   — online and everything is committed to the server
+ */
+export function useSyncState(path: string): 'saved' | 'saving' | 'offline' {
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+  const [pending, setPending] = useState(false);
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, []);
+  useEffect(() => {
+    return onSnapshot(doc(db, path), { includeMetadataChanges: true }, (snap) => {
+      setPending(snap.metadata.hasPendingWrites);
+    });
+  }, [path]);
+  if (!online) return 'offline';
+  return pending ? 'saving' : 'saved';
+}
+
 /** Create or merge a document at an explicit path/id. */
 export const writeDoc = (path: string, data: DocumentData, merge = true) =>
   setDoc(doc(db, path), data, { merge });
