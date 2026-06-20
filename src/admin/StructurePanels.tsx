@@ -13,10 +13,6 @@ import { C, serif } from '../ui/theme';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'div_' + Date.now();
-}
-
 const DIVISION_COLORS: Record<number, string> = {
   0: '#4E78AE',
   1: C.sisters,
@@ -76,8 +72,6 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
   // ── Division editing ────────────────────────────────────────────────────
   const [editingDivId, setEditingDivId] = useState<string | null>(null);
   const [editingDivLabel, setEditingDivLabel] = useState('');
-  const [newDivLabel, setNewDivLabel] = useState('');
-  const [addingDiv, setAddingDiv] = useState(false);
 
   function startRenameDiv(div: Division) {
     setEditingDivId(div.id);
@@ -92,12 +86,13 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
     setEditingDivId(null);
   }
   function addDivision() {
-    if (!newDivLabel.trim()) return;
-    const id = slugify(newDivLabel);
-    if (edited.divisions.some(d => d.id === id)) return;
-    setEdited(prev => ({ ...prev, divisions: [...prev.divisions, { id, label: newDivLabel.trim() }] }));
-    setNewDivLabel('');
-    setAddingDiv(false);
+    setEdited(prev => ({ ...prev, divisions: [...prev.divisions, { id: crypto.randomUUID(), label: 'New division' }] }));
+  }
+  function removeDivision(divId: string) {
+    setEdited(prev => ({
+      divisions: prev.divisions.filter(d => d.id !== divId),
+      categories: prev.categories.map(c => ({ ...c, divisions: c.divisions.filter(d => d !== divId) })),
+    }));
   }
 
   // ── Category editing ────────────────────────────────────────────────────
@@ -225,148 +220,69 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
       {/* SECTION — Categories & Divisions */}
       {section === 'structure' && (
       <div>
-        <StepHeader title="Categories & divisions" desc="Together they generate the slots judges score." />
+        <StepHeader title="Categories & divisions" desc="Rows are categories, columns are divisions — tap a cell to enable that division for the category." />
 
-        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ background: C.cream, borderRadius: 8, boxShadow: '0 6px 22px rgba(20,40,36,.14)', padding: '18px 20px', overflowX: 'auto' }}>
+          {(() => {
+            const COLS = `minmax(230px, 1.6fr) 104px repeat(${edited.divisions.length}, minmax(90px, 1fr)) 64px 26px`;
+            return (
+              <>
+                {/* header row — divisions are the columns */}
+                <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: 8, alignItems: 'end', marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, alignSelf: 'center' }}>Category</span>
+                  <span style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, textAlign: 'center', alignSelf: 'center' }}>Min Qs</span>
+                  {edited.divisions.map((div, idx) => (
+                    <div key={div.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 999, background: DIVISION_COLORS[idx] ?? C.sub }} />
+                      {editingDivId === div.id ? (
+                        <input autoFocus value={editingDivLabel} onChange={e => setEditingDivLabel(e.target.value)} onBlur={() => commitRenameDiv(div.id)} onKeyDown={e => { if (e.key === 'Enter') commitRenameDiv(div.id); if (e.key === 'Escape') setEditingDivId(null); }} style={{ width: '100%', fontSize: 12, fontWeight: 600, color: C.greenDeep, textAlign: 'center', border: 'none', borderBottom: `1px solid ${C.cardLine}`, outline: 'none', background: 'transparent' }} />
+                      ) : (
+                        <span onClick={() => startRenameDiv(div)} title="Click to rename" style={{ fontSize: 12, fontWeight: 600, color: C.greenDeep, cursor: 'pointer', textAlign: 'center', lineHeight: 1.2 }}>{div.label}</span>
+                      )}
+                      <button onClick={() => removeDivision(div.id)} title="Remove division" style={{ fontSize: 13, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
+                    </div>
+                  ))}
+                  <button onClick={addDivision} title="Add a division (column)" style={{ alignSelf: 'center', fontSize: 12, fontWeight: 600, color: C.brassDark, background: 'none', border: `1.5px dashed ${C.cardLine}`, borderRadius: 7, padding: '6px 2px', cursor: 'pointer', lineHeight: 1.1 }}>+ div</button>
+                  <span />
+                </div>
 
-          {/* ── Divisions card (order:2 → shown after Categories) ── */}
-          <div style={{ flex: '0 0 340px', order: 2 }}>
-            <div style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 10 }}>
-              Divisions master list
-            </div>
-            <div style={{ background: C.cream, borderRadius: 6, boxShadow: '0 6px 22px rgba(20,40,36,.14)', overflow: 'hidden' }}>
-              <div style={{ padding: '15px 20px', borderBottom: `1px solid ${C.line}`, display: 'flex', alignItems: 'center' }}>
-                <span style={{ fontFamily: serif, fontSize: 16, fontWeight: 600, color: C.greenDeep }}>Divisions</span>
-                <button
-                  onClick={() => setAddingDiv(true)}
-                  style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: C.green, background: 'none', border: 'none', cursor: 'pointer' }}
-                >
-                  + Add
-                </button>
-              </div>
-              <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {edited.divisions.map((div, idx) => (
-                  <div key={div.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 9, padding: '11px 14px' }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 999, background: DIVISION_COLORS[idx] ?? C.sub, flexShrink: 0 }} />
-                    {editingDivId === div.id ? (
-                      <input
-                        autoFocus
-                        value={editingDivLabel}
-                        onChange={e => setEditingDivLabel(e.target.value)}
-                        onBlur={() => commitRenameDiv(div.id)}
-                        onKeyDown={e => { if (e.key === 'Enter') commitRenameDiv(div.id); if (e.key === 'Escape') setEditingDivId(null); }}
-                        style={{ flex: 1, fontSize: 14.5, fontWeight: 600, color: C.ink, border: 'none', outline: 'none', background: 'transparent' }}
-                      />
-                    ) : (
-                      <span style={{ fontSize: 14.5, fontWeight: 600, color: C.ink, flex: 1 }}>{div.label}</span>
-                    )}
-                    <button
-                      onClick={() => startRenameDiv(div)}
-                      style={{ fontSize: 16, color: '#B6AE9C', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                    >✎</button>
-                  </div>
-                ))}
-                {addingDiv && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input
-                      autoFocus
-                      placeholder="New division name"
-                      value={newDivLabel}
-                      onChange={e => setNewDivLabel(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') addDivision(); if (e.key === 'Escape') setAddingDiv(false); }}
-                      style={{ flex: 1, fontSize: 14, padding: '8px 11px', border: `1px solid ${C.cardLine}`, borderRadius: 8, outline: 'none', background: '#fff' }}
-                    />
-                    <button onClick={addDivision} style={{ fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '7px 12px', cursor: 'pointer' }}>Add</button>
-                    <button onClick={() => setAddingDiv(false)} style={{ fontSize: 12.5, color: C.muted, background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
-                  </div>
-                )}
-              </div>
-              <div style={{ padding: '0 18px 16px', fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
-                Rename freely — old registrations keep matching by ID.
-              </div>
-            </div>
-          </div>
-
-          {/* ── Categories card ── */}
-          <div style={{ flex: '1 1 560px', minWidth: 0 }}>
-            <div style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 10 }}>
-              Categories — minimum questions &amp; enabled divisions
-            </div>
-            <div style={{ background: C.cream, borderRadius: 6, boxShadow: '0 6px 22px rgba(20,40,36,.14)', overflow: 'hidden' }}>
-              {/* header row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.6fr 28px', padding: '12px 22px', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#9A938A', fontWeight: 600, borderBottom: `1px solid ${C.line}` }}>
-                <span>Category</span>
-                <span style={{ textAlign: 'center' }}>Min questions</span>
-                <span>Enabled divisions</span>
-                <span />
-              </div>
-              {edited.categories.map((cat: Category, idx: number) => (
-                <div
-                  key={cat.id}
-                  style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.6fr 28px', alignItems: 'center', padding: '14px 22px', borderBottom: idx < edited.categories.length - 1 ? `1px solid #F0EBDD` : 'none' }}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingRight: 12 }}>
-                    <input
-                      value={cat.label}
-                      onChange={e => setCatLabel(cat.id, e.target.value)}
-                      placeholder="Category name"
-                      style={{ fontFamily: serif, fontSize: 17, fontWeight: 600, color: C.greenDeep, border: 'none', borderBottom: `1px solid ${C.line}`, outline: 'none', background: 'transparent', padding: '2px 0', width: '100%', boxSizing: 'border-box' }}
-                    />
-                    <input
-                      value={cat.zeffyLabels?.[0] ?? ''}
-                      onChange={e => setCatDesc(cat.id, e.target.value)}
-                      placeholder="Description (Zeffy label)"
-                      style={{ fontSize: 11.5, color: C.muted, border: 'none', borderBottom: `1px solid ${C.line}`, outline: 'none', background: 'transparent', padding: '2px 0', width: '100%', boxSizing: 'border-box' }}
-                    />
-                  </div>
-                  <Stepper value={cat.minQuestions} onChange={v => setMinQ(cat.id, v)} />
-                  <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                    {edited.divisions.map(div => {
+                {/* category rows */}
+                {edited.categories.map((cat: Category) => (
+                  <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: COLS, gap: 8, alignItems: 'center', padding: '10px 0', borderTop: `1px solid #F0EBDD` }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingRight: 10 }}>
+                      <input value={cat.label} onChange={e => setCatLabel(cat.id, e.target.value)} placeholder="Category name" style={{ fontFamily: serif, fontSize: 16, fontWeight: 600, color: C.greenDeep, border: 'none', borderBottom: `1px solid ${C.line}`, outline: 'none', background: 'transparent', padding: '2px 0', width: '100%', boxSizing: 'border-box' }} />
+                      <input value={cat.zeffyLabels?.[0] ?? ''} onChange={e => setCatDesc(cat.id, e.target.value)} placeholder="Description (Zeffy label)" style={{ fontSize: 11.5, color: C.muted, border: 'none', borderBottom: `1px solid ${C.line}`, outline: 'none', background: 'transparent', padding: '2px 0', width: '100%', boxSizing: 'border-box' }} />
+                    </div>
+                    <Stepper value={cat.minQuestions} onChange={v => setMinQ(cat.id, v)} />
+                    {edited.divisions.map((div, didx) => {
                       const on = cat.divisions.includes(div.id);
                       return (
-                        <button
-                          key={div.id}
-                          onClick={() => toggleCatDivision(cat.id, div.id)}
-                          style={{
-                            fontSize: 12.5, fontWeight: on ? 600 : 400,
-                            color: on ? C.green : '#B6AE9C',
-                            background: on ? C.pillGreen : 'none',
-                            border: on ? 'none' : `1.5px dashed ${C.cardLine}`,
-                            padding: on ? '5px 11px' : '4px 10px',
-                            borderRadius: 7, cursor: 'pointer',
-                          }}
-                        >
-                          {div.label}{on ? ' ✓' : ''}
+                        <button key={div.id} onClick={() => toggleCatDivision(cat.id, div.id)} title={`${on ? 'Disable' : 'Enable'} ${div.label}`} style={{ height: 40, borderRadius: 6, border: on ? 'none' : `1.5px dashed ${C.cardLine}`, cursor: 'pointer', background: on ? (DIVISION_COLORS[didx] ?? C.green) : 'transparent', color: '#fff', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s' }}>
+                          {on ? '✓' : ''}
                         </button>
                       );
                     })}
+                    <span />
+                    <button onClick={() => removeCategory(cat.id)} title="Remove category" style={{ fontSize: 16, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
                   </div>
-                  <button onClick={() => removeCategory(cat.id)} title="Remove category" style={{ fontSize: 16, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
+                ))}
+
+                {/* add category row (bottom insert) */}
+                <div onClick={addCategory} style={{ borderTop: `1px solid #F0EBDD`, padding: '11px 0', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: C.brassDark }}>+ Add category</div>
+
+                {/* slots summary + save */}
+                <div style={{ marginTop: 12, paddingTop: 13, borderTop: `1px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                  <span style={{ fontSize: 12.5, color: C.sub }}>
+                    This config yields <strong style={{ color: C.greenDeep }}>{slots.length} slot{slots.length !== 1 ? 's' : ''}</strong>
+                    {slots.length > 0 && <> — {slots.map(s => `(${catLabel(s.category)}×${divLabel(s.division)})`).join(', ')}</>}. Panels attach to these.
+                  </span>
+                  <button onClick={saveStructure} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: structureSaved ? C.green : C.greenDeep, border: 'none', borderRadius: 6, padding: '9px 18px', cursor: 'pointer', transition: 'background .2s' }}>
+                    {structureSaved ? '✓ Saved' : 'Save Structure'}
+                  </button>
                 </div>
-              ))}
-              <div onClick={addCategory} style={{ padding: '12px 22px', borderTop: `1px solid #F0EBDD`, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: C.brassDark, textAlign: 'center' }}>+ Add category</div>
-              {/* slots summary footer */}
-              <div style={{ padding: '13px 22px', background: C.parchment, borderTop: `1px solid ${C.line}`, fontSize: 12.5, color: C.sub, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>
-                  This config yields <strong style={{ color: C.greenDeep }}>{slots.length} slot{slots.length !== 1 ? 's' : ''}</strong>
-                  {slots.length > 0 && (
-                    <> — {slots.map(s => `(${catLabel(s.category)}×${divLabel(s.division)})`).join(', ')}</>
-                  )}. Panels attach to these.
-                </span>
-                <button
-                  onClick={saveStructure}
-                  style={{
-                    flexShrink: 0, marginLeft: 16, fontSize: 12.5, fontWeight: 600,
-                    color: '#fff', background: structureSaved ? C.green : C.greenDeep,
-                    border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer',
-                    transition: 'background .2s',
-                  }}
-                >
-                  {structureSaved ? '✓ Saved' : 'Save Structure'}
-                </button>
-              </div>
-            </div>
-          </div>
+              </>
+            );
+          })()}
         </div>
       </div>
       )}
