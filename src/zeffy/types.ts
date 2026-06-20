@@ -14,6 +14,10 @@ export interface ZeffyPayloadData {
   id: string;
   status: string;
   campaign_id: string;
+  // Event title set in Zeffy (e.g. "2026 Ibn Katheer Quran Competition"). The
+  // one shared webhook receives every form's submissions; this is how we tell
+  // which competition a payload belongs to (stable across a competition's forms).
+  description?: string;
   buyer: Record<string, unknown>;
   items: ZeffyItem[];
 }

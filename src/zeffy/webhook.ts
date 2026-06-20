@@ -3,11 +3,12 @@ import type { ZeffyPayload } from './types';
 import { parseRegistration } from './parse-registration';
 
 export function verifyZeffyRequest(
-  provided: { token: string | null; campaignId: string },
-  expected: { token: string; campaignId: string },
+  provided: { token: string | null; eventTitle: string },
+  expected: { token: string; eventTitle: string },
 ): boolean {
   // ponytail: plain === on a high-entropy URL token over HTTPS. Swap to an HMAC if Zeffy ever signs.
-  return provided.token === expected.token && provided.campaignId === expected.campaignId;
+  // Token is the security boundary; eventTitle (Zeffy `description`) selects which competition.
+  return provided.token === expected.token && provided.eventTitle.trim() === expected.eventTitle.trim();
 }
 
 export type RegistrationWriter = (
