@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useDocData, writeDoc, now, useSyncState } from '../data/db';
+import { useDocData, useCollection, writeDoc, now, useSyncState } from '../data/db';
 import type { SessionDoc } from '../data/types';
 import {
   DEFAULT_SCORING_CONFIG as CFG,
@@ -62,6 +62,8 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const sessionId = `${enrollmentId}__${judgeId}`;
   const { data: sessionDoc, loading } = useDocData<SessionDoc>(`sessions/${sessionId}`);
   const sync = useSyncState(`sessions/${sessionId}`);
+  // How many panel judges have started this contestant (a session doc exists once a judge grades).
+  const startedCount = useCollection<SessionDoc>('sessions').filter((s) => s.enrollmentId === enrollmentId).length;
   const [questions, setQuestions] = useState<Question[]>([]);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
@@ -359,7 +361,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
             <div style={{ marginTop: 'auto', background: C.parchment, border: '1px solid #E0D8C6', borderRadius: 9, padding: '13px 15px' }}>
               <div style={{ fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 5 }}>Panel completeness</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                <span style={{ fontFamily: serif, fontSize: 20, fontWeight: 600, color: C.greenDeep }}>1 / {meta.panelSize || '—'}</span>
+                <span style={{ fontFamily: serif, fontSize: 20, fontWeight: 600, color: C.greenDeep }}>{startedCount} / {meta.panelSize || '—'}</span>
                 <span style={{ fontSize: 12.5, color: C.muted }}>judges started</span>
               </div>
             </div>

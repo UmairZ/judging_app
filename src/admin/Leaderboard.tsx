@@ -167,6 +167,49 @@ export default function Leaderboard() {
   const clearTiebreak = async () => {
     if (slot) await removeDoc(`tiebreaks/${slotId(slot)}`);
   };
+
+  // Per-slot ranked rows (same ordering the board uses) — for the CSV export.
+  const rankedRows = (sl: Slot): Row[] => {
+    const t = tiebreaks.find((x) => x.category === sl.category && x.division === sl.division);
+    const raw = ((t?.resolution as { order?: string[] } | undefined)?.order) ?? [];
+    let order = raw;
+    if (t?.method === 'question') {
+      const scored = (t.contestantIds ?? []).map((cid) => ({ cid, m: tieBreakMean(sessions.filter((s) => s.enrollmentId === enrollmentId(cid, sl.category)), cfg) }));
+      order = scored.length === 0 || scored.some((x) => x.m == null) ? [] : [...scored].sort((a, b) => (b.m as number) - (a.m as number)).map((x) => x.cid);
+    }
+    const idx = (cid: string) => { const i = order.indexOf(cid); return i < 0 ? Number.POSITIVE_INFINITY : i; };
+    const ps = panels.find((p) => p.id === assignments.find((a) => a.category === sl.category && a.division === sl.division)?.panelId)?.judgeIds.length ?? 3;
+    return enrollments
+      .filter((e) => e.category === sl.category && e.division === sl.division)
+      .filter((e) => contestants.some((c) => c.id === e.contestantId))
+      .map((e) => ({ contestantId: e.contestantId, enrollmentId: e.id, name: contestants.find((c) => c.id === e.contestantId)?.fullName ?? '—', summary: enrollmentSummary(sessions.filter((s) => s.enrollmentId === e.id), cfg), panelSize: ps }))
+      .sort((a, b) => {
+        if (t?.method === 'override' && order.length) return idx(a.contestantId) - idx(b.contestantId);
+        const c = compareForLeaderboard(a.summary, b.summary);
+        if (c !== 0) return c;
+        return idx(a.contestantId) - idx(b.contestantId);
+      });
+  };
+  const exportResults = () => {
+    const out: string[][] = [['Category', 'Division', 'Rank', 'Contestant', 'Score', 'Hifz %', 'Tajweed %', 'Judges', 'Status']];
+    for (const s of slots) {
+      rankedRows(s).forEach((r, i) => {
+        out.push([
+          catLabel(s.category), divLabel(s.division), String(i + 1), r.name,
+          r.summary.score == null ? '' : r.summary.score.toFixed(1),
+          String(Math.round(r.summary.hBar * 100)), String(Math.round(r.summary.tBar * 100)),
+          `${r.summary.startedCount}/${r.panelSize}`, r.summary.startedCount < r.panelSize ? 'Partial' : 'Complete',
+        ]);
+      });
+    }
+    const csv = out.map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ibn-katheer-results-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   // Open one judge's session for the admin to correct (reuses the grading screen).
   const openEdit = (r: Row, jid: string) => {
     if (!slot || !panel) return;
@@ -189,6 +232,9 @@ export default function Leaderboard() {
           <div style={{ fontSize: 12, color: '#9DBDB4' }}>Recomputed from synced sessions</div>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
+          <button onClick={exportResults} title="Download every slot's standings as CSV" style={{ fontSize: 12.5, fontWeight: 600, color: '#DCEAE6', background: '#11332D', border: '1px solid #3A6258', borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}>
+            Export CSV
+          </button>
           {rows.length > 1 && !adjusting && (
             <button onClick={openAdjust} style={{ fontSize: 12.5, fontWeight: 600, color: '#DCEAE6', background: '#11332D', border: '1px solid #3A6258', borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}>
               Adjust placements
