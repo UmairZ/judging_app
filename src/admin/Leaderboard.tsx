@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCollection, useDocData, writeDoc, removeDoc, now } from '../data/db';
 import type { EnrollmentDoc, ContestantDoc, SessionDoc, PanelDoc, AssignmentDoc, TiebreakDoc, JudgeDoc } from '../data/types';
 import {
@@ -14,6 +14,7 @@ import { DEFAULT_STRUCTURE_CONFIG, generateSlots, slotId, type StructureConfig, 
 import { enrollmentId } from '../domain/ids';
 import { C, serif, pct } from '../ui/theme';
 import GradingScreen from '../judge/GradingScreen';
+import Projector from './Projector';
 
 interface Row {
   contestantId: string;
@@ -53,7 +54,16 @@ export default function Leaderboard() {
   const [adjusting, setAdjusting] = useState<Adjusting | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
+  const [projecting, setProjecting] = useState(false);
   const slot: Slot | undefined = slots[sel] ?? slots[0];
+
+  // Projector mode: Esc exits.
+  useEffect(() => {
+    if (!projecting) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setProjecting(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [projecting]);
 
   const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
   const divLabel = (id: string) => structure.divisions.find((d) => d.id === id)?.label ?? id;
@@ -178,11 +188,16 @@ export default function Leaderboard() {
           <div style={{ fontFamily: serif, fontSize: 19, fontWeight: 600, color: '#fff' }}>Live Leaderboard</div>
           <div style={{ fontSize: 12, color: '#9DBDB4' }}>Recomputed from synced sessions</div>
         </div>
-        {rows.length > 1 && !adjusting && (
-          <button onClick={openAdjust} style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: '#DCEAE6', background: '#11332D', border: '1px solid #3A6258', borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}>
-            Adjust placements
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
+          {rows.length > 1 && !adjusting && (
+            <button onClick={openAdjust} style={{ fontSize: 12.5, fontWeight: 600, color: '#DCEAE6', background: '#11332D', border: '1px solid #3A6258', borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}>
+              Adjust placements
+            </button>
+          )}
+          <button onClick={() => setProjecting(true)} title="Full-screen standings for the audience" style={{ fontSize: 12.5, fontWeight: 700, color: '#06211C', background: C.gold, border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer' }}>
+            ▶ Projector mode
           </button>
-        )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '14px 26px', borderBottom: `1px solid ${C.line}` }}>
@@ -313,6 +328,15 @@ export default function Leaderboard() {
             meta={editing.meta}
             onEnd={() => setEditing(null)}
           />
+        </div>
+      )}
+
+      {projecting && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
+          <Projector />
+          <button onClick={() => setProjecting(false)} style={{ position: 'fixed', top: 18, right: 20, zIndex: 201, fontSize: 12.5, fontWeight: 600, color: '#DCEAE6', background: 'rgba(6,33,28,.65)', border: '1px solid #3A6258', borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}>
+            Exit (Esc)
+          </button>
         </div>
       )}
     </div>

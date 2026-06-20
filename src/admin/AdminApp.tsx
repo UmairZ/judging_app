@@ -5,7 +5,6 @@ import Contestants from './Contestants';
 import StructurePanels from './StructurePanels';
 import ScoringConfig from './ScoringConfig';
 import Devices from './Devices';
-import Projector from './Projector';
 import { useAuth } from '../auth/AuthContext';
 import { C, serif } from '../ui/theme';
 
@@ -22,7 +21,6 @@ const NAV: NavRow[] = [
   { group: 'Participants' },
   { id: 'registrations', label: 'Registrations', el: <Registrations /> },
   { id: 'contestants', label: 'Contestants', el: <Contestants /> },
-  { id: 'display', label: 'Display', el: <Projector /> },
 ];
 
 const items = NAV.filter((n): n is NavItem => 'id' in n);
@@ -63,7 +61,7 @@ export default function AdminApp({ onExit }: { onExit?: () => void }) {
           {onExit && <div onClick={onExit} style={{ cursor: 'pointer', fontSize: 13, color: '#9DBDB4' }}>← Exit preview</div>}
         </div>
       </div>
-      <div style={{ flex: 1, overflow: 'auto', padding: current.id === 'display' ? 0 : 28 }}>{current.el}</div>
+      <div style={{ flex: 1, overflow: 'auto', padding: 28 }}>{current.el}</div>
     </div>
   );
 }
