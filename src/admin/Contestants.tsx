@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useCollection, useDocData, writeDoc, removeDoc } from '../data/db';
-import type { ContestantDoc, EnrollmentDoc } from '../data/types';
+import type { ContestantDoc, EnrollmentDoc, SessionDoc } from '../data/types';
 import {
   DEFAULT_STRUCTURE_CONFIG,
   defaultDivisionForCategory,
@@ -60,6 +60,7 @@ interface EditState {
 export default function Contestants() {
   const contestants = useCollection<ContestantDoc>('contestants');
   const enrollments = useCollection<EnrollmentDoc>('enrollments');
+  const sessions = useCollection<SessionDoc>('sessions');
   const structure: StructureConfig =
     useDocData<StructureConfig>('config/structure').data ?? DEFAULT_STRUCTURE_CONFIG;
 
@@ -127,7 +128,10 @@ export default function Contestants() {
 
   function handleRemoveEnrollment(cat: string) {
     if (!selectedId) return;
-    removeDoc('enrollments/' + enrollmentId(selectedId, cat));
+    const enrId = enrollmentId(selectedId, cat);
+    // remove the enrollment AND any sessions under it, so the leaderboard doesn't retain stale scores
+    sessions.filter((s) => s.enrollmentId === enrId).forEach((s) => removeDoc('sessions/' + s.id));
+    removeDoc('enrollments/' + enrId);
   }
 
   function handleAddEnrollment() {
@@ -180,8 +184,15 @@ export default function Contestants() {
 
   async function handleRemove() {
     if (!selectedId) return;
-    if (!window.confirm('Remove this contestant? The registrations master stays intact.')) return;
-    await removeDoc('contestants/' + selectedId);
+    if (!window.confirm('Remove this contestant? This also deletes their enrollments and any scores. The registrations master stays intact.')) return;
+    // cascade: sessions → enrollments → contestant, so nothing orphaned lingers on the leaderboard
+    const myEnrollments = enrollments.filter((e) => e.contestantId === selectedId);
+    const enrIds = new Set(myEnrollments.map((e) => e.id));
+    await Promise.all([
+      ...sessions.filter((s) => enrIds.has(s.enrollmentId)).map((s) => removeDoc('sessions/' + s.id)),
+      ...myEnrollments.map((e) => removeDoc('enrollments/' + e.id)),
+      removeDoc('contestants/' + selectedId),
+    ]);
     setSelectedId(null);
   }
 

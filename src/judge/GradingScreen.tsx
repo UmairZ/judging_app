@@ -67,12 +67,14 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const seeded = useRef(false);
   const dirty = useRef(false);
   const [notes, setNotes] = useState('');
+  const [locked, setLocked] = useState(false); // finalized → read-only until the judge reopens
 
   // Seed from the existing session doc, or a fresh minimum set of questions.
   useEffect(() => {
     if (seeded.current || loading) return;
     setQuestions(sessionDoc?.questions?.length ? sessionDoc.questions : Array.from({ length: minQuestions }, (_, i) => freshQuestion(i)));
     setNotes(sessionDoc?.notes ?? '');
+    setLocked(sessionDoc?.finalizedAt != null);
     seeded.current = true;
   }, [loading, sessionDoc, minQuestions]);
 
@@ -94,6 +96,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const showPrompt = hifzAtFloor(aq, CFG) && !dismissed.has(active);
 
   const patch = (i: number, fn: (q: Question) => Question) => {
+    if (locked) return;
     dirty.current = true;
     setQuestions((qs) => qs.map((q, idx) => (idx === i ? fn(q) : q)));
   };
@@ -116,10 +119,12 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const dismissPrompt = () => setDismissed((d) => new Set(d).add(active));
   const confirmDQ = () => { manualDQ(); dismissPrompt(); };
   const addQuestion = () => {
+    if (locked) return;
     dirty.current = true;
     setQuestions((qs) => { setActive(qs.length); return [...qs, freshQuestion(qs.length, true)]; });
   };
   const removeQuestion = (i: number) => {
+    if (locked) return;
     dirty.current = true;
     const newLen = questions.length - 1;
     setQuestions((qs) => qs.filter((_, idx) => idx !== i));
@@ -128,6 +133,11 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const finalize = () => {
     void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions, notes, updatedAt: now(), finalizedAt: now() }, true);
     onEnd();
+  };
+  const reopen = () => {
+    setLocked(false);
+    dirty.current = true; // subsequent edits will persist again
+    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, finalizedAt: null, updatedAt: now() }, true);
   };
 
   return (
@@ -150,9 +160,9 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
             </div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 26 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#8FD4AE', fontWeight: 600 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 999, background: '#6FCBA0', boxShadow: '0 0 8px #6FCBA0', display: 'inline-block' }} />
-              Saved locally
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: locked ? C.gold : '#8FD4AE', fontWeight: 600 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 999, background: locked ? C.gold : '#6FCBA0', boxShadow: `0 0 8px ${locked ? C.gold : '#6FCBA0'}`, display: 'inline-block' }} />
+              {locked ? 'Graded · locked' : 'Saved locally'}
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9DBDB4', fontWeight: 600 }}>Session score</div>
@@ -161,10 +171,16 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
                 <span style={{ fontSize: 16, color: '#9DBDB4' }}>/ 100</span>
               </div>
             </div>
-            <span onClick={onEnd} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>Save &amp; exit</span>
-            <span onClick={finalize} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#06211C', background: C.gold, padding: '11px 18px', borderRadius: 5 }}>Finish</span>
+            <span onClick={onEnd} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>{locked ? 'Back to queue' : 'Save & exit'}</span>
+            <span onClick={locked ? reopen : finalize} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#06211C', background: C.gold, padding: '11px 18px', borderRadius: 5 }}>{locked ? 'Reopen to edit' : 'Finish'}</span>
           </div>
         </div>
+
+        {locked && (
+          <div style={{ flex: 'none', padding: '9px 30px', background: C.pill, color: C.brassDark, fontSize: 13, fontWeight: 600, borderBottom: `1px solid ${C.line}` }}>
+            ✓ This session is graded &amp; locked — scores are read-only. Tap “Reopen to edit” to change anything.
+          </div>
+        )}
 
         {/* ---- body ---- */}
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -183,7 +199,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                       <span style={{ fontSize: 13.5, fontWeight: 600, color: isActive ? C.ink : q.disqualified ? '#9A6A5C' : '#41504B' }}>Question {i + 1}{q.isAdded ? ' +' : ''}</span>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {q.isAdded && (
+                        {q.isAdded && !locked && (
                           <button onClick={(e) => { e.stopPropagation(); removeQuestion(i); }} title="Remove question" style={{ fontSize: 15, lineHeight: 1, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>×</button>
                         )}
                         <span style={{ fontFamily: serif, fontSize: 17, fontWeight: 600, color: q.disqualified ? C.fail : isActive ? C.brassDark : C.green }}>{q.disqualified ? 'DQ' : <>{total}<span style={{ fontSize: 11, fontWeight: 500, color: C.muted }}> / 100</span></>}</span>
@@ -192,12 +208,12 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
                   </div>
                 );
               })}
-              <div onClick={addQuestion} style={{ cursor: 'pointer', marginTop: 2, borderRadius: 8, padding: '11px 13px', border: `1.5px dashed #C9BD9E`, color: C.brassDark, fontSize: 13, fontWeight: 600, textAlign: 'center' }}>+ Add question</div>
+              {!locked && <div onClick={addQuestion} style={{ cursor: 'pointer', marginTop: 2, borderRadius: 8, padding: '11px 13px', border: `1.5px dashed #C9BD9E`, color: C.brassDark, fontSize: 13, fontWeight: 600, textAlign: 'center' }}>+ Add question</div>}
             </div>
           </div>
 
-          {/* main — active question */}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '24px 30px', position: 'relative', overflow: 'auto' }}>
+          {/* main — active question (locked → read-only) */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '24px 30px', position: 'relative', overflow: 'auto', opacity: locked ? 0.55 : 1, pointerEvents: locked ? 'none' : 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 4 }}>
               <span style={{ fontFamily: serif, fontSize: 26, fontWeight: 600, color: C.greenDeep }}>Question {active + 1}</span>
               <span style={{ fontSize: 13, color: C.muted }}>{aq.isAdded ? 'Added question' : `of ${questions.length}`}</span>
@@ -289,9 +305,10 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
               <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 8 }}>Notes</div>
               <textarea
                 value={notes}
+                disabled={locked}
                 onChange={(e) => { dirty.current = true; setNotes(e.target.value); }}
                 placeholder="Private notes for this contestant…"
-                style={{ width: '100%', minHeight: 104, resize: 'vertical', boxSizing: 'border-box', background: '#fff', border: `1px solid ${C.line}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, lineHeight: 1.5, color: C.ink, fontFamily: 'inherit', outline: 'none' }}
+                style={{ width: '100%', minHeight: 104, resize: 'vertical', boxSizing: 'border-box', background: locked ? '#F3EFE4' : '#fff', border: `1px solid ${C.line}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, lineHeight: 1.5, color: C.ink, fontFamily: 'inherit', outline: 'none' }}
               />
             </div>
             <div style={{ marginTop: 'auto', background: C.parchment, border: '1px solid #E0D8C6', borderRadius: 9, padding: '13px 15px' }}>

@@ -58,6 +58,7 @@ export default function Leaderboard() {
     ? []
     : enrollments
         .filter((e) => e.category === slot.category && e.division === slot.division)
+        .filter((e) => contestants.some((c) => c.id === e.contestantId)) // skip orphaned enrollments
         .map((e) => ({
           contestantId: e.contestantId,
           name: contestants.find((c) => c.id === e.contestantId)?.fullName ?? '—',
