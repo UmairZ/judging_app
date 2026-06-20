@@ -50,7 +50,7 @@ function Stepper({ value, onChange }: { value: number; onChange: (v: number) => 
 export default function StructurePanels({ section }: { section: 'structure' | 'panels' }) {
   // ── Firestore data ──────────────────────────────────────────────────────
   const { data: structureData } = useDocData<StructureConfig>('config/structure');
-  const judges = useCollection<JudgeDoc>('judges');
+  const judges = [...useCollection<JudgeDoc>('judges')].sort((a, b) => a.name.localeCompare(b.name));
   const panels = useCollection<PanelDoc>('panels');
   const assignments = useCollection<AssignmentDoc>('assignments');
 

@@ -7,7 +7,7 @@ import { app, auth } from '../firebase/app';
 import { C, serif, initials } from '../ui/theme';
 
 export default function Devices() {
-  const judges = useCollection<JudgeDoc>('judges');
+  const judges = [...useCollection<JudgeDoc>('judges')].sort((a, b) => a.name.localeCompare(b.name));
   const panels = useCollection<PanelDoc>('panels');
   const assignments = useCollection<AssignmentDoc>('assignments');
 

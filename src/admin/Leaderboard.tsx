@@ -295,7 +295,7 @@ export default function Leaderboard() {
               <div style={{ background: C.parchment, borderBottom: `1px solid ${C.line}`, padding: '12px 26px 15px 92px' }}>
                 <div style={{ fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 9 }}>Judge scores — Edit to correct a judge's marks</div>
                 {(panel?.judgeIds ?? []).length === 0 && <div style={{ fontSize: 13, color: C.muted }}>No panel assigned to this slot.</div>}
-                {(panel?.judgeIds ?? []).map((jid) => {
+                {[...(panel?.judgeIds ?? [])].sort((a, b) => (judges.find((j) => j.id === a)?.name ?? '').localeCompare(judges.find((j) => j.id === b)?.name ?? '')).map((jid) => {
                   const sess = sessions.find((s) => s.id === `${r.enrollmentId}__${jid}`);
                   const has = !!sess && (sess.questions?.length ?? 0) > 0;
                   const js = has ? sessionScore({ enrollmentId: r.enrollmentId, judgeId: jid, questions: sess!.questions }, cfg) : null;

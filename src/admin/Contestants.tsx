@@ -58,7 +58,7 @@ interface EditState {
 // ── main component ────────────────────────────────────────────────────────────
 
 export default function Contestants() {
-  const contestants = useCollection<ContestantDoc>('contestants');
+  const contestants = [...useCollection<ContestantDoc>('contestants')].sort((a, b) => a.fullName.localeCompare(b.fullName));
   const enrollments = useCollection<EnrollmentDoc>('enrollments');
   const sessions = useCollection<SessionDoc>('sessions');
   const structure: StructureConfig =
