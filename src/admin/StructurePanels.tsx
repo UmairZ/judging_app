@@ -51,7 +51,7 @@ function Stepper({ value, onChange }: { value: number; onChange: (v: number) => 
 
 // ─── main component ──────────────────────────────────────────────────────────
 
-export default function StructurePanels() {
+export default function StructurePanels({ section }: { section: 'structure' | 'panels' }) {
   // ── Firestore data ──────────────────────────────────────────────────────
   const { data: structureData } = useDocData<StructureConfig>('config/structure');
   const judges = useCollection<JudgeDoc>('judges');
@@ -61,7 +61,6 @@ export default function StructurePanels() {
   // ── Structure local edit state ──────────────────────────────────────────
   const [edited, setEdited] = useState<StructureConfig>(DEFAULT_STRUCTURE_CONFIG);
   const [structureSaved, setStructureSaved] = useState(false);
-  const [subTab, setSubTab] = useState<'structure' | 'panels'>('structure');
   const seeded = useRef(false);
 
   // Seed local edit state ONCE from the loaded doc — never re-seed, or live snapshots
@@ -190,26 +189,11 @@ export default function StructurePanels() {
   };
 
   // ── render ──────────────────────────────────────────────────────────────
-  const assignedCount = slots.filter((s) => assignments.some((a) => a.category === s.category && a.division === s.division)).length;
-
   return (
     <div style={{ maxWidth: 1180, display: 'flex', flexDirection: 'column', gap: 30 }}>
 
-      <SummaryStrip
-        stats={[
-          { label: 'Categories', value: edited.categories.length },
-          { label: 'Divisions', value: edited.divisions.length },
-          { label: 'Slots', value: slots.length },
-          { label: 'Judges', value: judges.length },
-          { label: 'Panels', value: panels.length },
-          { label: 'Slots assigned', value: `${assignedCount} / ${slots.length}`, warn: assignedCount < slots.length },
-        ]}
-      />
-
-      <SubTabBar tab={subTab} onTab={setSubTab} />
-
-      {/* TAB — Structure */}
-      {subTab === 'structure' && (
+      {/* SECTION — Categories & Divisions */}
+      {section === 'structure' && (
       <div>
         <StepHeader title="Categories & divisions" desc="Together they generate the slots judges score." />
 
@@ -354,8 +338,8 @@ export default function StructurePanels() {
       </div>
       )}
 
-      {/* TAB — Panels & Judges */}
-      {subTab === 'panels' && (
+      {/* SECTION — Judges & Panels */}
+      {section === 'panels' && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
       <div>
         <StepHeader title="Judges" desc="Everyone who scores. Add them here, then group them into panels below." />
@@ -595,32 +579,3 @@ function StepHeader({ n, title, desc }: { n?: number; title: string; desc: strin
   );
 }
 
-function SubTabBar({ tab, onTab }: { tab: 'structure' | 'panels'; onTab: (t: 'structure' | 'panels') => void }) {
-  const item = (id: 'structure' | 'panels', label: string) => {
-    const on = tab === id;
-    return (
-      <button onClick={() => onTab(id)} style={{ fontFamily: serif, fontSize: 16, fontWeight: 600, padding: '9px 20px', borderRadius: 8, cursor: 'pointer', border: on ? 'none' : `1px solid ${C.cardLine}`, background: on ? C.greenDeep : '#fff', color: on ? '#fff' : C.sub }}>
-        {label}
-      </button>
-    );
-  };
-  return (
-    <div style={{ display: 'flex', gap: 9 }}>
-      {item('structure', 'Structure')}
-      {item('panels', 'Panels & Judges')}
-    </div>
-  );
-}
-
-function SummaryStrip({ stats }: { stats: { label: string; value: string | number; warn?: boolean }[] }) {
-  return (
-    <div style={{ background: C.greenDeep, borderRadius: 10, padding: '15px 8px', display: 'flex', boxShadow: '0 6px 22px rgba(20,40,36,.14)' }}>
-      {stats.map((s, i) => (
-        <div key={s.label} style={{ flex: 1, textAlign: 'center', borderLeft: i ? '1px solid rgba(255,255,255,.12)' : 'none' }}>
-          <div style={{ fontFamily: serif, fontSize: 24, fontWeight: 700, color: s.warn ? C.gold : '#fff', lineHeight: 1.1 }}>{s.value}</div>
-          <div style={{ fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: '#9DBDB4', marginTop: 3 }}>{s.label}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
