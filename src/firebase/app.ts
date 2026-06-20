@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { initializeFirestore, persistentLocalCache, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 // Public client config (safe to commit — access is gated by Firestore rules + Auth).
 const firebaseConfig = {
@@ -25,4 +26,5 @@ if (import.meta.env.VITE_USE_EMULATOR === '1') {
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectStorageEmulator(storage, '127.0.0.1', 9199);
+  connectFunctionsEmulator(getFunctions(app, 'us-central1'), '127.0.0.1', 5001);
 }
