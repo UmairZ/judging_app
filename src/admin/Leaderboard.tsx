@@ -380,9 +380,6 @@ export default function Leaderboard() {
       {projecting && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
           <Projector />
-          <button onClick={() => setProjecting(false)} style={{ position: 'fixed', top: 18, right: 20, zIndex: 201, fontSize: 12.5, fontWeight: 600, color: '#DCEAE6', background: 'rgba(6,33,28,.65)', border: '1px solid #3A6258', borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}>
-            Exit (Esc)
-          </button>
         </div>
       )}
     </div>
