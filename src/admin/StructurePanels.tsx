@@ -101,6 +101,15 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
   }
 
   // ── Category editing ────────────────────────────────────────────────────
+  function addCategory() {
+    setEdited(prev => ({
+      ...prev,
+      categories: [...prev.categories, { id: crypto.randomUUID(), label: '', minQuestions: 3, divisions: [], zeffyLabels: [''] }],
+    }));
+  }
+  function removeCategory(catId: string) {
+    setEdited(prev => ({ ...prev, categories: prev.categories.filter(c => c.id !== catId) }));
+  }
   function setMinQ(catId: string, v: number) {
     setEdited(prev => ({
       ...prev,
@@ -285,15 +294,16 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
             </div>
             <div style={{ background: C.cream, borderRadius: 6, boxShadow: '0 6px 22px rgba(20,40,36,.14)', overflow: 'hidden' }}>
               {/* header row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.6fr', padding: '12px 22px', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#9A938A', fontWeight: 600, borderBottom: `1px solid ${C.line}` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.6fr 28px', padding: '12px 22px', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#9A938A', fontWeight: 600, borderBottom: `1px solid ${C.line}` }}>
                 <span>Category</span>
                 <span style={{ textAlign: 'center' }}>Min questions</span>
                 <span>Enabled divisions</span>
+                <span />
               </div>
               {edited.categories.map((cat: Category, idx: number) => (
                 <div
                   key={cat.id}
-                  style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.6fr', alignItems: 'center', padding: '14px 22px', borderBottom: idx < edited.categories.length - 1 ? `1px solid #F0EBDD` : 'none' }}
+                  style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1.6fr 28px', alignItems: 'center', padding: '14px 22px', borderBottom: idx < edited.categories.length - 1 ? `1px solid #F0EBDD` : 'none' }}
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingRight: 12 }}>
                     <input
@@ -331,8 +341,10 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
                       );
                     })}
                   </div>
+                  <button onClick={() => removeCategory(cat.id)} title="Remove category" style={{ fontSize: 16, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
                 </div>
               ))}
+              <div onClick={addCategory} style={{ padding: '12px 22px', borderTop: `1px solid #F0EBDD`, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: C.brassDark, textAlign: 'center' }}>+ Add category</div>
               {/* slots summary footer */}
               <div style={{ padding: '13px 22px', background: C.parchment, borderTop: `1px solid ${C.line}`, fontSize: 12.5, color: C.sub, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span>
