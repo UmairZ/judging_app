@@ -30,14 +30,23 @@ export default function Projector() {
   const slots = generateSlots(structure);
   const [slotIdx, setSlotIdx] = useState(0);
 
-  // Auto-cycle every 12 seconds
+  // Slideshow controls: ← / → step between slots like PowerPoint.
   useEffect(() => {
     if (slots.length <= 1) return;
-    const id = setInterval(() => {
-      setSlotIdx((prev) => (prev + 1) % slots.length);
-    }, 12_000);
-    return () => clearInterval(id);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') setSlotIdx((p) => (p + 1) % slots.length);
+      else if (e.key === 'ArrowLeft') setSlotIdx((p) => (p - 1 + slots.length) % slots.length);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [slots.length]);
+
+  // Auto-advance 12s after the last change (manual arrow nav resets the timer).
+  useEffect(() => {
+    if (slots.length <= 1) return;
+    const id = setTimeout(() => setSlotIdx((p) => (p + 1) % slots.length), 12_000);
+    return () => clearTimeout(id);
+  }, [slotIdx, slots.length]);
 
   const slot = slots[slotIdx] ?? slots[0];
   const nextSlotIdx = slots.length > 0 ? (slotIdx + 1) % slots.length : 0;
@@ -425,7 +434,7 @@ export default function Projector() {
           }}
         />
         {slots.length > 1 && nextSlot && slotId(nextSlot) !== slotId(slot)
-          ? `Live — cycles to ${nextSlotLabel} in 12s`
+          ? `Live · ← → to change · auto-advances to ${nextSlotLabel}`
           : 'Live'}
       </div>
     </div>
