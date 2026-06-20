@@ -189,27 +189,27 @@ export default function StructurePanels() {
   };
 
   // ── render ──────────────────────────────────────────────────────────────
+  const assignedCount = slots.filter((s) => assignments.some((a) => a.category === s.category && a.division === s.division)).length;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
+    <div style={{ maxWidth: 1180, display: 'flex', flexDirection: 'column', gap: 30 }}>
 
-      {/* ══════════════════════════════════════════════════════════
-          SECTION 1: Structure editor
-      ══════════════════════════════════════════════════════════ */}
+      <SummaryStrip
+        stats={[
+          { label: 'Categories', value: edited.categories.length },
+          { label: 'Divisions', value: edited.divisions.length },
+          { label: 'Slots', value: slots.length },
+          { label: 'Judges', value: judges.length },
+          { label: 'Panels', value: panels.length },
+          { label: 'Slots assigned', value: `${assignedCount} / ${slots.length}`, warn: assignedCount < slots.length },
+        ]}
+      />
+
+      {/* STEP 1 — Structure */}
       <div>
-        {/* section header */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 22 }}>
-          <span style={{ fontFamily: serif, fontSize: 13, fontWeight: 600, color: C.brass, background: '#fff', border: `1px solid #DcCFAE`, borderRadius: 999, padding: '5px 13px' }}>
-            Structure
-          </span>
-          <h2 style={{ fontFamily: serif, fontWeight: 600, fontSize: 24, margin: 0, color: C.greenDeep }}>
-            Structure editor
-          </h2>
-          <span style={{ fontSize: 13.5, color: C.muted }}>
-            Divisions master list &amp; per-category settings. Slots regenerate automatically — pure config, no code.
-          </span>
-        </div>
+        <StepHeader n={1} title="Structure" desc="Categories and divisions — together they generate the slots judges score." />
 
-        <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
           {/* ── Divisions card (order:2 → shown after Categories) ── */}
           <div style={{ flex: '0 0 340px', order: 2 }}>
@@ -353,9 +353,7 @@ export default function StructurePanels() {
           SECTION 2: Judges
       ══════════════════════════════════════════════════════════ */}
       <div>
-        <div style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 10 }}>
-          Judges
-        </div>
+        <StepHeader n={2} title="Judges" desc="Everyone who scores. Add them here, then group them into panels below." />
         <div style={{ background: C.cream, borderRadius: 6, boxShadow: '0 6px 22px rgba(20,40,36,.14)', overflow: 'hidden', maxWidth: 480 }}>
           <div style={{ padding: '15px 20px', borderBottom: `1px solid ${C.line}`, display: 'flex', alignItems: 'center' }}>
             <span style={{ fontFamily: serif, fontSize: 16, fontWeight: 600, color: C.greenDeep }}>Judges</span>
@@ -397,14 +395,7 @@ export default function StructurePanels() {
           SECTION 3: Panels & Assignment grid
       ══════════════════════════════════════════════════════════ */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 22 }}>
-          <h2 style={{ fontFamily: serif, fontWeight: 600, fontSize: 24, margin: 0, color: C.greenDeep }}>
-            Panels &amp; assignment
-          </h2>
-          <span style={{ fontSize: 13.5, color: C.muted }}>
-            Panels × slots assignment
-          </span>
-        </div>
+        <StepHeader n={3} title="Panels & assignment" desc="Group judges into panels, then assign each panel to the slots it scores." />
 
         <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
@@ -581,6 +572,29 @@ export default function StructurePanels() {
         </div>
       </div>
 
+    </div>
+  );
+}
+
+function StepHeader({ n, title, desc }: { n: number; title: string; desc: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 18 }}>
+      <span style={{ width: 30, height: 30, borderRadius: '50%', background: C.green, color: '#fff', fontFamily: serif, fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{n}</span>
+      <h2 style={{ fontFamily: serif, fontWeight: 600, fontSize: 21, margin: 0, color: C.greenDeep }}>{title}</h2>
+      <span style={{ fontSize: 13, color: C.muted }}>{desc}</span>
+    </div>
+  );
+}
+
+function SummaryStrip({ stats }: { stats: { label: string; value: string | number; warn?: boolean }[] }) {
+  return (
+    <div style={{ background: C.greenDeep, borderRadius: 10, padding: '15px 8px', display: 'flex', boxShadow: '0 6px 22px rgba(20,40,36,.14)' }}>
+      {stats.map((s, i) => (
+        <div key={s.label} style={{ flex: 1, textAlign: 'center', borderLeft: i ? '1px solid rgba(255,255,255,.12)' : 'none' }}>
+          <div style={{ fontFamily: serif, fontSize: 24, fontWeight: 700, color: s.warn ? C.gold : '#fff', lineHeight: 1.1 }}>{s.value}</div>
+          <div style={{ fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: '#9DBDB4', marginTop: 3 }}>{s.label}</div>
+        </div>
+      ))}
     </div>
   );
 }
