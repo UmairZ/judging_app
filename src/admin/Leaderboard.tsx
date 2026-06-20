@@ -1,20 +1,23 @@
 import { useState } from 'react';
 import { useCollection, useDocData, writeDoc, removeDoc, now } from '../data/db';
-import type { EnrollmentDoc, ContestantDoc, SessionDoc, PanelDoc, AssignmentDoc, TiebreakDoc } from '../data/types';
+import type { EnrollmentDoc, ContestantDoc, SessionDoc, PanelDoc, AssignmentDoc, TiebreakDoc, JudgeDoc } from '../data/types';
 import {
   DEFAULT_SCORING_CONFIG,
   enrollmentSummary,
   compareForLeaderboard,
+  sessionScore,
+  tieBreakMean,
   type ScoringConfig,
   type EnrollmentSummary,
 } from '../scoring';
-import { tieBreakMean } from '../scoring';
 import { DEFAULT_STRUCTURE_CONFIG, generateSlots, slotId, type StructureConfig, type Slot } from '../domain/structure';
 import { enrollmentId } from '../domain/ids';
 import { C, serif, pct } from '../ui/theme';
+import GradingScreen from '../judge/GradingScreen';
 
 interface Row {
   contestantId: string;
+  enrollmentId: string;
   name: string;
   summary: EnrollmentSummary;
   panelSize: number;
@@ -25,6 +28,15 @@ interface Adjusting {
   note: string;
 }
 
+interface Editing {
+  enrollmentId: string;
+  judgeId: string;
+  name: string;
+  slotLabel: string;
+  minQuestions: number;
+  meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number };
+}
+
 export default function Leaderboard() {
   const enrollments = useCollection<EnrollmentDoc>('enrollments');
   const contestants = useCollection<ContestantDoc>('contestants');
@@ -32,12 +44,15 @@ export default function Leaderboard() {
   const panels = useCollection<PanelDoc>('panels');
   const assignments = useCollection<AssignmentDoc>('assignments');
   const tiebreaks = useCollection<TiebreakDoc>('tiebreaks');
+  const judges = useCollection<JudgeDoc>('judges');
   const structure = useDocData<StructureConfig>('config/structure').data ?? DEFAULT_STRUCTURE_CONFIG;
   const cfg: ScoringConfig = useDocData<ScoringConfig>('config/scoring').data ?? DEFAULT_SCORING_CONFIG;
 
   const slots = generateSlots(structure);
   const [sel, setSel] = useState(0);
   const [adjusting, setAdjusting] = useState<Adjusting | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
   const slot: Slot | undefined = slots[sel] ?? slots[0];
 
   const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
@@ -73,6 +88,7 @@ export default function Leaderboard() {
         .filter((e) => contestants.some((c) => c.id === e.contestantId)) // skip orphaned enrollments
         .map((e) => ({
           contestantId: e.contestantId,
+          enrollmentId: e.id,
           name: contestants.find((c) => c.id === e.contestantId)?.fullName ?? '—',
           summary: enrollmentSummary(sessions.filter((s) => s.enrollmentId === e.id), cfg),
           panelSize,
@@ -140,6 +156,18 @@ export default function Leaderboard() {
   };
   const clearTiebreak = async () => {
     if (slot) await removeDoc(`tiebreaks/${slotId(slot)}`);
+  };
+  // Open one judge's session for the admin to correct (reuses the grading screen).
+  const openEdit = (r: Row, jid: string) => {
+    if (!slot || !panel) return;
+    setEditing({
+      enrollmentId: r.enrollmentId,
+      judgeId: jid,
+      name: r.name,
+      slotLabel: `${catLabel(slot.category)} · ${divLabel(slot.division)}`,
+      minQuestions: structure.categories.find((c) => c.id === slot.category)?.minQuestions ?? 4,
+      meta: { position: 0, total: 0, panelName: panel.name, judgeIndex: panel.judgeIds.indexOf(jid) + 1, panelSize: panel.judgeIds.length },
+    });
   };
 
   return (
@@ -229,26 +257,63 @@ export default function Leaderboard() {
         const tie = prev && compareForLeaderboard(prev.summary, r.summary) === 0 && stillTied;
         const rank = tie ? '—' : i + 1;
         const partial = r.summary.startedCount < r.panelSize;
+        const open = expandedId === r.contestantId;
         return (
-          <div key={r.contestantId} style={{ display: 'grid', gridTemplateColumns: '56px 1fr 120px 110px 110px 150px', alignItems: 'center', padding: '15px 26px', borderBottom: `1px solid #F0EBDD`, background: i === 0 ? '#FCF7E9' : 'transparent' }}>
-            <span style={{ fontFamily: serif, fontSize: 22, fontWeight: 700, color: i === 0 ? C.brass : C.sub }}>{rank}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 15.5, fontWeight: 600, color: C.ink }}>{r.name}</span>
-              {stillTied && <span style={{ fontSize: 11, fontWeight: 700, color: C.brassDark, background: C.pill, padding: '3px 8px', borderRadius: 999 }}>TIE</span>}
+          <div key={r.contestantId}>
+            <div onClick={() => setExpandedId(open ? null : r.contestantId)} title="Show judge scores" style={{ display: 'grid', gridTemplateColumns: '56px 1fr 120px 110px 110px 150px', alignItems: 'center', padding: '15px 26px', borderBottom: `1px solid #F0EBDD`, background: open || i === 0 ? '#FCF7E9' : 'transparent', cursor: 'pointer' }}>
+              <span style={{ fontFamily: serif, fontSize: 22, fontWeight: 700, color: i === 0 ? C.brass : C.sub }}>{rank}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <span style={{ fontSize: 11, color: C.muted, width: 10 }}>{open ? '▾' : '▸'}</span>
+                <span style={{ fontSize: 15.5, fontWeight: 600, color: C.ink }}>{r.name}</span>
+                {stillTied && <span style={{ fontSize: 11, fontWeight: 700, color: C.brassDark, background: C.pill, padding: '3px 8px', borderRadius: 999 }}>TIE</span>}
+              </div>
+              <span style={{ textAlign: 'center', fontFamily: serif, fontSize: 24, fontWeight: 700, color: r.summary.score == null ? '#9A938A' : C.greenDeep }}>
+                {r.summary.score == null ? '—' : r.summary.score.toFixed(1)}{partial && r.summary.score != null ? <span style={{ fontSize: 12, color: '#B6AE9C' }}>*</span> : null}
+              </span>
+              <span style={{ textAlign: 'center', fontSize: 14, color: '#41504B' }}>{pct(r.summary.hBar)}</span>
+              <span style={{ textAlign: 'center', fontSize: 14, color: '#41504B' }}>{pct(r.summary.tBar)}</span>
+              <span style={{ textAlign: 'center', fontSize: 12.5, fontWeight: 600, color: partial ? C.brassDark : C.green }}>
+                {r.summary.startedCount} / {r.panelSize}{partial ? ' · moving' : ' judges'}
+              </span>
             </div>
-            <span style={{ textAlign: 'center', fontFamily: serif, fontSize: 24, fontWeight: 700, color: r.summary.score == null ? '#9A938A' : C.greenDeep }}>
-              {r.summary.score == null ? '—' : r.summary.score.toFixed(1)}{partial && r.summary.score != null ? <span style={{ fontSize: 12, color: '#B6AE9C' }}>*</span> : null}
-            </span>
-            <span style={{ textAlign: 'center', fontSize: 14, color: '#41504B' }}>{pct(r.summary.hBar)}</span>
-            <span style={{ textAlign: 'center', fontSize: 14, color: '#41504B' }}>{pct(r.summary.tBar)}</span>
-            <span style={{ textAlign: 'center', fontSize: 12.5, fontWeight: 600, color: partial ? C.brassDark : C.green }}>
-              {r.summary.startedCount} / {r.panelSize}{partial ? ' · moving' : ' judges'}
-            </span>
+            {open && (
+              <div style={{ background: C.parchment, borderBottom: `1px solid ${C.line}`, padding: '12px 26px 15px 92px' }}>
+                <div style={{ fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 9 }}>Judge scores — Edit to correct a judge's marks</div>
+                {(panel?.judgeIds ?? []).length === 0 && <div style={{ fontSize: 13, color: C.muted }}>No panel assigned to this slot.</div>}
+                {(panel?.judgeIds ?? []).map((jid) => {
+                  const sess = sessions.find((s) => s.id === `${r.enrollmentId}__${jid}`);
+                  const has = !!sess && (sess.questions?.length ?? 0) > 0;
+                  const js = has ? sessionScore({ enrollmentId: r.enrollmentId, judgeId: jid, questions: sess!.questions }, cfg) : null;
+                  const finalized = sess?.finalizedAt != null;
+                  return (
+                    <div key={jid} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 8, padding: '9px 14px', marginBottom: 7, maxWidth: 520 }}>
+                      <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: C.ink }}>{judges.find((j) => j.id === jid)?.name ?? jid}</span>
+                      <span style={{ fontSize: 11.5, fontWeight: 600, color: finalized ? C.green : has ? C.brassDark : C.muted }}>{finalized ? 'Graded' : has ? 'In progress' : 'Not started'}</span>
+                      <span style={{ fontFamily: serif, fontSize: 18, fontWeight: 700, color: js == null ? C.muted : C.greenDeep, minWidth: 50, textAlign: 'right' }}>{js == null ? '—' : js.toFixed(1)}</span>
+                      <button onClick={() => openEdit(r, jid)} style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '7px 16px', cursor: 'pointer' }}>Edit</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
       })}
       {rows.some((r) => r.summary.startedCount < r.panelSize) && (
         <div style={{ padding: '12px 26px', fontSize: 12, color: '#9A938A' }}><span style={{ color: '#B6AE9C' }}>*</span> Partial — averages only started sessions; still moving until all judges finish.</div>
+      )}
+
+      {editing && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
+          <GradingScreen
+            contestant={{ name: editing.name, slotLabel: editing.slotLabel }}
+            enrollmentId={editing.enrollmentId}
+            judgeId={editing.judgeId}
+            minQuestions={editing.minQuestions}
+            meta={editing.meta}
+            onEnd={() => setEditing(null)}
+          />
+        </div>
       )}
     </div>
   );
