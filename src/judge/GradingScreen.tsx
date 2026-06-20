@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useDocData, writeDoc, now } from '../data/db';
+import { useDocData, writeDoc, now, useSyncState } from '../data/db';
 import type { SessionDoc } from '../data/types';
 import {
   DEFAULT_SCORING_CONFIG as CFG,
@@ -61,6 +61,7 @@ const pct = (f: number) => `${Math.round(f * 100)}%`;
 export default function GradingScreen({ contestant, enrollmentId, judgeId, minQuestions, meta, onEnd, tieBreak = false }: { contestant: { name: string; slotLabel: string }; enrollmentId: string; judgeId: string; minQuestions: number; meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number }; onEnd: () => void; tieBreak?: boolean }) {
   const sessionId = `${enrollmentId}__${judgeId}`;
   const { data: sessionDoc, loading } = useDocData<SessionDoc>(`sessions/${sessionId}`);
+  const sync = useSyncState(`sessions/${sessionId}`);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
@@ -181,10 +182,21 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
             </div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 26 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: locked ? C.gold : '#8FD4AE', fontWeight: 600 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 999, background: locked ? C.gold : '#6FCBA0', boxShadow: `0 0 8px ${locked ? C.gold : '#6FCBA0'}`, display: 'inline-block' }} />
-              {locked ? 'Graded · locked' : 'Saved locally'}
-            </div>
+            {(() => {
+              const status = locked
+                ? { label: 'Graded · locked', color: C.gold, dot: C.gold }
+                : sync === 'offline'
+                ? { label: 'Offline · saved on device', color: '#E8B45F', dot: '#E8B45F' }
+                : sync === 'saving'
+                ? { label: 'Saving…', color: C.gold, dot: C.gold }
+                : { label: 'Saved', color: '#8FD4AE', dot: '#6FCBA0' };
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: status.color, fontWeight: 600 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 999, background: status.dot, boxShadow: `0 0 8px ${status.dot}`, display: 'inline-block' }} />
+                  {status.label}
+                </div>
+              );
+            })()}
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9DBDB4', fontWeight: 600 }}>{tieBreak ? 'Tie-break score' : 'Session score'}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, justifyContent: 'flex-end' }}>
