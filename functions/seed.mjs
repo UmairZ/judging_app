@@ -38,6 +38,7 @@ const q = (index, { pf = 0, pfail = 0, tmaj = 0, tmin = 0, voice = null, dq = fa
 async function main() {
   await db.doc('config/structure').set(STRUCTURE);
   await db.doc('config/scoring').set(SCORING);
+  await db.doc('config/zeffy').set({ eventTitle: '2026 Ibn Katheer Quran Competition' });
 
   await db.doc('judges/j1').set({ name: 'Ustadha Maryam', active: true });
   await db.doc('judges/j2').set({ name: 'Ustadha Sara', active: true });

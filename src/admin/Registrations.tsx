@@ -401,6 +401,14 @@ export default function Registrations() {
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
 
+  // Zeffy event-title filter (admin-editable; the webhook reads config/zeffy.eventTitle).
+  const zeffyCfg = useDocData<{ eventTitle?: string }>('config/zeffy');
+  const [zeffyTitle, setZeffyTitle] = useState<string | null>(null); // null until edited → never clobbers live value
+  const [zeffySaved, setZeffySaved] = useState(false);
+  const zeffyValue = zeffyTitle ?? zeffyCfg.data?.eventTitle ?? '';
+  const zeffyDirty = zeffyTitle !== null && zeffyTitle.trim() !== (zeffyCfg.data?.eventTitle ?? '').trim();
+  const saveZeffy = async () => { await writeDoc('config/zeffy', { eventTitle: zeffyValue.trim() }); setZeffySaved(true); };
+
   const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
 
   // Determine promoted status by checking whether a contestant has this registrationId
@@ -515,6 +523,29 @@ export default function Registrations() {
           immutable · {registrations.length} records
         </span>
         <span style={{ marginLeft: 'auto', fontSize: 12, color: C.muted }}>To add someone manually, use <strong style={{ color: C.sub }}>Contestants → + New</strong>.</span>
+      </div>
+
+      {/* Zeffy event-title filter */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 22px', borderBottom: `1px solid ${C.line}`, background: C.parchment, flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 200, flex: '1 1 240px' }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: C.greenDeep }}>Zeffy event filter</div>
+          <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.45 }}>
+            Zeffy sends every form to one webhook — only submissions whose event title matches this are accepted. Must equal the event's <strong style={{ color: C.sub }}>exact</strong> name in Zeffy.
+          </div>
+        </div>
+        <input
+          value={zeffyValue}
+          onChange={(e) => { setZeffyTitle(e.target.value); setZeffySaved(false); }}
+          placeholder="e.g. 2026 Ibn Katheer Quran Competition"
+          style={{ flex: '2 1 280px', minWidth: 220, fontSize: 13.5, padding: '9px 12px', border: `1px solid ${C.cardLine}`, borderRadius: 7, outline: 'none', background: '#fff' }}
+        />
+        <button
+          onClick={saveZeffy}
+          disabled={!zeffyDirty}
+          style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: zeffyDirty ? C.green : (zeffySaved ? C.green : C.muted), border: 'none', borderRadius: 6, padding: '9px 18px', cursor: zeffyDirty ? 'pointer' : 'default' }}
+        >
+          {zeffySaved && !zeffyDirty ? '✓ Saved' : 'Save'}
+        </button>
       </div>
 
       {flash && (
