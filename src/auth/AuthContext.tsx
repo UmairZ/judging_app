@@ -33,10 +33,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
           return;
         }
-        const token = await u.getIdTokenResult();
-        setUser(u);
-        setRole(roleFromClaims(token.claims as Record<string, unknown>));
-        setLoading(false);
+        try {
+          const token = await u.getIdTokenResult();
+          setUser(u);
+          setRole(roleFromClaims(token.claims as Record<string, unknown>));
+        } catch {
+          // A network blip reading claims must not wedge the app on the loading gate.
+          setUser(u);
+          setRole(null);
+        } finally {
+          setLoading(false);
+        }
       }),
     [],
   );
