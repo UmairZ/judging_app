@@ -1,6 +1,6 @@
-import { useCollection, useDocData } from '../data/db';
+import type { WithId } from '../data/db';
 import type { PanelDoc, AssignmentDoc, EnrollmentDoc, ContestantDoc, SessionDoc } from '../data/types';
-import { DEFAULT_STRUCTURE_CONFIG, type StructureConfig } from '../domain/structure';
+import type { StructureConfig } from '../domain/structure';
 
 export type QueueStatus = 'graded' | 'in_progress' | 'not_started';
 
@@ -14,16 +14,23 @@ export interface JudgeQueueItem {
   detail: string;
 }
 
+export interface JudgeQueueData {
+  panels: WithId<PanelDoc>[];
+  assignments: WithId<AssignmentDoc>[];
+  enrollments: WithId<EnrollmentDoc>[];
+  contestants: WithId<ContestantDoc>[];
+  sessions: WithId<SessionDoc>[];
+  structure: StructureConfig;
+}
+
 const slotKey = (c: string, d: string) => `${c}|${d}`;
 
-/** The contestants this judge should grade — derived from their panel's assigned slots. */
-export function useJudgeQueue(judgeId: string): JudgeQueueItem[] {
-  const panels = useCollection<PanelDoc>('panels');
-  const assignments = useCollection<AssignmentDoc>('assignments');
-  const enrollments = useCollection<EnrollmentDoc>('enrollments');
-  const contestants = useCollection<ContestantDoc>('contestants');
-  const sessions = useCollection<SessionDoc>('sessions');
-  const structure = useDocData<StructureConfig>('config/structure').data ?? DEFAULT_STRUCTURE_CONFIG;
+/**
+ * The contestants this judge should grade — derived from their panel's assigned slots.
+ * Pure: the caller (JudgeApp) owns the live subscriptions so each collection is read once.
+ */
+export function buildJudgeQueue(judgeId: string, data: JudgeQueueData): JudgeQueueItem[] {
+  const { panels, assignments, enrollments, contestants, sessions, structure } = data;
 
   const myPanelIds = panels.filter((p) => p.judgeIds.includes(judgeId)).map((p) => p.id);
   const mySlots = new Set(

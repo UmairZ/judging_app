@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useCollection, useDocData, writeDoc } from '../data/db';
 import type { RegistrationDoc, ContestantDoc } from '../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, defaultDivisionForCategory, type StructureConfig, type Category } from '../domain/structure';
@@ -411,9 +411,13 @@ export default function Registrations() {
 
   const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
 
-  // Determine promoted status by checking whether a contestant has this registrationId
-  const isPromoted = (regId: string): boolean =>
-    contestants.some((c) => c.registrationId === regId);
+  // Determine promoted status by checking whether a contestant has this registrationId.
+  // Precompute a Set once so the sort comparator + per-row checks are O(1), not O(contestants).
+  const promotedRegIds = useMemo(
+    () => new Set(contestants.map((c) => c.registrationId).filter(Boolean)),
+    [contestants],
+  );
+  const isPromoted = (regId: string): boolean => promotedRegIds.has(regId);
 
   // Open drawer for a registration
   const openDrawer = (reg: (typeof registrations)[number]) => {
