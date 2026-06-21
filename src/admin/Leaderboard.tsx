@@ -22,6 +22,7 @@ interface Row {
   name: string;
   summary: EnrollmentSummary;
   panelSize: number;
+  finalizedCount: number; // judges who tapped Finish (finalizedAt set)
 }
 
 interface Adjusting {
@@ -35,7 +36,7 @@ interface Editing {
   name: string;
   slotLabel: string;
   minQuestions: number;
-  meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number };
+  meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number; startedCount: number };
 }
 
 export default function Leaderboard() {
@@ -70,7 +71,6 @@ export default function Leaderboard() {
 
   const assignment = assignments.find((a) => a.category === slot?.category && a.division === slot?.division);
   const panel = panels.find((p) => p.id === assignment?.panelId);
-  const panelSize = panel?.judgeIds.length ?? 3;
 
   // tie-break resolution for this slot (if recorded)
   const tb = tiebreaks.find((t) => t.category === slot?.category && t.division === slot?.division);
@@ -91,26 +91,39 @@ export default function Leaderboard() {
     return i < 0 ? Number.POSITIVE_INFINITY : i;
   };
 
-  const rows: Row[] = !slot
-    ? []
-    : enrollments
-        .filter((e) => e.category === slot.category && e.division === slot.division)
-        .filter((e) => contestants.some((c) => c.id === e.contestantId)) // skip orphaned enrollments
-        .map((e) => ({
-          contestantId: e.contestantId,
-          enrollmentId: e.id,
-          name: contestants.find((c) => c.id === e.contestantId)?.fullName ?? '—',
-          summary: enrollmentSummary(sessions.filter((s) => s.enrollmentId === e.id), cfg),
-          panelSize,
-        }))
-        .sort((a, b) => {
-          // A manual override sets the exact order outright; otherwise primary score,
-          // with the tie-break order only separating genuinely-tied contestants.
-          if (tb?.method === 'override' && tbOrder.length) return tbIdx(a.contestantId) - tbIdx(b.contestantId);
-          const c = compareForLeaderboard(a.summary, b.summary);
-          if (c !== 0) return c;
-          return tbIdx(a.contestantId) - tbIdx(b.contestantId);
-        });
+  // Per-slot ranked rows — the single source of truth for both the on-screen board and the CSV export.
+  const rankRowsForSlot = (sl: Slot): Row[] => {
+    const t = tiebreaks.find((x) => x.category === sl.category && x.division === sl.division);
+    const raw = ((t?.resolution as { order?: string[] } | undefined)?.order) ?? [];
+    let order = raw;
+    if (t?.method === 'question') {
+      const scored = (t.contestantIds ?? []).map((cid) => ({ cid, m: tieBreakMean(sessions.filter((s) => s.enrollmentId === enrollmentId(cid, sl.category)), cfg) }));
+      order = scored.length === 0 || scored.some((x) => x.m == null) ? [] : [...scored].sort((a, b) => (b.m as number) - (a.m as number)).map((x) => x.cid);
+    }
+    const idx = (cid: string) => { const i = order.indexOf(cid); return i < 0 ? Number.POSITIVE_INFINITY : i; };
+    const ps = panels.find((p) => p.id === assignments.find((a) => a.category === sl.category && a.division === sl.division)?.panelId)?.judgeIds.length ?? 3;
+    return enrollments
+      .filter((e) => e.category === sl.category && e.division === sl.division)
+      .filter((e) => contestants.some((c) => c.id === e.contestantId)) // skip orphaned enrollments
+      .map((e) => ({
+        contestantId: e.contestantId,
+        enrollmentId: e.id,
+        name: contestants.find((c) => c.id === e.contestantId)?.fullName ?? '—',
+        summary: enrollmentSummary(sessions.filter((s) => s.enrollmentId === e.id), cfg),
+        panelSize: ps,
+        finalizedCount: sessions.filter((s) => s.enrollmentId === e.id && s.finalizedAt != null).length,
+      }))
+      .sort((a, b) => {
+        // A manual override sets the exact order outright; otherwise primary score,
+        // with the tie-break order only separating genuinely-tied contestants.
+        if (t?.method === 'override' && order.length) return idx(a.contestantId) - idx(b.contestantId);
+        const c = compareForLeaderboard(a.summary, b.summary);
+        if (c !== 0) return c;
+        return idx(a.contestantId) - idx(b.contestantId);
+      });
+  };
+
+  const rows: Row[] = slot ? rankRowsForSlot(slot) : [];
 
   // contestants still tied (auto-comparator can't separate them and no tie-break resolves them)
   const tiedIds = new Set<string>();
@@ -168,37 +181,16 @@ export default function Leaderboard() {
     if (slot) await removeDoc(`tiebreaks/${slotId(slot)}`);
   };
 
-  // Per-slot ranked rows (same ordering the board uses) — for the CSV export.
-  const rankedRows = (sl: Slot): Row[] => {
-    const t = tiebreaks.find((x) => x.category === sl.category && x.division === sl.division);
-    const raw = ((t?.resolution as { order?: string[] } | undefined)?.order) ?? [];
-    let order = raw;
-    if (t?.method === 'question') {
-      const scored = (t.contestantIds ?? []).map((cid) => ({ cid, m: tieBreakMean(sessions.filter((s) => s.enrollmentId === enrollmentId(cid, sl.category)), cfg) }));
-      order = scored.length === 0 || scored.some((x) => x.m == null) ? [] : [...scored].sort((a, b) => (b.m as number) - (a.m as number)).map((x) => x.cid);
-    }
-    const idx = (cid: string) => { const i = order.indexOf(cid); return i < 0 ? Number.POSITIVE_INFINITY : i; };
-    const ps = panels.find((p) => p.id === assignments.find((a) => a.category === sl.category && a.division === sl.division)?.panelId)?.judgeIds.length ?? 3;
-    return enrollments
-      .filter((e) => e.category === sl.category && e.division === sl.division)
-      .filter((e) => contestants.some((c) => c.id === e.contestantId))
-      .map((e) => ({ contestantId: e.contestantId, enrollmentId: e.id, name: contestants.find((c) => c.id === e.contestantId)?.fullName ?? '—', summary: enrollmentSummary(sessions.filter((s) => s.enrollmentId === e.id), cfg), panelSize: ps }))
-      .sort((a, b) => {
-        if (t?.method === 'override' && order.length) return idx(a.contestantId) - idx(b.contestantId);
-        const c = compareForLeaderboard(a.summary, b.summary);
-        if (c !== 0) return c;
-        return idx(a.contestantId) - idx(b.contestantId);
-      });
-  };
   const exportResults = () => {
-    const out: string[][] = [['Category', 'Division', 'Rank', 'Contestant', 'Score', 'Hifz %', 'Tajweed %', 'Judges', 'Status']];
+    const out: string[][] = [['Category', 'Division', 'Rank', 'Contestant', 'Score', 'Hifz %', 'Tajweed %', 'Finalized', 'Status']];
     for (const s of slots) {
-      rankedRows(s).forEach((r, i) => {
+      rankRowsForSlot(s).forEach((r, i) => {
+        const allFinal = r.panelSize > 0 && r.finalizedCount >= r.panelSize;
         out.push([
           catLabel(s.category), divLabel(s.division), String(i + 1), r.name,
           r.summary.score == null ? '' : r.summary.score.toFixed(1),
           String(Math.round(r.summary.hBar * 100)), String(Math.round(r.summary.tBar * 100)),
-          `${r.summary.startedCount}/${r.panelSize}`, r.summary.startedCount < r.panelSize ? 'Partial' : 'Complete',
+          `${r.finalizedCount}/${r.panelSize}`, allFinal ? 'Final' : r.summary.startedCount > 0 ? 'In progress' : 'Not started',
         ]);
       });
     }
@@ -219,7 +211,7 @@ export default function Leaderboard() {
       name: r.name,
       slotLabel: `${catLabel(slot.category)} · ${divLabel(slot.division)}`,
       minQuestions: structure.categories.find((c) => c.id === slot.category)?.minQuestions ?? 4,
-      meta: { position: 0, total: 0, panelName: panel.name, judgeIndex: panel.judgeIds.indexOf(jid) + 1, panelSize: panel.judgeIds.length },
+      meta: { position: 0, total: 0, panelName: panel.name, judgeIndex: panel.judgeIds.indexOf(jid) + 1, panelSize: panel.judgeIds.length, startedCount: r.summary.startedCount },
     });
   };
 
@@ -317,7 +309,14 @@ export default function Leaderboard() {
         const stillTied = tiedIds.has(r.contestantId);
         const tie = prev && compareForLeaderboard(prev.summary, r.summary) === 0 && stillTied;
         const rank = tie ? '—' : i + 1;
-        const partial = r.summary.startedCount < r.panelSize;
+        const allFinal = r.panelSize > 0 && r.finalizedCount >= r.panelSize;
+        const partial = !allFinal; // score is provisional until every judge has finalized
+        const statusText = allFinal
+          ? `${r.panelSize} / ${r.panelSize} ✓ FINAL`
+          : r.summary.startedCount > 0
+            ? `${r.finalizedCount} / ${r.panelSize} · in progress`
+            : `0 / ${r.panelSize} · not started`;
+        const statusColor = allFinal ? C.green : r.summary.startedCount > 0 ? C.brassDark : C.muted;
         const open = expandedId === r.contestantId;
         return (
           <div key={r.contestantId}>
@@ -333,8 +332,8 @@ export default function Leaderboard() {
               </span>
               <span style={{ textAlign: 'center', fontSize: 14, color: '#41504B' }}>{pct(r.summary.hBar)}</span>
               <span style={{ textAlign: 'center', fontSize: 14, color: '#41504B' }}>{pct(r.summary.tBar)}</span>
-              <span style={{ textAlign: 'center', fontSize: 12.5, fontWeight: 600, color: partial ? C.brassDark : C.green }}>
-                {r.summary.startedCount} / {r.panelSize}{partial ? ' · moving' : ' judges'}
+              <span style={{ textAlign: 'center', fontSize: 12.5, fontWeight: 600, color: statusColor }}>
+                {statusText}
               </span>
             </div>
             {open && (
@@ -360,8 +359,8 @@ export default function Leaderboard() {
           </div>
         );
       })}
-      {rows.some((r) => r.summary.startedCount < r.panelSize) && (
-        <div style={{ padding: '12px 26px', fontSize: 12, color: '#9A938A' }}><span style={{ color: '#B6AE9C' }}>*</span> Partial — averages only started sessions; still moving until all judges finish.</div>
+      {rows.some((r) => !(r.panelSize > 0 && r.finalizedCount >= r.panelSize)) && (
+        <div style={{ padding: '12px 26px', fontSize: 12, color: '#9A938A' }}><span style={{ color: '#B6AE9C' }}>*</span> Provisional — a live average of started sessions; not final until every judge has tapped Finish.</div>
       )}
 
       {editing && (

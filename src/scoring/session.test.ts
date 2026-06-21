@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { DEFAULT_SCORING_CONFIG as CFG } from './config';
 import type { Question, Session, QuestionEvent } from './types';
 import { componentMeans, sessionScore } from './session';
+import { questionScore } from './question';
 
 const ev = (type: QuestionEvent['type']): QuestionEvent => ({ type });
 function q(events: QuestionEvent[], extra: Partial<Question> = {}): Question {
@@ -21,13 +22,13 @@ describe('componentMeans', () => {
     expect(H).toBeCloseTo(0.95, 10);
   });
 
-  it('averages voice only over rated-or-DQ questions (unrated excluded)', () => {
+  it('counts unrated voice as 0, averaged over all primary questions', () => {
     const s = session([
       q([], { voice: 4 }),     // 0.8
-      q([], { voice: null }),  // excluded
+      q([], { voice: null }),  // unrated → 0
       q([], { voice: 2 }),     // 0.4
     ]);
-    expect(componentMeans(s, CFG).V).toBeCloseTo(0.6, 10); // (0.8 + 0.4) / 2
+    expect(componentMeans(s, CFG).V).toBeCloseTo(0.4, 10); // (0.8 + 0 + 0.4) / 3
   });
 
   it('counts a disqualified question as 0 in all three component means', () => {
@@ -65,5 +66,13 @@ describe('sessionScore', () => {
   it('reads 100 for a perfect, fully voice-rated session', () => {
     const perfect = session([q([], { voice: 5 }), q([], { voice: 5 })]);
     expect(sessionScore(perfect, CFG)).toBeCloseTo(100, 10);
+  });
+
+  // The B1 fix: the header/leaderboard score equals the mean of the per-question
+  // rail scores (both treat unrated voice as 0), so the two displays never disagree.
+  it('equals the mean of per-question rail scores (incl. an unrated-voice question)', () => {
+    const qs = [q([ev('prompted_fixed')], { voice: 4 }), q([], { voice: null }), q([ev('tajweed_minor')], { voice: 2 })];
+    const railMean = qs.reduce((a, x) => a + questionScore(x, CFG), 0) / qs.length;
+    expect(sessionScore(session(qs), CFG)).toBeCloseTo(railMean, 10);
   });
 });

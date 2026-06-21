@@ -425,12 +425,9 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
   );
 }
 
-function StepHeader({ n, title, desc }: { n?: number; title: string; desc: string }) {
+function StepHeader({ title, desc }: { title: string; desc: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 18 }}>
-      {n != null && (
-        <span style={{ width: 30, height: 30, borderRadius: '50%', background: C.green, color: '#fff', fontFamily: serif, fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{n}</span>
-      )}
       <h2 style={{ fontFamily: serif, fontWeight: 600, fontSize: 21, margin: 0, color: C.greenDeep }}>{title}</h2>
       <span style={{ fontSize: 13, color: C.muted }}>{desc}</span>
     </div>

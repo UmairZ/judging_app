@@ -23,12 +23,10 @@ export function componentMeans(session: Session, cfg: ScoringConfig): ComponentM
   const H = qs.reduce((a, q) => a + hifzFraction(q, cfg), 0) / qs.length;
   const T = qs.reduce((a, q) => a + tajweedFraction(q, cfg), 0) / qs.length;
 
-  const voiceFracs = qs
-    .map((q) => voiceFraction(q, cfg))
-    .filter((f): f is number => f != null);
-  const V = voiceFracs.length
-    ? voiceFracs.reduce((a, f) => a + f, 0) / voiceFracs.length
-    : 0;
+  // Unrated voice counts as 0 (same rule as questionScore), so the session score
+  // equals the mean of the per-question rail scores. Voice is required to finish
+  // (see GradingScreen), so a finalized session never carries an unrated question.
+  const V = qs.reduce((a, q) => a + (voiceFraction(q, cfg) ?? 0), 0) / qs.length;
 
   return { H, T, V };
 }

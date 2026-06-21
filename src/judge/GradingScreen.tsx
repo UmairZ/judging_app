@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { useDocData, useCollection, writeDoc, now, useSyncState } from '../data/db';
+import { useDocData, writeDoc, now, useSyncState } from '../data/db';
 import type { SessionDoc } from '../data/types';
+import { C, serif, pct } from '../ui/theme';
 import {
   DEFAULT_SCORING_CONFIG as CFG,
   sessionScore,
@@ -12,32 +13,6 @@ import {
   type Session,
   type DeductionEventType,
 } from '../scoring';
-
-/* ---- design tokens (from the Ibn Katheer design language) ---- */
-const C = {
-  ink: '#1C2926',
-  green: '#206560',
-  greenDeep: '#16413B',
-  greenPress: '#185049',
-  brass: '#B99644',
-  brassDark: '#9C7C34',
-  gold: '#DCB75E',
-  canvas: '#E3DDD0',
-  parchment: '#F4EFE4',
-  cream: '#FBF8F1',
-  line: '#EAE3D4',
-  cardLine: '#E6DEC9',
-  muted: '#8A938E',
-  sub: '#5C6661',
-  fail: '#C0563C',
-  failBg: '#FBEEEA',
-  failLine: '#E6CCC2',
-  pill: '#F6EFDA',
-  hifzBar: '#C99A3A',
-  tajBar: '#4E78AE',
-  voiceBar: '#5E9B86',
-};
-const serif = "'Spectral', serif";
 
 /* ---- the five deduction keys, grouped as in the design ---- */
 type KeyDef = { type: DeductionEventType; label: string; tag: string; tagColor: string; tagBg: string; desc: string };
@@ -56,14 +31,13 @@ function freshQuestion(index: number, isAdded = false): Question {
   return { index, events: [], voice: null, disqualified: false, isAdded, isTieBreak: false };
 }
 
-const pct = (f: number) => `${Math.round(f * 100)}%`;
-
-export default function GradingScreen({ contestant, enrollmentId, judgeId, minQuestions, meta, onEnd, tieBreak = false }: { contestant: { name: string; slotLabel: string }; enrollmentId: string; judgeId: string; minQuestions: number; meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number }; onEnd: () => void; tieBreak?: boolean }) {
+export default function GradingScreen({ contestant, enrollmentId, judgeId, minQuestions, meta, onEnd, tieBreak = false }: { contestant: { name: string; slotLabel: string }; enrollmentId: string; judgeId: string; minQuestions: number; meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number; startedCount: number }; onEnd: () => void; tieBreak?: boolean }) {
   const sessionId = `${enrollmentId}__${judgeId}`;
   const { data: sessionDoc, loading } = useDocData<SessionDoc>(`sessions/${sessionId}`);
   const sync = useSyncState(`sessions/${sessionId}`);
-  // How many panel judges have started this contestant (a session doc exists once a judge grades).
-  const startedCount = useCollection<SessionDoc>('sessions').filter((s) => s.enrollmentId === enrollmentId).length;
+  // How many panel judges have started this contestant — passed in by the parent, which
+  // already subscribes to the sessions collection (no extra listener here).
+  const startedCount = meta.startedCount;
   const [questions, setQuestions] = useState<Question[]>([]);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
@@ -71,6 +45,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const dirty = useRef(false);
   const [notes, setNotes] = useState('');
   const [locked, setLocked] = useState(false); // finalized → read-only until the judge reopens
+  const [voiceNudge, setVoiceNudge] = useState(false); // flashed when Finish is blocked on an unrated question
   const primaryRef = useRef<Question[]>([]); // tie-break mode: the untouched primary questions to merge back
 
   // Seed from the existing session doc. In tie-break mode we grade one isTieBreak
@@ -91,12 +66,27 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
     seeded.current = true;
   }, [loading, sessionDoc, minQuestions, tieBreak]);
 
-  // Persist on every real edit — lazy creation: the doc only appears once the judge grades.
+  // Single write path — lazy creation: the doc only appears once the judge grades.
+  const persist = (extra: Record<string, unknown> = {}) => {
+    const payloadQs = tieBreak ? [...primaryRef.current, ...questions] : questions;
+    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions: payloadQs, notes, updatedAt: now(), ...extra }, true);
+  };
+
+  // Question edits are discrete taps → persist immediately.
   useEffect(() => {
     if (!seeded.current || !dirty.current) return;
-    const payloadQs = tieBreak ? [...primaryRef.current, ...questions] : questions;
-    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions: payloadQs, notes, updatedAt: now() }, true);
-  }, [questions, notes, sessionId, enrollmentId, judgeId, tieBreak]);
+    persist();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questions, sessionId, enrollmentId, judgeId, tieBreak]);
+
+  // Notes is free text → debounce so typing doesn't fire a write per keystroke.
+  // (Save & exit / Finish flush the latest notes synchronously, so nothing is lost on exit.)
+  useEffect(() => {
+    if (!seeded.current || !dirty.current) return;
+    const t = setTimeout(() => persist(), 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes]);
 
   if (!questions.length) {
     return <div style={{ width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.parchment, color: C.muted, fontFamily: serif }}>Loading…</div>;
@@ -104,6 +94,10 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
 
   const session: Session = { enrollmentId, judgeId, questions };
   const aq = questions[active];
+  // Voice is required to finish: every non-disqualified question must have a rating.
+  const needsVoice = (q: Question) => !q.disqualified && q.voice == null;
+  const firstUnratedVoice = questions.findIndex(needsVoice);
+  const canFinish = firstUnratedVoice === -1;
   const counts = countEvents(aq);
   const score = tieBreak ? questionScore(aq, CFG) : sessionScore(session, CFG);
   const { H, T, V } = componentMeans(session, CFG);
@@ -145,7 +139,8 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
     setActive((a) => Math.min(Math.max(0, a > i ? a - 1 : a), Math.max(0, newLen - 1)));
   };
   const finalize = () => {
-    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions, notes, updatedAt: now(), finalizedAt: now() }, true);
+    if (!canFinish) { setActive(firstUnratedVoice); setVoiceNudge(true); return; }
+    persist({ finalizedAt: now() });
     onEnd();
   };
   const reopen = () => {
@@ -154,7 +149,8 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
     void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, finalizedAt: null, updatedAt: now() }, true);
   };
   const submitTieBreak = () => {
-    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions: [...primaryRef.current, ...questions], notes, updatedAt: now() }, true);
+    if (!canFinish) { setActive(firstUnratedVoice); setVoiceNudge(true); return; }
+    persist();
     onEnd();
   };
 
@@ -213,7 +209,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
               </>
             ) : (
               <>
-                <span onClick={onEnd} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>{locked ? 'Back to queue' : 'Save & exit'}</span>
+                <span onClick={() => { if (!locked && dirty.current) persist(); onEnd(); }} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>{locked ? 'Back to queue' : 'Save & exit'}</span>
                 <span onClick={locked ? reopen : finalize} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#06211C', background: C.gold, padding: '11px 18px', borderRadius: 5 }}>{locked ? 'Reopen to edit' : 'Finish'}</span>
               </>
             )}
@@ -223,6 +219,12 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
         {locked && (
           <div style={{ flex: 'none', padding: '9px 30px', background: C.pill, color: C.brassDark, fontSize: 13, fontWeight: 600, borderBottom: `1px solid ${C.line}` }}>
             ✓ This session is graded &amp; locked — scores are read-only. Tap “Reopen to edit” to change anything.
+          </div>
+        )}
+
+        {voiceNudge && !canFinish && !locked && (
+          <div style={{ flex: 'none', padding: '9px 30px', background: C.failBg, color: C.fail, fontSize: 13, fontWeight: 600, borderBottom: `1px solid ${C.failLine}` }}>
+            Rate voice on every question before finishing — jumped you to the next unrated one.
           </div>
         )}
 
@@ -242,7 +244,10 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
                 return (
                   <div key={i} onClick={() => setActive(i)} style={{ cursor: 'pointer', borderRadius: 8, padding: '11px 13px', border: `1.5px solid ${isActive ? C.brass : q.disqualified ? C.failLine : C.line}`, background: isActive ? '#FCF7E9' : q.disqualified ? C.failBg : '#fff' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <span style={{ fontSize: 13.5, fontWeight: 600, color: isActive ? C.ink : q.disqualified ? '#9A6A5C' : '#41504B' }}>Question {i + 1}{q.isAdded ? ' +' : ''}</span>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: isActive ? C.ink : q.disqualified ? '#9A6A5C' : '#41504B' }}>
+                        Question {i + 1}{q.isAdded ? ' +' : ''}
+                        {needsVoice(q) && !locked && <span title="Voice not rated yet" style={{ color: C.fail, marginLeft: 6, fontSize: 15, lineHeight: 1 }}>•</span>}
+                      </span>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {q.isAdded && !locked && (
                           <button onClick={(e) => { e.stopPropagation(); removeQuestion(i); }} title="Remove question" style={{ fontSize: 15, lineHeight: 1, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>×</button>
@@ -294,6 +299,9 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
                 <div style={{ flex: 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                     <span style={{ fontSize: 16, fontWeight: 600, color: C.ink }}>Voice &amp; delivery</span>
+                    {aq.voice == null && !aq.disqualified && (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: C.fail, background: C.failBg, padding: '2px 9px', borderRadius: 999 }}>not rated</span>
+                    )}
                   </div>
                   <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>rate as you go · 0–{CFG.voice_max}</div>
                 </div>

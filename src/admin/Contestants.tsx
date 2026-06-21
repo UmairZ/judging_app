@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useCollection, useDocData, writeDoc, removeDoc } from '../data/db';
 import type { ContestantDoc, EnrollmentDoc, SessionDoc } from '../data/types';
@@ -76,6 +76,13 @@ export default function Contestants() {
 
   const selected = contestants.find((c) => c.id === selectedId) ?? null;
 
+  // Enrollment count per contestant, computed once instead of an O(C·E) filter per row.
+  const enrCountById = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of enrollments) m.set(e.contestantId, (m.get(e.contestantId) ?? 0) + 1);
+    return m;
+  }, [enrollments]);
+
   // seed edit state whenever selection changes
   useEffect(() => {
     if (!selected) {
@@ -116,7 +123,6 @@ export default function Contestants() {
       await uploadBytes(sRef, file);
       const url = await getDownloadURL(sRef);
       setEdit((prev) => prev ? { ...prev, photoUrl: url } : prev);
-      setPhotoNote(null);
     } catch {
       setPhotoNote('Photo upload failed — Storage may not be configured in this environment.');
     } finally {
@@ -250,7 +256,7 @@ export default function Contestants() {
         )}
 
         {contestants.map((c) => {
-          const enrCount = enrollments.filter((e) => e.contestantId === c.id).length;
+          const enrCount = enrCountById.get(c.id) ?? 0;
           const isSelected = c.id === selectedId;
           return (
             <button
