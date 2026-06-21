@@ -1,14 +1,14 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useCollection, useDocData } from '../data/db';
-import type { JudgeDoc, PanelDoc, AssignmentDoc, TiebreakDoc, SessionDoc, ContestantDoc } from '../data/types';
+import type { JudgeDoc, PanelDoc, AssignmentDoc, TiebreakDoc, SessionDoc, ContestantDoc, EnrollmentDoc } from '../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, type StructureConfig } from '../domain/structure';
 import { enrollmentId } from '../domain/ids';
 import { C, serif } from '../ui/theme';
 import WelcomeScreen from './WelcomeScreen';
 import Dashboard, { type TieBreakItem } from './Dashboard';
 import GradingScreen from './GradingScreen';
-import { useJudgeQueue, type JudgeQueueItem } from './useJudgeQueue';
+import { buildJudgeQueue, type JudgeQueueItem } from './useJudgeQueue';
 
 export default function JudgeApp() {
   const { user, signInAdmin } = useAuth();
@@ -18,14 +18,21 @@ export default function JudgeApp() {
   const [tbTarget, setTbTarget] = useState<TieBreakItem | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
 
-  const items = useJudgeQueue(judgeId);
   const judges = useCollection<JudgeDoc>('judges');
   const panels = useCollection<PanelDoc>('panels');
   const assignments = useCollection<AssignmentDoc>('assignments');
   const tiebreaks = useCollection<TiebreakDoc>('tiebreaks');
   const sessions = useCollection<SessionDoc>('sessions');
   const contestants = useCollection<ContestantDoc>('contestants');
+  const enrollments = useCollection<EnrollmentDoc>('enrollments');
   const structure = useDocData<StructureConfig>('config/structure').data ?? DEFAULT_STRUCTURE_CONFIG;
+
+  // Single source for the queue — collections are subscribed once here, not again inside the hook.
+  const items = useMemo(
+    () => buildJudgeQueue(judgeId, { panels, assignments, enrollments, contestants, sessions, structure }),
+    [judgeId, panels, assignments, enrollments, contestants, sessions, structure],
+  );
+  const startedCountFor = (enr: string) => sessions.filter((s) => s.enrollmentId === enr).length;
 
   const judgeName = judges.find((j) => j.id === judgeId)?.name ?? 'Judge';
   const myPanel = panels.find((p) => p.judgeIds.includes(judgeId));
@@ -64,7 +71,7 @@ export default function JudgeApp() {
     content = <WelcomeScreen name={judgeName} subtitle={subtitle} onStart={() => setScreen('dashboard')} />;
   } else if (screen === 'grading' && selected) {
     const minQuestions = structure.categories.find((c) => c.id === selected.category)?.minQuestions ?? 4;
-    const meta = { position: items.findIndex((i) => i.enrollmentId === selected.enrollmentId) + 1, total: items.length, ...panelMeta };
+    const meta = { position: items.findIndex((i) => i.enrollmentId === selected.enrollmentId) + 1, total: items.length, ...panelMeta, startedCount: startedCountFor(selected.enrollmentId) };
     content = (
       <GradingScreen
         contestant={{ name: selected.name, slotLabel: selected.slotLabel }}
@@ -82,7 +89,7 @@ export default function JudgeApp() {
         enrollmentId={tbTarget.enrollmentId}
         judgeId={judgeId}
         minQuestions={1}
-        meta={{ position: 0, total: 0, ...panelMeta }}
+        meta={{ position: 0, total: 0, ...panelMeta, startedCount: startedCountFor(tbTarget.enrollmentId) }}
         tieBreak
         onEnd={() => setScreen('dashboard')}
       />

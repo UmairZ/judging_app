@@ -32,6 +32,12 @@ export const zeffyWebhook = onRequest({ region: 'us-central1', invoker: 'public'
     return;
   }
 
+  // Only act on completed payments — refunds/failures/other event types are no-ops (200, ignored).
+  if (payload?.type !== 'payment.completed') {
+    res.status(200).json({ ok: true, ignored: true });
+    return;
+  }
+
   // The competition filter is admin-editable in-app at config/zeffy.eventTitle.
   const cfg = await db.doc('config/zeffy').get();
   const expectedEventTitle = typeof cfg.data()?.eventTitle === 'string' ? (cfg.data()!.eventTitle as string) : '';
@@ -61,7 +67,13 @@ export const zeffyWebhook = onRequest({ region: 'us-central1', invoker: 'public'
       }
     });
     res.status(200).json({ ok: true, processed: result.processed });
-  } catch {
+  } catch (err) {
+    console.error('zeffyWebhook', err);
+    // A deterministic bad-payload error won't succeed on retry → 400 so Zeffy stops retrying.
+    if (err instanceof Error && err.message === 'invalid registration id') {
+      res.status(400).send('bad request');
+      return;
+    }
     res.status(500).send('error');
   }
 });
