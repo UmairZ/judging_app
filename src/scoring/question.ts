@@ -46,7 +46,7 @@ export function tajweedFraction(q: Question, cfg: ScoringConfig): number {
   return tajweedQuestionScore(q, cfg) / cfg.tajweed_base;
 }
 
-/** null = excluded from the voice mean (unrated, non-DQ). 0 when disqualified. */
+/** null = unrated, non-DQ (callers count it as 0). 0 when disqualified. */
 export function voiceFraction(q: Question, cfg: ScoringConfig): number | null {
   if (q.disqualified) return 0;
   if (q.voice == null) return null;
