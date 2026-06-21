@@ -68,6 +68,12 @@ describe('sessions — one writer per doc', () => {
     });
     await assertFails(updateDoc(doc(judge('judgeA'), 'sessions/s5'), { judgeId: 'judgeB' }));
   });
+
+  it("an admin can create and update any judge's session (correct-marks feature)", async () => {
+    const db = admin();
+    await assertSucceeds(setDoc(doc(db, 'sessions/s6'), { judgeId: 'judgeA', enrollmentId: 'e1', questions: [] }));
+    await assertSucceeds(updateDoc(doc(db, 'sessions/s6'), { finalizedAt: 'now' }));
+  });
 });
 
 describe('admin-only collections', () => {
