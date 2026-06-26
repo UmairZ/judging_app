@@ -74,7 +74,9 @@ export default function Projector() {
 
   // ── derived display values ──────────────────────────────────────────────────
 
-  const [first, second, third, ...rest] = rows;
+  // Projector shows the top 5 only: gold podium (1–3) + at most 2 more below.
+  const [first, second, third, ...others] = rows;
+  const rest = others.slice(0, 2);
 
   // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -191,7 +193,7 @@ export default function Projector() {
             Standings
           </div>
           <div style={{ fontSize: 13, color: TEXT_DIM }}>
-            {rows.length} contestant{rows.length !== 1 ? 's' : ''}
+            {rows.length === 0 ? 'No contestants' : `Top ${Math.min(5, rows.length)}`}
           </div>
         </div>
       </div>
