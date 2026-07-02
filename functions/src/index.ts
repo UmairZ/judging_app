@@ -194,15 +194,7 @@ export const mintJudgeToken = onCall(CALLABLE, async (req) => {
   const base = `orgs/${orgId}/competitions/${compId}`;
   const seat = await db.doc(`${base}/judges/${judgeId}`).get();
   if (!seat.exists) throw new HttpsError('not-found', 'unknown judge seat');
-
-  // Provisioning claims the seat: outstanding invitations for it are stale — delete them
-  // so an old link can't later re-bind the seat to a different device.
-  const stale = await db.collection(`${base}/joinCodes`).where('judgeId', '==', judgeId).get();
-  if (!stale.empty) {
-    const cleanup = db.batch();
-    stale.docs.forEach((d) => cleanup.delete(d.ref));
-    await cleanup.commit();
-  }
+  const previousUid = seat.data()?.uid;
 
   let deviceUid: string;
   try {
@@ -210,8 +202,28 @@ export const mintJudgeToken = onCall(CALLABLE, async (req) => {
   } catch {
     throw new HttpsError('invalid-argument', 'ids invalid for a device uid');
   }
-  await db.doc(`${base}/members/${deviceUid}`).set({ role: 'judge', judgeId });
-  await db.doc(`${base}/judges/${judgeId}`).set({ uid: deviceUid }, { merge: true });
+
+  // Provisioning claims the seat: outstanding invitations for it are stale — delete them
+  // so an old link can't later re-bind the seat to a different device.
+  const stale = await db.collection(`${base}/joinCodes`).where('judgeId', '==', judgeId).get();
+
+  // Provisioning claims the seat exclusively: evict the previous holder's membership and codes
+  // so a ghost device can't keep scoring as this judge.
+  const evictPrevious = typeof previousUid === 'string' && previousUid && previousUid !== deviceUid;
+  const previousRedeemed = evictPrevious
+    ? await db.collection(`${base}/joinCodes`).where('redeemedBy', '==', previousUid).get()
+    : null;
+
+  const batch = db.batch();
+  if (evictPrevious) batch.delete(db.doc(`${base}/members/${previousUid}`));
+  const codeRefs = new Map<string, FirebaseFirestore.DocumentReference>();
+  stale.docs.forEach((d) => codeRefs.set(d.ref.path, d.ref));
+  previousRedeemed?.docs.forEach((d) => codeRefs.set(d.ref.path, d.ref));
+  codeRefs.forEach((ref) => batch.delete(ref));
+  batch.set(db.doc(`${base}/members/${deviceUid}`), { role: 'judge', judgeId });
+  batch.set(db.doc(`${base}/judges/${judgeId}`), { uid: deviceUid }, { merge: true });
+  await batch.commit();
+
   const token = await getAuth().createCustomToken(deviceUid);
   return { token };
 });
