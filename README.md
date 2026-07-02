@@ -88,7 +88,7 @@ npx firebase deploy            # hosting + functions + rules
    npx firebase use --add              # select your project
    npm --prefix functions install
    npm install
-   npx firebase deploy                 # deploys hosting, functions, and Firestore rules
+   npx firebase deploy                 # deploys hosting, functions, and Firestore + Storage rules
    ```
 
 4. **Use the app:**
@@ -100,7 +100,7 @@ npx firebase deploy            # hosting + functions + rules
 **Optional hardening (App Check):**
 For production, set up reCAPTCHA v3 protection:
 - Create a reCAPTCHA v3 key in your reCAPTCHA admin console
-- Set `VITE_APPCHECK_SITE_KEY` at build time (e.g., `npm run build -- --env.VITE_APPCHECK_SITE_KEY=your_key`)
+- Set `VITE_APPCHECK_SITE_KEY` at build time: create a `.env.production` file in the repo root containing `VITE_APPCHECK_SITE_KEY=your_key` (Vite picks it up automatically), then `npm run build`
 - In `functions/.env`, set `ENFORCE_APP_CHECK=true`
 - Enable App Check enforcement in your Firebase console
 
