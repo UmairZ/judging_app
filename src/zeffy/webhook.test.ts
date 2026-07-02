@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { verifyZeffyRequest, handleZeffyWebhook, type RegistrationWriter } from './webhook';
+import { verifyZeffyRequest, handleZeffyWebhook, tenantFromWebhookPath, type RegistrationWriter } from './webhook';
 import { PAYLOAD_THREE_CATS } from './__fixtures__/payloads';
 import type { RegistrationDoc } from '../data/types';
 
@@ -19,6 +19,19 @@ describe('verifyZeffyRequest', () => {
   it('rejects a payload for a different competition', () => {
     expect(verifyZeffyRequest({ token: 'secret-123', eventTitle: 'Some Other Fundraiser' }, EXPECTED)).toBe(false);
     expect(verifyZeffyRequest({ token: 'secret-123', eventTitle: '' }, EXPECTED)).toBe(false);
+  });
+});
+
+describe('tenantFromWebhookPath', () => {
+  it('takes the trailing two segments (hosting rewrite and direct function URL)', () => {
+    expect(tenantFromWebhookPath('/zeffy/demo/2026')).toEqual({ orgId: 'demo', compId: '2026' });
+    expect(tenantFromWebhookPath('/zeffyWebhook/demo/2026')).toEqual({ orgId: 'demo', compId: '2026' });
+    expect(tenantFromWebhookPath('/demo/2026/')).toEqual({ orgId: 'demo', compId: '2026' });
+  });
+  it('rejects missing or unsafe segments', () => {
+    expect(tenantFromWebhookPath('/zeffy')).toBeNull();
+    expect(tenantFromWebhookPath('/')).toBeNull();
+    expect(tenantFromWebhookPath('/zeffy/de mo/2026')).toBeNull();
   });
 });
 

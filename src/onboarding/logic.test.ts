@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { JOIN_CODE_RE, generateJoinCode, slugifyOrgId, validateIds, provisionedUid, validateRedeem } from './logic';
+import { JOIN_CODE_RE, generateJoinCode, generateWebhookToken, slugifyOrgId, validateIds, provisionedUid, validateRedeem } from './logic';
 
 describe('generateJoinCode', () => {
   it('produces 8 chars from the unambiguous alphabet', () => {
@@ -8,6 +8,12 @@ describe('generateJoinCode', () => {
   it('does not repeat across a small sample', () => {
     const s = new Set(Array.from({ length: 50 }, generateJoinCode));
     expect(s.size).toBe(50);
+  });
+});
+
+describe('generateWebhookToken', () => {
+  it('produces 24 chars from the join-code alphabet', () => {
+    for (let i = 0; i < 20; i++) expect(generateWebhookToken()).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{24}$/);
   });
 });
 

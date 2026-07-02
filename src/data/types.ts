@@ -25,7 +25,7 @@ export interface AssignmentDoc {
 }
 
 export interface RegistrationDoc {
-  source: 'zeffy' | 'manual';
+  source: 'zeffy' | 'manual' | 'csv';
   zeffyPaymentId: string | null;
   zeffyItemId: string | null;
   kind: 'ticket' | 'donation' | 'other';
