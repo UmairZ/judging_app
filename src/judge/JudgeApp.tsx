@@ -13,7 +13,7 @@ import GradingScreen from './GradingScreen';
 import { buildJudgeQueue, type JudgeQueueItem } from './useJudgeQueue';
 
 export default function JudgeApp() {
-  const { signInAdmin } = useAuth();
+  const { signInEmail } = useAuth();
   const { judgeId: memberJudgeId } = useMembership();
   const judgeId = memberJudgeId ?? '';
   const { tp } = useTenant();
@@ -121,12 +121,12 @@ export default function JudgeApp() {
         title="Hold to switch to admin"
         style={{ position: 'fixed', top: 0, left: 0, width: 64, height: 64, zIndex: 60 }}
       />
-      {adminOpen && <AdminReentry onClose={() => setAdminOpen(false)} signInAdmin={signInAdmin} />}
+      {adminOpen && <AdminReentry onClose={() => setAdminOpen(false)} signInEmail={signInEmail} />}
     </>
   );
 }
 
-function AdminReentry({ onClose, signInAdmin }: { onClose: () => void; signInAdmin: (email: string, password: string) => Promise<unknown> }) {
+function AdminReentry({ onClose, signInEmail }: { onClose: () => void; signInEmail: (email: string, password: string) => Promise<unknown> }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -137,7 +137,7 @@ function AdminReentry({ onClose, signInAdmin }: { onClose: () => void; signInAdm
     setBusy(true);
     setError('');
     try {
-      await signInAdmin(email, password); // success → auth switches, App re-routes to AdminApp
+      await signInEmail(email, password); // success → auth switches, App re-routes to AdminApp
     } catch {
       setError('Sign-in failed — check the admin email and password.');
       setBusy(false);
