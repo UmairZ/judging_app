@@ -96,6 +96,10 @@ async function requireOrgStaff(uid: string, orgId: string): Promise<void> {
 // Create an org + owner membership + dashboard mirror, atomically. Fails if the id is taken.
 export const createOrg = onCall(REGION, async (req) => {
   const uid = requireAuth(req);
+  // Anonymous accounts are for join codes; org creation needs a real account (App Check lands later).
+  if ((req.auth?.token as { firebase?: { sign_in_provider?: string } })?.firebase?.sign_in_provider === 'anonymous') {
+    throw new HttpsError('permission-denied', 'create an account (email or Google) to start an organization');
+  }
   const { orgId, name } = (req.data ?? {}) as { orgId?: unknown; name?: unknown };
   if (typeof orgId !== 'string' || typeof name !== 'string' || !validateIds(orgId) || !name.trim()) {
     throw new HttpsError('invalid-argument', 'invalid org id or name');
@@ -152,9 +156,12 @@ export const redeemJoinCode = onCall(REGION, async (req) => {
   try {
     const result = await db.runTransaction(async (tx) => {
       const codeRef = db.doc(`${base}/joinCodes/${code}`);
+      const memberRef = db.doc(`${base}/members/${uid}`);
       const snap = await tx.get(codeRef);
+      const existingMember = await tx.get(memberRef);
+      if (existingMember.exists) throw new Error('already-member');
       const grant = validateRedeem(snap.exists ? (snap.data() as { role: string; judgeId?: string; redeemedBy: string | null }) : null);
-      tx.set(db.doc(`${base}/members/${uid}`), grant.role === 'judge' ? { role: 'judge', judgeId: grant.judgeId } : { role: 'display' });
+      tx.set(memberRef, grant.role === 'judge' ? { role: 'judge', judgeId: grant.judgeId } : { role: 'display' });
       if (grant.judgeId) tx.set(db.doc(`${base}/judges/${grant.judgeId}`), { uid }, { merge: true });
       tx.update(codeRef, { redeemedBy: uid, redeemedAt: FieldValue.serverTimestamp() });
       return grant;
@@ -165,6 +172,7 @@ export const redeemJoinCode = onCall(REGION, async (req) => {
     if (msg === 'not-found') throw new HttpsError('not-found', 'code not recognized');
     if (msg === 'already-redeemed') throw new HttpsError('failed-precondition', 'code already used');
     if (msg === 'corrupt-code') throw new HttpsError('failed-precondition', 'code is invalid');
+    if (msg === 'already-member') throw new HttpsError('failed-precondition', 'this device already has a role in this competition');
     throw err;
   }
 });
@@ -185,7 +193,7 @@ export const mintJudgeToken = onCall(REGION, async (req) => {
   try {
     deviceUid = provisionedUid(orgId, compId, judgeId);
   } catch {
-    throw new HttpsError('invalid-argument', 'ids too long for a device uid');
+    throw new HttpsError('invalid-argument', 'ids invalid for a device uid');
   }
   await db.doc(`${base}/members/${deviceUid}`).set({ role: 'judge', judgeId });
   await db.doc(`${base}/judges/${judgeId}`).set({ uid: deviceUid }, { merge: true });

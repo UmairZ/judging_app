@@ -34,6 +34,10 @@ describe('validateIds / provisionedUid', () => {
   it('throws when the uid would exceed 128 chars', () => {
     expect(() => provisionedUid('a'.repeat(60), 'b'.repeat(60), 'c'.repeat(20))).toThrow('uid too long');
   });
+  it('rejects components containing the __ separator (injective encoding)', () => {
+    expect(() => provisionedUid('a', 'b', 'c__d')).toThrow('ids may not contain __');
+    expect(() => provisionedUid('a__b', 'c', 'd')).toThrow('ids may not contain __');
+  });
 });
 
 describe('validateRedeem', () => {
