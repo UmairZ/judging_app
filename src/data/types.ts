@@ -3,6 +3,14 @@ import type { Question } from '../scoring';
 export interface JudgeDoc {
   name: string;
   active: boolean;
+  uid?: string; // set when a device/person claims this seat (join code or provisioning)
+}
+
+export interface JoinCodeDoc {
+  role: 'judge' | 'display';
+  judgeId?: string;
+  redeemedBy: string | null;
+  createdAt: unknown;
 }
 
 export interface PanelDoc {

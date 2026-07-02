@@ -23,24 +23,32 @@ Dev runs against the local Firebase **emulator suite** (`.env.development` sets
 npm install
 (cd functions && npm install)
 
-# 1. start the emulators (functions, firestore, auth, storage)
-npx firebase emulators:start --only functions,firestore,auth,storage
+# 1. build functions (the emulator runs compiled output, not TS source)
+npm --prefix functions run build
 
-# 2. seed fake contest data (in another shell)
+# 2. start the emulators (firestore, auth, functions)
+npx firebase emulators:start --only firestore,auth,functions
+
+# 3. seed fake contest data (in another shell)
 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 \
 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 \
 GCLOUD_PROJECT=ibn-katheer-judging-bc25d \
   node functions/seed.mjs
 
-# 3. run the app
+# 4. run the app
 npm run dev
 ```
 
-Open `http://localhost:5173/demo/2026` (not the bare root — the bare root now
-shows a "No competition selected" screen, since the app is served at
-`/{orgId}/{compId}`). Seeded logins (emulator only): admin
-`admin@ibnkatheer.local` / `admin123`; the sign-in screen also has a dev
-"Sign in as a judge (j1)" shortcut (`j1@judge.local` / `judge123`).
+Sign up at `/` (Google or email) to land on your org dashboard, where you can
+create an org and a competition. Existing tenants are reached by join links
+of the form `/{org}/{comp}/join/{CODE}`.
+
+The seed script provisions tenant `demo/2026` with an admin
+(`admin@ibnkatheer.local` / `admin123`) and two demo join codes: `JUDGE234`
+(judge seat "Ustadha Zaynab") and `SCREEN22` (display/projector). Open
+`http://localhost:5173/demo/2026/join/JUDGE234` or `.../join/SCREEN22` to
+redeem them. Custom claims are fully retired — all authorization is via
+Firestore member docs (`orgs/{org}/members`, `orgs/{org}/competitions/{comp}/members`).
 
 ## Testing
 
@@ -79,7 +87,7 @@ src/
   domain/    structure config, slot generation, id helpers
   data/      Firestore hooks (useCollection/useDocData), writeDoc, sync state
   firebase/  client init (emulator vs prod)
-  auth/      AuthContext + claim helpers (admin / judge roles)
+  auth/      AuthContext + membership helpers (admin / judge / display roles)
   admin/     admin screens (leaderboard, structure, panels, scoring, …)
   judge/     judge dashboard + grading screen + tie-break flow
   zeffy/     webhook payload parsing
