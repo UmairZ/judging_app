@@ -2,35 +2,78 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() { return request.auth != null; }
-    function isAdmin() { return request.auth != null && request.auth.token.admin == true; }
 
-    // Admin-only collections; signed-in users may read (judges need config/contestants/etc).
-    match /config/{doc}      { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /judges/{id}       { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /panels/{id}       { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /assignments/{id}  { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /contestants/{id}  { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /enrollments/{id}  { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /tiebreaks/{id}    { allow read: if isSignedIn(); allow write: if isAdmin(); }
-
-    // Immutable master: admin may create; no one updates or deletes via client.
-    match /registrations/{id} {
-      allow read: if isAdmin();
-      allow create: if isAdmin();
-      allow update, delete: if false;
+    // Org staff: an org member doc with role owner|admin. One get() per request (deduped by Firestore).
+    function isOrgStaff(orgId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role in ['owner', 'admin'];
     }
 
-    // A judge writes only their own session (uid == judgeId); the admin may write any
-    // (the leaderboard's "Edit to correct a judge's marks" feature).
-    // ponytail: enforces the per-judge invariant. Slot-assignment check (panel covers
-    // enrollment) omitted — add a get() chain only if writing an unassigned session is a real risk.
-    match /sessions/{id} {
-      allow read: if isSignedIn();
-      allow create: if isAdmin() || (isSignedIn() && request.resource.data.judgeId == request.auth.uid);
-      allow update: if isAdmin() || (isSignedIn()
-                    && resource.data.judgeId == request.auth.uid
-                    && request.resource.data.judgeId == request.auth.uid);
-      allow delete: if false;
+    // Competition member: judge or display seat holder for this specific competition.
+    function isCompMember(orgId, compId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/orgs/$(orgId)/competitions/$(compId)/members/$(request.auth.uid));
+    }
+    function compMember(orgId, compId) {
+      return get(/databases/$(database)/documents/orgs/$(orgId)/competitions/$(compId)/members/$(request.auth.uid)).data;
+    }
+
+    // What judges can read, staff can also read.
+    function canReadComp(orgId, compId) {
+      return isOrgStaff(orgId) || isCompMember(orgId, compId);
+    }
+
+    match /orgs/{orgId} {
+      // Org docs are staff-only; creation flows land in Phase 2 (onboarding).
+      allow read: if isOrgStaff(orgId);
+      allow write: if false;
+
+      match /members/{uid} {
+        allow read: if isSignedIn() && (request.auth.uid == uid || isOrgStaff(orgId));
+        allow write: if false; // Phase 2: onboarding functions manage membership
+      }
+
+      match /competitions/{compId} {
+        allow read: if canReadComp(orgId, compId);
+        allow write: if false; // Phase 2: create-competition flow
+
+        match /members/{uid} {
+          allow read: if isSignedIn() && (request.auth.uid == uid || isOrgStaff(orgId));
+          allow write: if false; // Phase 2: join codes / device provisioning via functions
+        }
+
+        // Staff-write collections; competition members may read (judges need config/contestants/etc).
+        match /config/{doc}      { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
+        match /judges/{id}       { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
+        match /panels/{id}       { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
+        match /assignments/{id}  { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
+        match /contestants/{id}  { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
+        match /enrollments/{id}  { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
+        match /tiebreaks/{id}    { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
+
+        // Immutable master: staff may create; no one updates or deletes via client.
+        match /registrations/{id} {
+          allow read: if isOrgStaff(orgId);
+          allow create: if isOrgStaff(orgId);
+          allow update, delete: if false;
+        }
+
+        // A judge writes only sessions bound to their seat (member doc judgeId, NOT auth uid);
+        // staff may write any (the leaderboard's "Edit to correct a judge's marks" feature).
+        // ponytail: slot-assignment check (panel covers enrollment) still omitted, as before.
+        match /sessions/{id} {
+          allow read: if canReadComp(orgId, compId);
+          allow create: if isOrgStaff(orgId) || (isCompMember(orgId, compId)
+                        && compMember(orgId, compId).role == 'judge'
+                        && request.resource.data.judgeId == compMember(orgId, compId).judgeId);
+          allow update: if isOrgStaff(orgId) || (isCompMember(orgId, compId)
+                        && compMember(orgId, compId).role == 'judge'
+                        && resource.data.judgeId == compMember(orgId, compId).judgeId
+                        && request.resource.data.judgeId == compMember(orgId, compId).judgeId);
+          allow delete: if false;
+        }
+      }
     }
   }
 }
