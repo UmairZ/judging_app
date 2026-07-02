@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useDocData, writeDoc } from '../data/db';
+import { useTenant } from '../tenant/TenantContext';
 import {
   DEFAULT_SCORING_CONFIG,
   weightsSum,
@@ -71,7 +72,8 @@ function NumStepper({
 // ─── main component ──────────────────────────────────────────────────────────
 
 export default function ScoringConfig() {
-  const { data, loading } = useDocData<ScoringConfig>('config/scoring');
+  const { tp } = useTenant();
+  const { data, loading } = useDocData<ScoringConfig>(tp('config/scoring'));
   const [edited, setEdited] = useState<ScoringConfig>(DEFAULT_SCORING_CONFIG);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -107,7 +109,7 @@ export default function ScoringConfig() {
   async function handleSave() {
     if (!valid || saving) return;
     setSaving(true);
-    await writeDoc('config/scoring', edited, false);
+    await writeDoc(tp('config/scoring'), edited, false);
     setSaving(false);
     setSaved(true);
   }

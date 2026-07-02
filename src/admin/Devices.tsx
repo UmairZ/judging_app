@@ -2,14 +2,16 @@ import { useState } from 'react';
 import { signInWithCustomToken } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useCollection } from '../data/db';
+import { useTenant } from '../tenant/TenantContext';
 import type { JudgeDoc, PanelDoc, AssignmentDoc } from '../data/types';
 import { app, auth } from '../firebase/app';
 import { C, serif, initials } from '../ui/theme';
 
 export default function Devices() {
-  const judges = [...useCollection<JudgeDoc>('judges')].sort((a, b) => a.name.localeCompare(b.name));
-  const panels = useCollection<PanelDoc>('panels');
-  const assignments = useCollection<AssignmentDoc>('assignments');
+  const { tp } = useTenant();
+  const judges = [...useCollection<JudgeDoc>(tp('judges'))].sort((a, b) => a.name.localeCompare(b.name));
+  const panels = useCollection<PanelDoc>(tp('panels'));
+  const assignments = useCollection<AssignmentDoc>(tp('assignments'));
 
   const [selectedJudgeId, setSelectedJudgeId] = useState<string | null>(null);
   const [provisioning, setProvisioning] = useState(false);

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useCollection, useDocData, writeDoc } from '../data/db';
+import { useTenant } from '../tenant/TenantContext';
 import type { RegistrationDoc, ContestantDoc } from '../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, defaultDivisionForCategory, type StructureConfig, type Category } from '../domain/structure';
 import { enrollmentId } from '../domain/ids';
@@ -392,9 +393,10 @@ function PromoteDrawer({ state, structure, onClose, onChange, onSubmit }: Drawer
 // ---------------------------------------------------------------------------
 
 export default function Registrations() {
-  const registrations = useCollection<RegistrationDoc>('registrations');
-  const contestants = useCollection<ContestantDoc>('contestants');
-  const structure = useDocData<StructureConfig>('config/structure').data ?? DEFAULT_STRUCTURE_CONFIG;
+  const { tp } = useTenant();
+  const registrations = useCollection<RegistrationDoc>(tp('registrations'));
+  const contestants = useCollection<ContestantDoc>(tp('contestants'));
+  const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
 
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
   const [busy, setBusy] = useState(false);
@@ -402,12 +404,12 @@ export default function Registrations() {
   const [flash, setFlash] = useState<string | null>(null);
 
   // Zeffy event-title filter (admin-editable; the webhook reads config/zeffy.eventTitle).
-  const zeffyCfg = useDocData<{ eventTitle?: string }>('config/zeffy');
+  const zeffyCfg = useDocData<{ eventTitle?: string }>(tp('config/zeffy'));
   const [zeffyTitle, setZeffyTitle] = useState<string | null>(null); // null until edited → never clobbers live value
   const [zeffySaved, setZeffySaved] = useState(false);
   const zeffyValue = zeffyTitle ?? zeffyCfg.data?.eventTitle ?? '';
   const zeffyDirty = zeffyTitle !== null && zeffyTitle.trim() !== (zeffyCfg.data?.eventTitle ?? '').trim();
-  const saveZeffy = async () => { await writeDoc('config/zeffy', { eventTitle: zeffyValue.trim() }); setZeffySaved(true); };
+  const saveZeffy = async () => { await writeDoc(tp('config/zeffy'), { eventTitle: zeffyValue.trim() }); setZeffySaved(true); };
 
   const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
 
@@ -459,7 +461,7 @@ export default function Registrations() {
         .filter((p) => p.division);
 
       // 1. Write contestant doc
-      await writeDoc(`contestants/${cid}`, {
+      await writeDoc(tp(`contestants/${cid}`), {
         fullName: name,
         gender: gender ?? null,
         photoUrl: null,
@@ -471,7 +473,7 @@ export default function Registrations() {
       // 2. Write enrollment docs
       await Promise.all(
         pairs.map((p) =>
-          writeDoc(`enrollments/${enrollmentId(cid, p.categoryId)}`, {
+          writeDoc(tp(`enrollments/${enrollmentId(cid, p.categoryId)}`), {
             contestantId: cid,
             category: p.categoryId,
             division: p.division,

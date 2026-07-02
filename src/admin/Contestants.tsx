@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useCollection, useDocData, writeDoc, removeDoc } from '../data/db';
+import { useTenant } from '../tenant/TenantContext';
 import type { ContestantDoc, EnrollmentDoc, SessionDoc } from '../data/types';
 import {
   DEFAULT_STRUCTURE_CONFIG,
@@ -58,11 +59,12 @@ interface EditState {
 // ── main component ────────────────────────────────────────────────────────────
 
 export default function Contestants() {
-  const contestants = [...useCollection<ContestantDoc>('contestants')].sort((a, b) => a.fullName.localeCompare(b.fullName));
-  const enrollments = useCollection<EnrollmentDoc>('enrollments');
-  const sessions = useCollection<SessionDoc>('sessions');
+  const { tp } = useTenant();
+  const contestants = [...useCollection<ContestantDoc>(tp('contestants'))].sort((a, b) => a.fullName.localeCompare(b.fullName));
+  const enrollments = useCollection<EnrollmentDoc>(tp('enrollments'));
+  const sessions = useCollection<SessionDoc>(tp('sessions'));
   const structure: StructureConfig =
-    useDocData<StructureConfig>('config/structure').data ?? DEFAULT_STRUCTURE_CONFIG;
+    useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [edit, setEdit] = useState<EditState | null>(null);
@@ -136,13 +138,13 @@ export default function Contestants() {
     if (!selectedId) return;
     const enrId = enrollmentId(selectedId, cat);
     // remove the enrollment AND any sessions under it, so the leaderboard doesn't retain stale scores
-    sessions.filter((s) => s.enrollmentId === enrId).forEach((s) => removeDoc('sessions/' + s.id));
-    removeDoc('enrollments/' + enrId);
+    sessions.filter((s) => s.enrollmentId === enrId).forEach((s) => removeDoc(tp('sessions/' + s.id)));
+    removeDoc(tp('enrollments/' + enrId));
   }
 
   function handleAddEnrollment() {
     if (!selectedId || !newCat || !newDiv) return;
-    writeDoc('enrollments/' + enrollmentId(selectedId, newCat), {
+    writeDoc(tp('enrollments/' + enrollmentId(selectedId, newCat)), {
       contestantId: selectedId,
       category: newCat,
       division: newDiv,
@@ -171,7 +173,7 @@ export default function Contestants() {
     setSaving(true);
     try {
       await writeDoc(
-        'contestants/' + selectedId,
+        tp('contestants/' + selectedId),
         {
           fullName: edit.fullName,
           gender: edit.gender,
@@ -189,7 +191,7 @@ export default function Contestants() {
   // ── add contestant (manual, was Registrations' Quick-add) ─────────────────
   async function handleNewContestant() {
     const cid = crypto.randomUUID();
-    await writeDoc('contestants/' + cid, { fullName: 'New contestant', gender: null, photoUrl: null, registrationId: null, fields: {}, active: true });
+    await writeDoc(tp('contestants/' + cid), { fullName: 'New contestant', gender: null, photoUrl: null, registrationId: null, fields: {}, active: true });
     setSelectedId(cid); // opens the edit panel to fill in name + enrollments
   }
 
@@ -202,9 +204,9 @@ export default function Contestants() {
     const myEnrollments = enrollments.filter((e) => e.contestantId === selectedId);
     const enrIds = new Set(myEnrollments.map((e) => e.id));
     await Promise.all([
-      ...sessions.filter((s) => enrIds.has(s.enrollmentId)).map((s) => removeDoc('sessions/' + s.id)),
-      ...myEnrollments.map((e) => removeDoc('enrollments/' + e.id)),
-      removeDoc('contestants/' + selectedId),
+      ...sessions.filter((s) => enrIds.has(s.enrollmentId)).map((s) => removeDoc(tp('sessions/' + s.id))),
+      ...myEnrollments.map((e) => removeDoc(tp('enrollments/' + e.id))),
+      removeDoc(tp('contestants/' + selectedId)),
     ]);
     setSelectedId(null);
   }

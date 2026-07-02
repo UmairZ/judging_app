@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useCollection, useDocData } from '../data/db';
+import { useTenant } from '../tenant/TenantContext';
 import type { EnrollmentDoc, ContestantDoc, SessionDoc, PanelDoc, AssignmentDoc } from '../data/types';
 import {
   DEFAULT_SCORING_CONFIG,
@@ -19,13 +20,14 @@ interface Row {
 }
 
 export default function Projector() {
-  const enrollments = useCollection<EnrollmentDoc>('enrollments');
-  const contestants = useCollection<ContestantDoc>('contestants');
-  const sessions = useCollection<SessionDoc>('sessions');
-  const panels = useCollection<PanelDoc>('panels');
-  const assignments = useCollection<AssignmentDoc>('assignments');
-  const structure = useDocData<StructureConfig>('config/structure').data ?? DEFAULT_STRUCTURE_CONFIG;
-  const cfg: ScoringConfig = useDocData<ScoringConfig>('config/scoring').data ?? DEFAULT_SCORING_CONFIG;
+  const { tp } = useTenant();
+  const enrollments = useCollection<EnrollmentDoc>(tp('enrollments'));
+  const contestants = useCollection<ContestantDoc>(tp('contestants'));
+  const sessions = useCollection<SessionDoc>(tp('sessions'));
+  const panels = useCollection<PanelDoc>(tp('panels'));
+  const assignments = useCollection<AssignmentDoc>(tp('assignments'));
+  const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
+  const cfg: ScoringConfig = useDocData<ScoringConfig>(tp('config/scoring')).data ?? DEFAULT_SCORING_CONFIG;
 
   const slots = generateSlots(structure);
   const [slotIdx, setSlotIdx] = useState(0);
