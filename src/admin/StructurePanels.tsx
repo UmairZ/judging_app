@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useCollection, useDocData, writeDoc, removeDoc } from '../data/db';
+import { useTenant } from '../tenant/TenantContext';
 import type { JudgeDoc, PanelDoc, AssignmentDoc } from '../data/types';
 import {
   DEFAULT_STRUCTURE_CONFIG,
@@ -49,10 +50,11 @@ function Stepper({ value, onChange }: { value: number; onChange: (v: number) => 
 
 export default function StructurePanels({ section }: { section: 'structure' | 'panels' }) {
   // ── Firestore data ──────────────────────────────────────────────────────
-  const { data: structureData } = useDocData<StructureConfig>('config/structure');
-  const judges = [...useCollection<JudgeDoc>('judges')].sort((a, b) => a.name.localeCompare(b.name));
-  const panels = useCollection<PanelDoc>('panels');
-  const assignments = useCollection<AssignmentDoc>('assignments');
+  const { tp } = useTenant();
+  const { data: structureData } = useDocData<StructureConfig>(tp('config/structure'));
+  const judges = [...useCollection<JudgeDoc>(tp('judges'))].sort((a, b) => a.name.localeCompare(b.name));
+  const panels = useCollection<PanelDoc>(tp('panels'));
+  const assignments = useCollection<AssignmentDoc>(tp('assignments'));
 
   // ── Structure local edit state ──────────────────────────────────────────
   const [edited, setEdited] = useState<StructureConfig>(DEFAULT_STRUCTURE_CONFIG);
@@ -130,7 +132,7 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
   }
 
   async function saveStructure() {
-    await writeDoc('config/structure', edited, false);
+    await writeDoc(tp('config/structure'), edited, false);
     setStructureSaved(true);
     setTimeout(() => setStructureSaved(false), 2000);
   }
@@ -142,7 +144,7 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
 
   async function addJudge() {
     if (!newJudgeName.trim()) return;
-    await writeDoc('judges/' + crypto.randomUUID(), { name: newJudgeName.trim(), active: true });
+    await writeDoc(tp('judges/' + crypto.randomUUID()), { name: newJudgeName.trim(), active: true });
     setNewJudgeName('');
   }
 
@@ -151,7 +153,7 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
     setEditingJudgeName(j.name);
   }
   function commitRenameJudge(id: string) {
-    if (editingJudgeName.trim()) writeDoc('judges/' + id, { name: editingJudgeName.trim() }, true);
+    if (editingJudgeName.trim()) writeDoc(tp('judges/' + id), { name: editingJudgeName.trim() }, true);
     setEditingJudgeId(null);
   }
 
@@ -159,8 +161,8 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
     if (!window.confirm('Remove this judge? They will be unassigned from all panels.')) return;
     // pull from any panel first so no dangling judgeId is left behind
     await Promise.all(panels.filter(p => p.judgeIds.includes(id)).map(p =>
-      writeDoc('panels/' + p.id, { name: p.name, judgeIds: p.judgeIds.filter(j => j !== id) }, false)));
-    await removeDoc('judges/' + id);
+      writeDoc(tp('panels/' + p.id), { name: p.name, judgeIds: p.judgeIds.filter(j => j !== id) }, false)));
+    await removeDoc(tp('judges/' + id));
   }
 
   // ── Panels ──────────────────────────────────────────────────────────────
@@ -169,7 +171,7 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
   const [editingPanelName, setEditingPanelName] = useState('');
 
   async function addPanelRow() {
-    await writeDoc('panels/' + crypto.randomUUID(), { name: 'New panel', judgeIds: [] });
+    await writeDoc(tp('panels/' + crypto.randomUUID()), { name: 'New panel', judgeIds: [] });
   }
 
   function startRenamePanel(p: PanelDoc & { id: string }) {
@@ -177,20 +179,20 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
     setEditingPanelName(p.name);
   }
   function commitRenamePanel(id: string) {
-    if (editingPanelName.trim()) writeDoc('panels/' + id, { name: editingPanelName.trim() }, true);
+    if (editingPanelName.trim()) writeDoc(tp('panels/' + id), { name: editingPanelName.trim() }, true);
     setEditingPanelId(null);
   }
   async function deletePanel(id: string) {
     if (!window.confirm('Delete this panel? Its slot assignments will be cleared.')) return;
-    await Promise.all(assignments.filter(a => a.panelId === id).map(a => removeDoc('assignments/' + a.id)));
-    await removeDoc('panels/' + id);
+    await Promise.all(assignments.filter(a => a.panelId === id).map(a => removeDoc(tp('assignments/' + a.id))));
+    await removeDoc(tp('panels/' + id));
     if (openDropdown === id) setOpenDropdown(null);
   }
 
   async function togglePanelJudge(panel: PanelDoc & { id: string }, judgeId: string) {
     const has = panel.judgeIds.includes(judgeId);
     const judgeIds = has ? panel.judgeIds.filter(j => j !== judgeId) : [...panel.judgeIds, judgeId];
-    await writeDoc('panels/' + panel.id, { name: panel.name, judgeIds }, false);
+    await writeDoc(tp('panels/' + panel.id), { name: panel.name, judgeIds }, false);
   }
 
   // ── Assignment grid ─────────────────────────────────────────────────────
@@ -198,9 +200,9 @@ export default function StructurePanels({ section }: { section: 'structure' | 'p
     const sid = slotId(slot);
     const existing = assignments.find(a => a.category === slot.category && a.division === slot.division);
     if (existing?.panelId === panelId) {
-      await removeDoc('assignments/' + sid); // clicking the assigned panel toggles the slot off
+      await removeDoc(tp('assignments/' + sid)); // clicking the assigned panel toggles the slot off
     } else {
-      await writeDoc('assignments/' + sid, { category: slot.category, division: slot.division, panelId }, false);
+      await writeDoc(tp('assignments/' + sid), { category: slot.category, division: slot.division, panelId }, false);
     }
   }
 

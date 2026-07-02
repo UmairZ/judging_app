@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useCollection, useDocData, writeDoc, removeDoc, now } from '../data/db';
+import { useTenant } from '../tenant/TenantContext';
 import type { EnrollmentDoc, ContestantDoc, SessionDoc, PanelDoc, AssignmentDoc, TiebreakDoc, JudgeDoc } from '../data/types';
 import {
   DEFAULT_SCORING_CONFIG,
@@ -40,15 +41,16 @@ interface Editing {
 }
 
 export default function Leaderboard() {
-  const enrollments = useCollection<EnrollmentDoc>('enrollments');
-  const contestants = useCollection<ContestantDoc>('contestants');
-  const sessions = useCollection<SessionDoc>('sessions');
-  const panels = useCollection<PanelDoc>('panels');
-  const assignments = useCollection<AssignmentDoc>('assignments');
-  const tiebreaks = useCollection<TiebreakDoc>('tiebreaks');
-  const judges = useCollection<JudgeDoc>('judges');
-  const structure = useDocData<StructureConfig>('config/structure').data ?? DEFAULT_STRUCTURE_CONFIG;
-  const cfg: ScoringConfig = useDocData<ScoringConfig>('config/scoring').data ?? DEFAULT_SCORING_CONFIG;
+  const { tp } = useTenant();
+  const enrollments = useCollection<EnrollmentDoc>(tp('enrollments'));
+  const contestants = useCollection<ContestantDoc>(tp('contestants'));
+  const sessions = useCollection<SessionDoc>(tp('sessions'));
+  const panels = useCollection<PanelDoc>(tp('panels'));
+  const assignments = useCollection<AssignmentDoc>(tp('assignments'));
+  const tiebreaks = useCollection<TiebreakDoc>(tp('tiebreaks'));
+  const judges = useCollection<JudgeDoc>(tp('judges'));
+  const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
+  const cfg: ScoringConfig = useDocData<ScoringConfig>(tp('config/scoring')).data ?? DEFAULT_SCORING_CONFIG;
 
   const slots = generateSlots(structure);
   const [sel, setSel] = useState(0);
@@ -156,7 +158,7 @@ export default function Leaderboard() {
   };
   const saveAdjust = async () => {
     if (!slot || !adjusting) return;
-    await writeDoc(`tiebreaks/${slotId(slot)}`, {
+    await writeDoc(tp(`tiebreaks/${slotId(slot)}`), {
       category: slot.category, division: slot.division,
       contestantIds: adjusting.order.map((o) => o.id),
       method: 'override',
@@ -169,7 +171,7 @@ export default function Leaderboard() {
   const startSuddenDeath = async () => {
     if (!slot) return;
     const tied = rows.filter((r) => tiedIds.has(r.contestantId)).map((r) => r.contestantId);
-    await writeDoc(`tiebreaks/${slotId(slot)}`, {
+    await writeDoc(tp(`tiebreaks/${slotId(slot)}`), {
       category: slot.category, division: slot.division,
       contestantIds: tied,
       method: 'question',
@@ -178,7 +180,7 @@ export default function Leaderboard() {
     });
   };
   const clearTiebreak = async () => {
-    if (slot) await removeDoc(`tiebreaks/${slotId(slot)}`);
+    if (slot) await removeDoc(tp(`tiebreaks/${slotId(slot)}`));
   };
 
   const exportResults = () => {
