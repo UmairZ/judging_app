@@ -6,7 +6,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 
@@ -37,6 +37,8 @@ beforeEach(async () => {
     // org2: a foreign tenant
     await setDoc(doc(db, 'orgs/org2/members/staff2'), { role: 'admin' });
     await setDoc(doc(db, `${P2}/members/uJudgeZ`), { role: 'judge', judgeId: 'jZ' });
+    await setDoc(doc(db, 'users/staff1/orgs/org1'), { role: 'owner', name: 'Org One' });
+    await setDoc(doc(db, `${P1}/joinCodes/JUDGE234`), { role: 'judge', judgeId: 'jC', redeemedBy: null });
   });
 });
 
@@ -180,5 +182,37 @@ describe('unauthenticated', () => {
     await assertFails(getDoc(doc(anon(), `${P1}/config/structure`)));
     await assertFails(setDoc(doc(anon(), `${P1}/sessions/x`), { judgeId: 'jA' }));
     await assertFails(getDoc(doc(anon(), 'orgs/org1')));
+  });
+});
+
+describe('competitions listing', () => {
+  it('org staff can list their competitions; foreign staff and judges cannot', async () => {
+    await assertSucceeds(getDocs(collection(as('staff1'), 'orgs/org1/competitions')));
+    await assertFails(getDocs(collection(as('staff2'), 'orgs/org1/competitions')));
+    await assertFails(getDocs(collection(as('uJudgeA'), 'orgs/org1/competitions')));
+  });
+});
+
+describe('join codes — staff-managed, secret from judges', () => {
+  it('staff can create an unredeemed code and delete (revoke) one', async () => {
+    await assertSucceeds(setDoc(doc(as('staff1'), `${P1}/joinCodes/NEWCODE2`), { role: 'judge', judgeId: 'jC', redeemedBy: null }));
+    await assertSucceeds(deleteDoc(doc(as('staff1'), `${P1}/joinCodes/JUDGE234`)));
+  });
+  it('staff cannot create a pre-redeemed code and cannot update one (redeem is callable-only)', async () => {
+    await assertFails(setDoc(doc(as('staff1'), `${P1}/joinCodes/SNEAKYY2`), { role: 'judge', judgeId: 'jC', redeemedBy: 'uEvil' }));
+    await assertFails(updateDoc(doc(as('staff1'), `${P1}/joinCodes/JUDGE234`), { redeemedBy: 'x' }));
+  });
+  it('judges and foreign staff cannot read or write codes', async () => {
+    await assertFails(getDoc(doc(as('uJudgeA'), `${P1}/joinCodes/JUDGE234`)));
+    await assertFails(getDoc(doc(as('staff2'), `${P1}/joinCodes/JUDGE234`)));
+    await assertFails(setDoc(doc(as('uJudgeA'), `${P1}/joinCodes/HACKED22`), { role: 'judge', judgeId: 'jA', redeemedBy: null }));
+  });
+});
+
+describe('users mirror — read own only', () => {
+  it('a user reads their own org mirror; others cannot; nobody writes client-side', async () => {
+    await assertSucceeds(getDoc(doc(as('staff1'), 'users/staff1/orgs/org1')));
+    await assertFails(getDoc(doc(as('staff2'), 'users/staff1/orgs/org1')));
+    await assertFails(setDoc(doc(as('staff1'), 'users/staff1/orgs/org2'), { role: 'owner', name: 'X' }));
   });
 });
