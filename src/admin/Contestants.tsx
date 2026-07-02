@@ -119,13 +119,13 @@ export default function Contestants() {
     setUploading(true);
     setPhotoNote(null);
     try {
-      const path = `contestants/${selectedId}/photo`;
+      const path = tp(`contestants/${selectedId}/photo`);
       const sRef = storageRef(storage, path);
       await uploadBytes(sRef, file);
       const url = await getDownloadURL(sRef);
       setEdit((prev) => prev ? { ...prev, photoUrl: url } : prev);
     } catch {
-      setPhotoNote('Photo upload failed — Storage may not be configured in this environment.');
+      setPhotoNote('Photo upload failed — check the file is an image under 5 MB.');
     } finally {
       setUploading(false);
     }
