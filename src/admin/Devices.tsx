@@ -2,18 +2,20 @@ import { useState } from 'react';
 import { signInWithCustomToken } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useCollection } from '../data/db';
+import { useTenant } from '../tenant/TenantContext';
 import type { JudgeDoc, PanelDoc, AssignmentDoc } from '../data/types';
 import { app, auth } from '../firebase/app';
 import { C, serif, initials } from '../ui/theme';
 
 export default function Devices() {
-  const judges = [...useCollection<JudgeDoc>('judges')].sort((a, b) => a.name.localeCompare(b.name));
-  const panels = useCollection<PanelDoc>('panels');
-  const assignments = useCollection<AssignmentDoc>('assignments');
+  const { tp } = useTenant();
+  const judges = [...useCollection<JudgeDoc>(tp('judges'))].sort((a, b) => a.name.localeCompare(b.name));
+  const panels = useCollection<PanelDoc>(tp('panels'));
+  const assignments = useCollection<AssignmentDoc>(tp('assignments'));
 
   const [selectedJudgeId, setSelectedJudgeId] = useState<string | null>(null);
   const [provisioning, setProvisioning] = useState(false);
-  const [statusNote, setStatusNote] = useState<string | null>(null);
+  const [statusNote, setStatusNote] = useState<{ text: string; warn: boolean } | null>(null);
 
   /** Return the panel this judge belongs to, or undefined. */
   const panelFor = (judgeId: string) =>
@@ -37,11 +39,12 @@ export default function Devices() {
       );
       const result = await fn({ judgeId: selectedJudgeId });
       await signInWithCustomToken(auth, result.data.token);
-      setStatusNote('Device provisioned. Handing over to judge…');
+      setStatusNote({ text: 'Device provisioned. Handing over to judge…', warn: false });
     } catch {
-      setStatusNote(
-        'Provisioning function not available in this environment — works once deployed.',
-      );
+      setStatusNote({
+        text: 'Device provisioning is being rebuilt for the SaaS model — returns in a later update.',
+        warn: true,
+      });
     } finally {
       setProvisioning(false);
     }
@@ -195,15 +198,15 @@ export default function Devices() {
                 style={{
                   marginTop: 14,
                   fontSize: 12.5,
-                  color: statusNote.startsWith('Provisioning function') ? C.brassDark : C.green,
-                  background: statusNote.startsWith('Provisioning function') ? C.pill : C.pillGreen,
-                  border: `1px solid ${statusNote.startsWith('Provisioning function') ? '#DcCFAE' : '#B5D4CB'}`,
+                  color: statusNote.warn ? C.brassDark : C.green,
+                  background: statusNote.warn ? C.pill : C.pillGreen,
+                  border: `1px solid ${statusNote.warn ? '#DcCFAE' : '#B5D4CB'}`,
                   borderRadius: 6,
                   padding: '10px 14px',
                   lineHeight: 1.5,
                 }}
               >
-                {statusNote}
+                {statusNote.text}
               </div>
             )}
           </div>

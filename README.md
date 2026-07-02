@@ -36,8 +36,11 @@ GCLOUD_PROJECT=ibn-katheer-judging-bc25d \
 npm run dev
 ```
 
-Seeded logins (emulator only): admin `admin@ibnkatheer.local` / `admin123`; the
-sign-in screen also has a dev "Sign in as a judge (j1)" shortcut.
+Open `http://localhost:5173/demo/2026` (not the bare root — the bare root now
+shows a "No competition selected" screen, since the app is served at
+`/{orgId}/{compId}`). Seeded logins (emulator only): admin
+`admin@ibnkatheer.local` / `admin123`; the sign-in screen also has a dev
+"Sign in as a judge (j1)" shortcut (`j1@judge.local` / `judge123`).
 
 ## Testing
 
@@ -81,4 +84,9 @@ src/
   judge/     judge dashboard + grading screen + tie-break flow
   zeffy/     webhook payload parsing
 functions/   Cloud Functions (zeffyWebhook, mintJudgeToken) + emulator seed
+             (seed.mjs creates the demo/2026 tenant under orgs/demo/competitions/2026)
 ```
+
+Cloud Functions (`zeffyWebhook`, `mintJudgeToken`) are legacy single-tenant and
+are rebuilt tenant-scoped in Phases 2–3 of the SaaS work — see
+`docs/superpowers/specs/2026-07-01-multi-tenant-saas-design.md`.

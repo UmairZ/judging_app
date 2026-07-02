@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDocData, writeDoc, now, useSyncState } from '../data/db';
+import { useTenant } from '../tenant/TenantContext';
 import type { SessionDoc } from '../data/types';
 import { C, serif, pct } from '../ui/theme';
 import {
@@ -32,9 +33,10 @@ function freshQuestion(index: number, isAdded = false): Question {
 }
 
 export default function GradingScreen({ contestant, enrollmentId, judgeId, minQuestions, meta, onEnd, tieBreak = false }: { contestant: { name: string; slotLabel: string }; enrollmentId: string; judgeId: string; minQuestions: number; meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number; startedCount: number }; onEnd: () => void; tieBreak?: boolean }) {
+  const { tp } = useTenant();
   const sessionId = `${enrollmentId}__${judgeId}`;
-  const { data: sessionDoc, loading } = useDocData<SessionDoc>(`sessions/${sessionId}`);
-  const sync = useSyncState(`sessions/${sessionId}`);
+  const { data: sessionDoc, loading } = useDocData<SessionDoc>(tp(`sessions/${sessionId}`));
+  const sync = useSyncState(tp(`sessions/${sessionId}`));
   // How many panel judges have started this contestant — passed in by the parent, which
   // already subscribes to the sessions collection (no extra listener here).
   const startedCount = meta.startedCount;
@@ -69,7 +71,13 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   // Single write path — lazy creation: the doc only appears once the judge grades.
   const persist = (extra: Record<string, unknown> = {}) => {
     const payloadQs = tieBreak ? [...primaryRef.current, ...questions] : questions;
-    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, questions: payloadQs, notes, updatedAt: now(), ...extra }, true);
+    void writeDoc(tp(`sessions/${sessionId}`), {
+      enrollmentId, judgeId, questions: payloadQs, notes,
+      round: 'main',
+      // startedAt is written once: only while the live doc doesn't carry it yet.
+      ...(sessionDoc?.startedAt ? {} : { startedAt: now() }),
+      ...extra,
+    }, true);
   };
 
   // Question edits are discrete taps → persist immediately.
@@ -140,13 +148,13 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   };
   const finalize = () => {
     if (!canFinish) { setActive(firstUnratedVoice); setVoiceNudge(true); return; }
-    persist({ finalizedAt: now() });
+    persist({ finalizedAt: now(), endedAt: now() });
     onEnd();
   };
   const reopen = () => {
     setLocked(false);
     dirty.current = true; // subsequent edits will persist again
-    void writeDoc(`sessions/${sessionId}`, { enrollmentId, judgeId, finalizedAt: null, updatedAt: now() }, true);
+    void writeDoc(tp(`sessions/${sessionId}`), { enrollmentId, judgeId, finalizedAt: null }, true);
   };
   const submitTieBreak = () => {
     if (!canFinish) { setActive(firstUnratedVoice); setVoiceNudge(true); return; }
