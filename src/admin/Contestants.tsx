@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useCollection, useDocData, writeDoc, removeDoc } from '../data/db';
 import { useTenant } from '../tenant/TenantContext';
-import type { ContestantDoc, EnrollmentDoc, SessionDoc } from '../data/types';
+import type { ContestantDoc, EnrollmentDoc } from '../data/types';
 import {
   DEFAULT_STRUCTURE_CONFIG,
   defaultDivisionForCategory,
@@ -62,7 +62,6 @@ export default function Contestants() {
   const { tp } = useTenant();
   const contestants = [...useCollection<ContestantDoc>(tp('contestants'))].sort((a, b) => a.fullName.localeCompare(b.fullName));
   const enrollments = useCollection<EnrollmentDoc>(tp('enrollments'));
-  const sessions = useCollection<SessionDoc>(tp('sessions'));
   const structure: StructureConfig =
     useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
 
@@ -137,8 +136,9 @@ export default function Contestants() {
   function handleRemoveEnrollment(cat: string) {
     if (!selectedId) return;
     const enrId = enrollmentId(selectedId, cat);
-    // remove the enrollment AND any sessions under it, so the leaderboard doesn't retain stale scores
-    sessions.filter((s) => s.enrollmentId === enrId).forEach((s) => removeDoc(tp('sessions/' + s.id)));
+    // Sessions under this enrollment are left in place: firestore.rules forbids session
+    // deletion (grading history stays immutable), and they become unreachable once the
+    // enrollment is gone since every reader joins sessions via enrollment.
     removeDoc(tp('enrollments/' + enrId));
   }
 
@@ -201,11 +201,11 @@ export default function Contestants() {
   async function handleRemove() {
     if (!selectedId) return;
     if (!window.confirm('Remove this contestant? This also deletes their enrollments and any scores. The registrations master stays intact.')) return;
-    // cascade: sessions → enrollments → contestant, so nothing orphaned lingers on the leaderboard
+    // cascade: enrollments → contestant. Their sessions are left in place: firestore.rules
+    // forbids session deletion (grading history stays immutable), and they become
+    // unreachable once the enrollment is gone since every reader joins via enrollment.
     const myEnrollments = enrollments.filter((e) => e.contestantId === selectedId);
-    const enrIds = new Set(myEnrollments.map((e) => e.id));
     await Promise.all([
-      ...sessions.filter((s) => enrIds.has(s.enrollmentId)).map((s) => removeDoc(tp('sessions/' + s.id))),
       ...myEnrollments.map((e) => removeDoc(tp('enrollments/' + e.id))),
       removeDoc(tp('contestants/' + selectedId)),
     ]);

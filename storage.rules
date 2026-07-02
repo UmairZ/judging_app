@@ -1,10 +1,13 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Contestant photos: any signed-in user may read; only admins may write.
+    // Phase 2: tenant-scoped photo storage (orgs/{orgId}/competitions/{compId}/...)
+    // with membership checks via cross-service firestore.get(). Locked until then —
+    // the claims-based gate below died with custom claims, and the flat path
+    // isn't tenant-safe. Contestants.tsx degrades gracefully (upload catch).
     match /contestants/{file=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.token.admin == true;
+      allow read: if false;
+      allow write: if false;
     }
   }
 }

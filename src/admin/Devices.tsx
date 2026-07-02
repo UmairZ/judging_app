@@ -42,7 +42,7 @@ export default function Devices() {
       setStatusNote('Device provisioned. Handing over to judge…');
     } catch {
       setStatusNote(
-        'Provisioning function not available in this environment — works once deployed.',
+        'Device provisioning is being rebuilt for the SaaS model — returns in a later update.',
       );
     } finally {
       setProvisioning(false);
