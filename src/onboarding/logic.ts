@@ -2,13 +2,21 @@ import { SEG, parseTenantPath } from '../tenant/paths';
 
 // Unambiguous code alphabet: no I, L, O, 0, 1.
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-export const JOIN_CODE_RE = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/;
+export const JOIN_CODE_RE = new RegExp(`^[${ALPHABET}]{8}$`);
 
 /** 8-char join code from crypto randomness (~40 bits — plenty for short-lived, revocable codes). */
 export function generateJoinCode(): string {
-  const bytes = new Uint8Array(8);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('');
+  const out: string[] = [];
+  while (out.length < 8) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    for (const b of bytes) {
+      // Rejection sampling: drop bytes past the largest multiple of 31 to keep the draw uniform.
+      if (b >= 248 || out.length >= 8) continue;
+      out.push(ALPHABET[b % ALPHABET.length]);
+    }
+  }
+  return out.join('');
 }
 
 /** Suggest a URL-safe org id from a display name; user can edit before submitting. */
