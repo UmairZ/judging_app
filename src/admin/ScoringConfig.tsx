@@ -109,7 +109,7 @@ export default function ScoringConfig() {
   async function handleSave() {
     if (!valid || saving) return;
     setSaving(true);
-    await writeDoc(tp('config/scoring'), edited, false);
+    await writeDoc(tp('config/scoring'), { ...edited, model: edited.model ?? 'deduction-v1' }, false);
     setSaving(false);
     setSaved(true);
   }

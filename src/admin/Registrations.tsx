@@ -477,6 +477,7 @@ export default function Registrations() {
             contestantId: cid,
             category: p.categoryId,
             division: p.division,
+            round: 'main',
           }),
         ),
       );
