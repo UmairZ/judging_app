@@ -189,6 +189,16 @@ export const mintJudgeToken = onCall(REGION, async (req) => {
   const base = `orgs/${orgId}/competitions/${compId}`;
   const seat = await db.doc(`${base}/judges/${judgeId}`).get();
   if (!seat.exists) throw new HttpsError('not-found', 'unknown judge seat');
+
+  // Provisioning claims the seat: outstanding invitations for it are stale — delete them
+  // so an old link can't later re-bind the seat to a different device.
+  const stale = await db.collection(`${base}/joinCodes`).where('judgeId', '==', judgeId).get();
+  if (!stale.empty) {
+    const cleanup = db.batch();
+    stale.docs.forEach((d) => cleanup.delete(d.ref));
+    await cleanup.commit();
+  }
+
   let deviceUid: string;
   try {
     deviceUid = provisionedUid(orgId, compId, judgeId);
@@ -221,12 +231,22 @@ export const removeMember = onCall(REGION, async (req) => {
   }
   const judgeId = member.data()?.judgeId;
   const redeemed = await db.collection(`${base}/joinCodes`).where('redeemedBy', '==', memberUid).get();
+
+  // Also delete any outstanding (unredeemed) codes for this seat so the seat can be re-issued
+  let outstanding: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = null;
+  if (typeof judgeId === 'string' && judgeId) {
+    outstanding = await db.collection(`${base}/joinCodes`).where('judgeId', '==', judgeId).get();
+  }
+
   const batch = db.batch();
   batch.delete(memberRef);
   if (typeof judgeId === 'string' && judgeId) {
     batch.set(db.doc(`${base}/judges/${judgeId}`), { uid: FieldValue.delete() }, { merge: true });
   }
   redeemed.docs.forEach((d) => batch.delete(d.ref));
+  if (outstanding) {
+    outstanding.docs.forEach((d) => batch.delete(d.ref));
+  }
   await batch.commit();
   return { removed: true };
 });
