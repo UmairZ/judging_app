@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
-import { useCollection, useDocData, writeDoc } from '../data/db';
+import { useMemo, useRef, useState } from 'react';
+import { useCollection, useDocData, writeDoc, now } from '../data/db';
 import { useTenant } from '../tenant/TenantContext';
 import type { RegistrationDoc, ContestantDoc } from '../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, defaultDivisionForCategory, type StructureConfig, type Category } from '../domain/structure';
 import { enrollmentId } from '../domain/ids';
 import { generateWebhookToken } from '../onboarding/logic';
+import { parseCsv, rowsToPeople, csvRegistrationId } from '../intake/csv';
 import { C, serif } from '../ui/theme';
 
 // ---------------------------------------------------------------------------
@@ -48,7 +49,10 @@ function resolveCategories(
 
   return labels.map((rawLabel) => {
     const cat = structure.categories.find(
-      (c) => c.zeffyLabels?.some((z) => z.toLowerCase() === rawLabel.toLowerCase()),
+      (c) =>
+        c.zeffyLabels?.some((z) => z.toLowerCase() === rawLabel.toLowerCase()) ||
+        c.label.toLowerCase() === rawLabel.toLowerCase() ||
+        c.id.toLowerCase() === rawLabel.toLowerCase(),
     );
     return cat
       ? { categoryId: cat.id, label: cat.label, rawLabel, unmapped: false }
@@ -70,6 +74,24 @@ function buildDefaultDivisions(
     divs[r.categoryId] = d ?? (cat.divisions[0] ?? '');
   }
   return divs;
+}
+
+/** Auto-promotion plan for a registration, or null when it needs the manual drawer. */
+function buildPromotion(
+  reg: { parsedFields?: Record<string, unknown> },
+  structure: StructureConfig,
+): { fullName: string; gender: 'male' | 'female' | null; pairs: CategoryDivisionPair[] } | null {
+  const parsedFields = reg.parsedFields ?? {};
+  const fullName = typeof parsedFields.fullName === 'string' ? parsedFields.fullName.trim() : '';
+  if (!fullName) return null;
+  const genderRaw = parsedFields.gender;
+  const gender: 'male' | 'female' | null = genderRaw === 'male' || genderRaw === 'female' ? genderRaw : null;
+  const resolved = resolveCategories(parsedFields.categories, structure);
+  if (resolved.length === 0 || resolved.some((r) => r.unmapped)) return null;
+  const divisions = buildDefaultDivisions(resolved, gender, structure);
+  const pairs = resolved.map((r) => ({ categoryId: r.categoryId, division: divisions[r.categoryId] ?? '' }));
+  if (pairs.some((p) => !p.division)) return null; // gendered category without a gender → manual
+  return { fullName, gender, pairs };
 }
 
 // ---------------------------------------------------------------------------
@@ -403,6 +425,8 @@ export default function Registrations() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importReport, setImportReport] = useState<string | null>(null);
 
   // Zeffy event-title filter (admin-editable; the webhook reads config/zeffy.eventTitle).
   const zeffyCfg = useDocData<{ eventTitle?: string; token?: string }>(tp('config/zeffy'));
@@ -512,6 +536,75 @@ export default function Registrations() {
     }
   };
 
+  const handleCsvFile = async (file: File) => {
+    setImportReport(null);
+    setError(null);
+    const { people, errors } = rowsToPeople(parseCsv(await file.text()));
+    if (people.length === 0) {
+      setError(errors.length ? `CSV import failed — ${errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')}` : 'CSV import failed — no rows found.');
+      return;
+    }
+    setBusy(true);
+    let written = 0;
+    let existing = 0;
+    for (const p of people) {
+      try {
+        // create-only: an existing id (re-import) is rejected by rules → counted as already imported
+        await writeDoc(tp(`registrations/${csvRegistrationId(p)}`), {
+          source: 'csv',
+          zeffyPaymentId: null,
+          zeffyItemId: null,
+          kind: 'ticket',
+          buyer: {},
+          rawItem: { line: p.line },
+          parsedFields: { fullName: p.fullName, gender: p.gender, dateOfBirth: p.dateOfBirth, categories: p.categories },
+          paymentStatus: 'n/a',
+          createdAt: now(),
+          promotedContestantId: null,
+        }, false);
+        written++;
+      } catch {
+        existing++;
+      }
+    }
+    setBusy(false);
+    const parts = [`Imported ${written} registration${written === 1 ? '' : 's'}`];
+    if (existing) parts.push(`${existing} already imported`);
+    if (errors.length) parts.push(`${errors.length} row${errors.length === 1 ? '' : 's'} skipped (${errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')})`);
+    setImportReport(parts.join(' · '));
+  };
+
+  const handleBulkPromote = async () => {
+    setBusy(true);
+    setError(null);
+    let promoted = 0;
+    let skipped = 0;
+    for (const reg of registrations) {
+      if (reg.kind !== 'ticket' || isPromoted(reg.id)) continue;
+      const plan = buildPromotion(reg, structure);
+      if (!plan) { skipped++; continue; }
+      try {
+        const cid = crypto.randomUUID();
+        await writeDoc(tp(`contestants/${cid}`), {
+          fullName: plan.fullName, gender: plan.gender, photoUrl: null,
+          registrationId: reg.id, fields: reg.parsedFields ?? {}, active: true,
+        });
+        await Promise.all(plan.pairs.map((p) =>
+          writeDoc(tp(`enrollments/${enrollmentId(cid, p.categoryId)}`), {
+            contestantId: cid, category: p.categoryId, division: p.division, round: 'main',
+          }),
+        ));
+        promoted++;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Write failed');
+        break;
+      }
+    }
+    setBusy(false);
+    setFlash(`Promoted ${promoted} · ${skipped} need review (open each to resolve)`);
+    setTimeout(() => setFlash(null), 6000);
+  };
+
   // Sort: ticket kind first, then donations/other; within ticket: pending before promoted
   const sortedRegs = [...registrations].sort((a, b) => {
     const aTicket = a.kind === 'ticket' ? 0 : 1;
@@ -546,7 +639,17 @@ export default function Registrations() {
         <span style={{ fontSize: 12, color: C.muted, marginLeft: 10 }}>
           immutable · {registrations.length} records
         </span>
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: C.muted }}>To add someone manually, use <strong style={{ color: C.sub }}>Contestants → + New</strong>.</span>
+        <input ref={fileInputRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleCsvFile(f); e.target.value = ''; }} />
+        <button onClick={() => fileInputRef.current?.click()} disabled={busy}
+          style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}>
+          Import CSV
+        </button>
+        <button onClick={() => void handleBulkPromote()} disabled={busy}
+          style={{ fontSize: 12.5, fontWeight: 600, color: C.green, background: 'transparent', border: `1px solid ${C.green}`, borderRadius: 6, padding: '7px 14px', cursor: 'pointer' }}>
+          Promote all ready
+        </button>
+        <span style={{ fontSize: 12, color: C.muted }}>To add someone manually, use <strong style={{ color: C.sub }}>Contestants → + New</strong>.</span>
       </div>
 
       {/* Zeffy event-title filter */}
@@ -606,6 +709,18 @@ export default function Registrations() {
       {flash && (
         <div style={{ padding: '10px 22px', fontSize: 13, fontWeight: 600, color: C.green, background: C.pillGreen, borderBottom: `1px solid ${C.line}` }}>
           {flash}
+        </div>
+      )}
+
+      {importReport && (
+        <div style={{ padding: '10px 22px', fontSize: 13, fontWeight: 600, color: C.green, background: C.pillGreen, borderBottom: `1px solid ${C.line}` }}>
+          {importReport}
+        </div>
+      )}
+
+      {error && (
+        <div style={{ padding: '10px 22px', fontSize: 13, fontWeight: 600, color: C.fail, background: C.failBg, borderBottom: `1px solid ${C.line}` }}>
+          {error}
         </div>
       )}
 
