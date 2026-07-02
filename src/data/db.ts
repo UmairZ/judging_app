@@ -8,7 +8,7 @@ import {
   serverTimestamp,
   type DocumentData,
 } from 'firebase/firestore';
-import { db } from '../firebase/app';
+import { db, auth } from '../firebase/app';
 
 export type WithId<T> = T & { id: string };
 
@@ -68,9 +68,12 @@ export function useSyncState(path: string): 'saved' | 'saving' | 'offline' {
   return pending ? 'saving' : 'saved';
 }
 
-/** Create or merge a document at an explicit path/id. */
+/**
+ * Create or merge a document. Every write is stamped with updatedAt/updatedBy —
+ * the audit-log hook: a later phase surfaces the trail, nothing else changes.
+ */
 export const writeDoc = (path: string, data: DocumentData, merge = true) =>
-  setDoc(doc(db, path), data, { merge });
+  setDoc(doc(db, path), { ...data, updatedAt: serverTimestamp(), updatedBy: auth.currentUser?.uid ?? null }, { merge });
 
 /** Delete a document (admin paths only; registrations/sessions are protected by rules). */
 export const removeDoc = (path: string) => deleteDoc(doc(db, path));

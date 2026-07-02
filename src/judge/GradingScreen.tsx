@@ -71,7 +71,13 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   // Single write path — lazy creation: the doc only appears once the judge grades.
   const persist = (extra: Record<string, unknown> = {}) => {
     const payloadQs = tieBreak ? [...primaryRef.current, ...questions] : questions;
-    void writeDoc(tp(`sessions/${sessionId}`), { enrollmentId, judgeId, questions: payloadQs, notes, updatedAt: now(), ...extra }, true);
+    void writeDoc(tp(`sessions/${sessionId}`), {
+      enrollmentId, judgeId, questions: payloadQs, notes,
+      round: 'main',
+      // startedAt is written once: only while the live doc doesn't carry it yet.
+      ...(sessionDoc?.startedAt ? {} : { startedAt: now() }),
+      ...extra,
+    }, true);
   };
 
   // Question edits are discrete taps → persist immediately.
@@ -142,13 +148,13 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   };
   const finalize = () => {
     if (!canFinish) { setActive(firstUnratedVoice); setVoiceNudge(true); return; }
-    persist({ finalizedAt: now() });
+    persist({ finalizedAt: now(), endedAt: now() });
     onEnd();
   };
   const reopen = () => {
     setLocked(false);
     dirty.current = true; // subsequent edits will persist again
-    void writeDoc(tp(`sessions/${sessionId}`), { enrollmentId, judgeId, finalizedAt: null, updatedAt: now() }, true);
+    void writeDoc(tp(`sessions/${sessionId}`), { enrollmentId, judgeId, finalizedAt: null }, true);
   };
   const submitTieBreak = () => {
     if (!canFinish) { setActive(firstUnratedVoice); setVoiceNudge(true); return; }

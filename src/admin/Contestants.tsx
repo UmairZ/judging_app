@@ -148,6 +148,7 @@ export default function Contestants() {
       contestantId: selectedId,
       category: newCat,
       division: newDiv,
+      round: 'main',
     });
     setAddingCat(false);
     setNewCat('');
