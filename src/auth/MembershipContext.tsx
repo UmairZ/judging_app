@@ -6,7 +6,7 @@ import { resolveMembership, type Membership, type OrgMemberDoc, type CompMemberD
 
 type Value = Membership & { loading: boolean };
 
-const Ctx = createContext<Value>({ role: null, judgeId: null, loading: true });
+const Ctx = createContext<Value | null>(null);
 
 /** Requires a signed-in user (render inside the auth gate) and a TenantProvider. */
 export function MembershipProvider({ children }: { children: ReactNode }) {
@@ -20,4 +20,8 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-export const useMembership = () => useContext(Ctx);
+export const useMembership = (): Value => {
+  const v = useContext(Ctx);
+  if (!v) throw new Error('useMembership must be used inside MembershipProvider');
+  return v;
+};
