@@ -31,9 +31,14 @@ export function useCollection<T>(colName: string): WithId<T>[] {
 export function useDocData<T>(path: string): { data: WithId<T> | null; loading: boolean } {
   const [state, setState] = useState<{ data: WithId<T> | null; loading: boolean }>({ data: null, loading: true });
   useEffect(() => {
-    return onSnapshot(doc(db, path), (snap) => {
-      setState({ data: snap.exists() ? ({ id: snap.id, ...(snap.data() as T) }) : null, loading: false });
-    });
+    return onSnapshot(
+      doc(db, path),
+      (snap) => {
+        setState({ data: snap.exists() ? ({ id: snap.id, ...(snap.data() as T) }) : null, loading: false });
+      },
+      // A listener error (e.g. permission-denied) must not wedge screens that gate on `loading`.
+      () => setState({ data: null, loading: false }),
+    );
   }, [path]);
   return state;
 }
