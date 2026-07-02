@@ -76,6 +76,11 @@ export const zeffyWebhook = onRequest({ region: 'us-central1', invoker: 'public'
 
 const REGION = { region: 'us-central1', invoker: 'public' } as const;
 
+// App Check enforcement is deploy-time config: set ENFORCE_APP_CHECK=true in the
+// functions env once the web app attests. The Zeffy webhook never enforces —
+// Zeffy's servers can't attest; its per-competition token is the boundary.
+const CALLABLE = { ...REGION, enforceAppCheck: process.env.ENFORCE_APP_CHECK === 'true' } as const;
+
 function requireAuth(req: { auth?: { uid: string } | null }): string {
   if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'sign in first');
   return req.auth.uid;
@@ -88,7 +93,7 @@ async function requireOrgStaff(uid: string, orgId: string): Promise<void> {
 }
 
 // Create an org + owner membership + dashboard mirror, atomically. Fails if the id is taken.
-export const createOrg = onCall(REGION, async (req) => {
+export const createOrg = onCall(CALLABLE, async (req) => {
   const uid = requireAuth(req);
   // Anonymous accounts are for join codes; org creation needs a real account (App Check lands later).
   if ((req.auth?.token as { firebase?: { sign_in_provider?: string } })?.firebase?.sign_in_provider === 'anonymous') {
@@ -115,7 +120,7 @@ export const createOrg = onCall(REGION, async (req) => {
 });
 
 // Create a competition with default config docs. Caller must be org staff.
-export const createCompetition = onCall(REGION, async (req) => {
+export const createCompetition = onCall(CALLABLE, async (req) => {
   const uid = requireAuth(req);
   const { orgId, compId, name } = (req.data ?? {}) as Record<string, unknown>;
   if (typeof orgId !== 'string' || typeof compId !== 'string' || typeof name !== 'string' || !validateIds(orgId, compId) || !name.trim()) {
@@ -140,7 +145,7 @@ export const createCompetition = onCall(REGION, async (req) => {
 });
 
 // Redeem a join code: transactionally consume the code and write the member doc.
-export const redeemJoinCode = onCall(REGION, async (req) => {
+export const redeemJoinCode = onCall(CALLABLE, async (req) => {
   const uid = requireAuth(req);
   const { orgId, compId, code } = (req.data ?? {}) as Record<string, unknown>;
   if (typeof orgId !== 'string' || typeof compId !== 'string' || typeof code !== 'string' || !validateIds(orgId, compId) || !JOIN_CODE_RE.test(code)) {
@@ -179,7 +184,7 @@ export const redeemJoinCode = onCall(REGION, async (req) => {
 
 // Provision a device for a judge seat (org-supplied hardware). Tenant-scoped, no custom claims:
 // the minted uid's authority comes entirely from the member doc written here.
-export const mintJudgeToken = onCall(REGION, async (req) => {
+export const mintJudgeToken = onCall(CALLABLE, async (req) => {
   const uid = requireAuth(req);
   const { orgId, compId, judgeId } = (req.data ?? {}) as Record<string, unknown>;
   if (typeof orgId !== 'string' || typeof compId !== 'string' || typeof judgeId !== 'string' || !validateIds(orgId, compId, judgeId)) {
@@ -214,7 +219,7 @@ export const mintJudgeToken = onCall(REGION, async (req) => {
 // Kick a competition member (judge/display): delete their membership, free the seat,
 // and delete any codes they redeemed so the seat can be re-issued. Org staff are
 // managed elsewhere — this callable refuses to touch them.
-export const removeMember = onCall(REGION, async (req) => {
+export const removeMember = onCall(CALLABLE, async (req) => {
   const uid = requireAuth(req);
   const { orgId, compId, memberUid } = (req.data ?? {}) as Record<string, unknown>;
   if (typeof orgId !== 'string' || typeof compId !== 'string' || typeof memberUid !== 'string' || !validateIds(orgId, compId, memberUid)) {
