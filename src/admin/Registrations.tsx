@@ -4,6 +4,7 @@ import { useTenant } from '../tenant/TenantContext';
 import type { RegistrationDoc, ContestantDoc } from '../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, defaultDivisionForCategory, type StructureConfig, type Category } from '../domain/structure';
 import { enrollmentId } from '../domain/ids';
+import { generateWebhookToken } from '../onboarding/logic';
 import { C, serif } from '../ui/theme';
 
 // ---------------------------------------------------------------------------
@@ -393,7 +394,7 @@ function PromoteDrawer({ state, structure, onClose, onChange, onSubmit }: Drawer
 // ---------------------------------------------------------------------------
 
 export default function Registrations() {
-  const { tp } = useTenant();
+  const { orgId, compId, tp } = useTenant();
   const registrations = useCollection<RegistrationDoc>(tp('registrations'));
   const contestants = useCollection<ContestantDoc>(tp('contestants'));
   const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
@@ -404,12 +405,28 @@ export default function Registrations() {
   const [flash, setFlash] = useState<string | null>(null);
 
   // Zeffy event-title filter (admin-editable; the webhook reads config/zeffy.eventTitle).
-  const zeffyCfg = useDocData<{ eventTitle?: string }>(tp('config/zeffy'));
+  const zeffyCfg = useDocData<{ eventTitle?: string; token?: string }>(tp('config/zeffy'));
   const [zeffyTitle, setZeffyTitle] = useState<string | null>(null); // null until edited → never clobbers live value
   const [zeffySaved, setZeffySaved] = useState(false);
   const zeffyValue = zeffyTitle ?? zeffyCfg.data?.eventTitle ?? '';
   const zeffyDirty = zeffyTitle !== null && zeffyTitle.trim() !== (zeffyCfg.data?.eventTitle ?? '').trim();
   const saveZeffy = async () => { await writeDoc(tp('config/zeffy'), { eventTitle: zeffyValue.trim() }); setZeffySaved(true); };
+
+  const zeffyToken = zeffyCfg.data?.token ?? '';
+  const webhookUrl = zeffyToken ? `${window.location.origin}/zeffy/${orgId}/${compId}?token=${zeffyToken}` : '';
+  const [copied, setCopied] = useState(false);
+
+  const rotateToken = async () => {
+    if (zeffyToken && !window.confirm('Rotate the webhook token? The old URL stops working immediately — update it in Zeffy.')) return;
+    await writeDoc(tp('config/zeffy'), { token: generateWebhookToken() });
+  };
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch { /* non-secure context — the URL is visible to select manually */ }
+  };
 
   const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
 
@@ -553,6 +570,33 @@ export default function Registrations() {
         >
           {zeffySaved && !zeffyDirty ? '✓ Saved' : 'Save'}
         </button>
+      </div>
+
+      {/* Zeffy webhook URL + token management */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 22px', borderBottom: `1px solid ${C.line}`, background: C.parchment, flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 200, flex: '1 1 240px' }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: C.greenDeep }}>Zeffy webhook</div>
+          <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.45 }}>
+            Paste this URL into Zeffy's webhook settings. The token is this competition's secret — rotate it if it leaks.
+          </div>
+        </div>
+        {zeffyToken ? (
+          <>
+            <code style={{ flex: '2 1 280px', minWidth: 220, fontSize: 12, padding: '9px 12px', border: `1px solid ${C.cardLine}`, borderRadius: 7, background: '#fff', color: C.ink, overflowX: 'auto', whiteSpace: 'nowrap' }}>
+              {webhookUrl}
+            </code>
+            <button onClick={() => void copyUrl()} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '9px 14px', cursor: 'pointer' }}>
+              {copied ? '✓ Copied' : 'Copy URL'}
+            </button>
+            <button onClick={() => void rotateToken()} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: C.brassDark, background: 'transparent', border: `1px solid ${C.brassDark}`, borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}>
+              Rotate token
+            </button>
+          </>
+        ) : (
+          <button onClick={() => void rotateToken()} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '9px 18px', cursor: 'pointer' }}>
+            Generate webhook token
+          </button>
+        )}
       </div>
 
       {flash && (
