@@ -191,6 +191,11 @@ describe('competitions listing', () => {
     await assertFails(getDocs(collection(as('staff2'), 'orgs/org1/competitions')));
     await assertFails(getDocs(collection(as('uJudgeA'), 'orgs/org1/competitions')));
   });
+
+  it('a comp member can get their competition doc; foreign staff cannot', async () => {
+    await assertSucceeds(getDoc(doc(as('uJudgeA'), P1)));
+    await assertFails(getDoc(doc(as('staff2'), P1)));
+  });
 });
 
 describe('join codes — staff-managed, secret from judges', () => {
@@ -214,5 +219,9 @@ describe('users mirror — read own only', () => {
     await assertSucceeds(getDoc(doc(as('staff1'), 'users/staff1/orgs/org1')));
     await assertFails(getDoc(doc(as('staff2'), 'users/staff1/orgs/org1')));
     await assertFails(setDoc(doc(as('staff1'), 'users/staff1/orgs/org2'), { role: 'owner', name: 'X' }));
+  });
+
+  it("a user cannot list another user's org mirror", async () => {
+    await assertFails(getDocs(collection(as('staff2'), 'users/staff1/orgs')));
   });
 });
