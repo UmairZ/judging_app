@@ -70,8 +70,14 @@ npx firebase deploy            # hosting + functions + rules
 - **Structure** (`config/structure`) defines categories × divisions, which
   generate **slots**. Each slot is assigned one **panel**; judges are grouped
   into panels. Editing structure regenerates slots live.
-- **Registrations** arrive from Zeffy (`zeffyWebhook` function) → an admin
-  **promotes** them into **contestants + enrollments**.
+- **Registrations** arrive via three intake paths (all promoted by an admin into
+  **contestants + enrollments**):
+  - Manual: Contestants → + New, enter details directly.
+  - CSV: Registrations → Import CSV, accepts headers `name`/`full name`, `gender`,
+    `dob`/`date of birth`, `category`/`categories`; multi-category separators `;`/`|`.
+  - Zeffy webhook: Configure the per-competition webhook URL + rotatable token in
+    Registrations panel (no `ZEFFY_TOKEN` env required; webhook token is per-tenant
+    and self-service rotatable).
 - **Judges** are provisioned per-device: the admin mints a scoped custom token
   (`mintJudgeToken` function), the device signs in as that judge (no judge
   password). A long-press on the top-left corner re-opens admin sign-in.
