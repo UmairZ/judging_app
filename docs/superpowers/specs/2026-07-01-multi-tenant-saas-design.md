@@ -16,7 +16,7 @@ Turn the single-tenant Firebase judging app into a multi-tenant SaaS any Quran m
 | Stack | Stay on Firebase (Firestore + Auth + Functions + Hosting), one project serves all tenants |
 | Billing at launch | Free; `plan` field on org doc reserves the attachment point for future billing |
 | Tenancy shape | Organization → competitions hierarchy |
-| Judge access | Join code / invite link (Kahoot-style), replaces admin-provisioned devices |
+| Judge access | Join code / invite link (Kahoot-style) **and** organizer-provisioned devices — both supported |
 | Registration intake | Manual add + CSV import as core; Zeffy becomes an optional per-competition integration |
 | Launch scope | Foundation + schema hooks only; all features below are post-launch roadmap items |
 
@@ -58,11 +58,10 @@ orgs/{orgId}/competitions/{compId}/{judges|panels|assignments|contestants|
 
 - **Organizers:** Firebase Auth sign-in (Google + email/password). "Create organization" writes the org doc and an `owner` member doc.
 - **Custom claims are removed.** All authorization derives from member docs read by security rules. `src/auth/claims.ts` and `mintJudgeToken` are retired.
-- **Judges/displays:** the organizer creates a judge seat and the app shows a join link/QR containing a one-time code. The judge opens it on their own phone, signs in anonymously, and a callable function `redeemJoinCode`:
-  1. validates the code (unredeemed, correct competition),
-  2. writes the competition member doc (`role: 'judge', judgeId`),
-  3. stamps the judge seat doc with the claimed uid and marks the code redeemed.
-  Display screens join identically with a `display` code.
+- **Judges/displays — two paths, organizer's choice per seat:**
+  1. **Join code / link (BYO device):** the organizer creates a judge seat and the app shows a join link/QR containing a one-time code. The judge opens it on their own phone, signs in anonymously, and a callable function `redeemJoinCode` validates the code, writes the competition member doc (`role: 'judge', judgeId`), stamps the judge seat with the claimed uid, and marks the code redeemed.
+  2. **Provisioned device (serious competitions, org-supplied hardware):** the organizer, signed in on the device, provisions it directly from the dashboard — a callable `mintJudgeToken` (tenant-scoped successor of today's function: caller must be org staff, seat must exist) returns a custom token; the device signs in as the seat and the member doc is written the same way.
+  Display screens support the same two paths with a `display` code/seat. Both paths converge on identical member docs, so rules and the judge UI don't distinguish them.
 - The judge's auth uid maps to their seat via the member doc's `judgeId`; session writes are validated against it.
 
 ## 6. Security rules
@@ -117,20 +116,22 @@ Each phase is a sub-branch off `saas` and leaves the app deployable.
 Ordered roughly by expected value:
 
 1. **Question generation engine** — Quran metadata dataset (e.g. Tanzil), random starting points within category range, repeat-avoidance across a slot, exclusion rules, judge reveal UI, generated questions stored on sessions for audit. The flagship differentiator.
-2. **i18n + RTL (Arabic first)** — near-mandatory for a worldwide Quran SaaS; schedule early because string-wrapping cost grows with the codebase.
-3. **Small wins bundle** — scoring config templates (named presets at competition creation), recording bookmark links (base URL + start time → per-contestant `?t=` links + CSV export), results CSV export.
-4. **In-app session audio recording** — record recitation on the judge device, upload to Storage, attach to session for review/appeals.
-5. **Multi-round competitions** — prelims → finals with advancement rules, building on the `round` field.
-6. **Public results page + PDF certificates** — shareable read-only leaderboard, generated award certificates.
-7. **Contestant check-in / queue** — "now serving" flow feeding the existing projector screen.
-8. **Judge analytics** — inter-judge variance, outlier flagging (computable at read time from existing data).
-9. **Audit log UI** — surface the `updatedBy`/`updatedAt` trail; optionally Firestore-trigger history docs.
-10. **Public registration form** — per-competition shareable registration page writing into `registrations`.
-11. **Billing** — Stripe (Firebase extension), limits gated on `orgs/{orgId}.plan`.
+2. **Mobile compatibility** — the app today is laptop/tablet (wide-screen) first. Two stages: (a) responsive web pass so all screens work on phones (judge grading first — it's the screen most likely to be used on a phone via join codes); (b) native iPhone/Android apps (evaluate wrapping the PWA vs. React Native once the responsive pass ships).
+3. **i18n + RTL (Arabic first)** — near-mandatory for a worldwide Quran SaaS; schedule early because string-wrapping cost grows with the codebase.
+4. **Small wins bundle** — scoring config templates (named presets at competition creation), recording bookmark links (base URL + start time → per-contestant `?t=` links + CSV export), results CSV export.
+5. **OBS integration** — companion bridge using the obs-websocket API: when a session starts/ends, query the live recording/stream timecode and store precise per-contestant offsets (and optionally trigger record start/stop). Builds directly on the `startedAt`/`endedAt` hooks and the bookmark-links feature; degrades gracefully to plain timestamp links when OBS isn't connected.
+6. **In-app session audio recording** — record recitation on the judge device, upload to Storage, attach to session for review/appeals.
+7. **Multi-round competitions** — prelims → finals with advancement rules, building on the `round` field.
+8. **Public results page + PDF certificates** — shareable read-only leaderboard, generated award certificates.
+9. **Contestant check-in / queue** — "now serving" flow feeding the existing projector screen.
+10. **Judge analytics** — inter-judge variance, outlier flagging (computable at read time from existing data).
+11. **Audit log UI** — surface the `updatedBy`/`updatedAt` trail; optionally Firestore-trigger history docs.
+12. **Public registration form** — per-competition shareable registration page writing into `registrations`.
+13. **Billing** — Stripe (Firebase extension), limits gated on `orgs/{orgId}.plan`.
 
 ## 14. Out of scope
 
 - Non-Quran competition types / generic rubric engine.
-- Livestream-software-specific integrations (OBS etc.) — revisit when real demand names the software; bookmark links cover the need generically.
+- Livestream integrations beyond OBS (StreamYard, vMix, …) — add when real demand names the software; bookmark links cover them generically.
 - Organization-level judge pools shared across competitions.
 - Per-tenant Firebase projects.
