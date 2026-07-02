@@ -66,7 +66,7 @@ function Splash() {
 }
 
 function AdminLogin() {
-  const { signInAdmin } = useAuth();
+  const { signInEmail } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -77,7 +77,7 @@ function AdminLogin() {
     setBusy(true);
     setError('');
     try {
-      await signInAdmin(email, password);
+      await signInEmail(email, password);
     } catch {
       setError('Sign-in failed — check the email and password.');
       setBusy(false);
@@ -105,7 +105,7 @@ function AdminLogin() {
       {import.meta.env.DEV && (
         <div style={{ marginTop: 26, fontSize: 12.5, color: C.muted }}>
           <div>Dev · emulator admin: <code>admin@ibnkatheer.local</code> / <code>admin123</code></div>
-          <button onClick={() => signInAdmin('j1@judge.local', 'judge123')} style={{ marginTop: 8, background: 'transparent', border: 'none', color: C.green, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>Sign in as a judge (j1)</button>
+          <button onClick={() => signInEmail('j1@judge.local', 'judge123')} style={{ marginTop: 8, background: 'transparent', border: 'none', color: C.green, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>Sign in as a judge (j1)</button>
         </div>
       )}
     </div>
