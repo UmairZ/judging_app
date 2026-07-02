@@ -2,7 +2,7 @@ import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { handleZeffyWebhook, verifyZeffyRequest } from '../../src/zeffy/webhook';
+import { handleZeffyWebhook, verifyZeffyRequest, tenantFromWebhookPath } from '../../src/zeffy/webhook';
 import { validateIds, provisionedUid, validateRedeem, JOIN_CODE_RE } from '../../src/onboarding/logic';
 import { DEFAULT_STRUCTURE_CONFIG } from '../../src/domain/structure';
 import { DEFAULT_SCORING_CONFIG } from '../../src/scoring/config';
@@ -10,44 +10,41 @@ import { DEFAULT_SCORING_CONFIG } from '../../src/scoring/config';
 initializeApp();
 const db = getFirestore();
 
-// Zeffy payment.completed receiver. Zeffy fans EVERY form's submissions into the
-// one webhook, so we verify a secret URL token (the security boundary) + match the
-// event title (payload.data.description) to this competition, then write one
-// immutable registration per item (idempotent via create()). The secret token is
-// env (ZEFFY_TOKEN from functions/.env); the event-title filter is admin-editable
-// in-app at config/zeffy { eventTitle } so renaming the event needs no redeploy.
+// Zeffy payment.completed receiver, per-tenant: the URL path names the competition
+// (/zeffy/{orgId}/{compId}) and the secret token + event-title filter live in that
+// competition's config/zeffy doc ({ token, eventTitle }, admin-managed in-app).
+// Fails CLOSED when the competition has no token configured.
 export const zeffyWebhook = onRequest({ region: 'us-central1', invoker: 'public' }, async (req, res) => {
-  // Fail CLOSED if the secret isn't configured — never fall back to a permissive value.
-  const expectedToken = process.env.ZEFFY_TOKEN;
-  if (!expectedToken) {
-    res.status(500).send('misconfigured');
+  const tenant = tenantFromWebhookPath(req.path);
+  if (!tenant) {
+    res.status(404).send('unknown tenant');
     return;
   }
+  const base = `orgs/${tenant.orgId}/competitions/${tenant.compId}`;
 
-  const payload = req.body;
+  const cfg = (await db.doc(`${base}/config/zeffy`).get()).data() ?? {};
+  const expectedToken = typeof cfg.token === 'string' ? cfg.token : '';
+  const expectedEventTitle = typeof cfg.eventTitle === 'string' ? cfg.eventTitle : '';
+  if (!expectedToken) {
+    res.status(403).send('forbidden'); // fail closed: no token configured for this competition
+    return;
+  }
   const token = typeof req.query.token === 'string' ? req.query.token : null;
-  const eventTitle = typeof payload?.data?.description === 'string' ? payload.data.description : '';
-
-  // Token is the security boundary — reject anything without the secret (before any Firestore read).
   if (!token || token !== expectedToken) {
     res.status(403).send('forbidden');
     return;
   }
 
-  // Only act on completed payments — refunds/failures/other event types are no-ops (200, ignored).
+  const payload = req.body;
   if (payload?.type !== 'payment.completed') {
     res.status(200).json({ ok: true, ignored: true });
     return;
   }
-
-  // The competition filter is admin-editable in-app at config/zeffy.eventTitle.
-  const cfg = await db.doc('config/zeffy').get();
-  const expectedEventTitle = typeof cfg.data()?.eventTitle === 'string' ? (cfg.data()!.eventTitle as string) : '';
   if (!expectedEventTitle.trim()) {
     res.status(500).send('event title not configured');
     return;
   }
-  // A non-matching title means the payload is for a different competition — ignore it (200, no-op).
+  const eventTitle = typeof payload?.data?.description === 'string' ? payload.data.description : '';
   if (!verifyZeffyRequest({ token, eventTitle }, { token: expectedToken, eventTitle: expectedEventTitle })) {
     res.status(200).json({ ok: true, ignored: true });
     return;
@@ -56,22 +53,19 @@ export const zeffyWebhook = onRequest({ region: 'us-central1', invoker: 'public'
   try {
     const result = await handleZeffyWebhook(payload, async (id, doc) => {
       // Path-injection guard: the doc id derives from attacker-controllable payment/item ids.
-      // Reject anything but the safe charset (UUIDs + ':' separator) before touching Firestore.
       if (!/^[A-Za-z0-9:_-]{1,1500}$/.test(id)) throw new Error('invalid registration id');
       try {
-        await db.doc(`registrations/${id}`).create({ ...doc, createdAt: FieldValue.serverTimestamp() });
+        await db.doc(`${base}/registrations/${id}`).create({ ...doc, createdAt: FieldValue.serverTimestamp() });
         return 'written';
       } catch (err) {
-        // create() throws ALREADY_EXISTS on a duplicate retry — that's the idempotent path.
         const code = (err as { code?: number | string })?.code;
         if (code === 6 || String((err as Error)?.message).includes('ALREADY_EXISTS')) return 'exists';
-        throw err; // a real write failure → bubble up → 500 → Zeffy retries
+        throw err;
       }
     });
     res.status(200).json({ ok: true, processed: result.processed });
   } catch (err) {
     console.error('zeffyWebhook', err);
-    // A deterministic bad-payload error won't succeed on retry → 400 so Zeffy stops retrying.
     if (err instanceof Error && err.message === 'invalid registration id') {
       res.status(400).send('bad request');
       return;

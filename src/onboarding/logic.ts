@@ -4,19 +4,28 @@ import { SEG, parseTenantPath } from '../tenant/paths';
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const JOIN_CODE_RE = new RegExp(`^[${ALPHABET}]{8}$`);
 
-/** 8-char join code from crypto randomness (~40 bits — plenty for short-lived, revocable codes). */
-export function generateJoinCode(): string {
+function randomCode(length: number): string {
   const out: string[] = [];
-  while (out.length < 8) {
-    const bytes = new Uint8Array(16);
+  while (out.length < length) {
+    const bytes = new Uint8Array(length * 2);
     crypto.getRandomValues(bytes);
     for (const b of bytes) {
       // Rejection sampling: drop bytes past the largest multiple of 31 to keep the draw uniform.
-      if (b >= 248 || out.length >= 8) continue;
+      if (b >= 248 || out.length >= length) continue;
       out.push(ALPHABET[b % ALPHABET.length]);
     }
   }
   return out.join('');
+}
+
+/** 8-char join code (~40 bits — plenty for short-lived, revocable codes). */
+export function generateJoinCode(): string {
+  return randomCode(8);
+}
+
+/** 24-char webhook secret (~119 bits) — the security boundary for per-tenant Zeffy. */
+export function generateWebhookToken(): string {
+  return randomCode(24);
 }
 
 /** Suggest a URL-safe org id from a display name; user can edit before submitting. */
