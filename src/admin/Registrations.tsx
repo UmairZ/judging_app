@@ -1,28 +1,23 @@
 import { useMemo, useRef, useState } from 'react';
-import { useCollection, useDocData, writeDoc, now } from '../data/db';
+import { useCollection, useDocData, writeDoc, removeDoc, now } from '../data/db';
 import { useTenant } from '../tenant/TenantContext';
 import type { RegistrationDoc, ContestantDoc } from '../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, defaultDivisionForCategory, type StructureConfig, type Category } from '../domain/structure';
 import { enrollmentId } from '../domain/ids';
 import { generateWebhookToken } from '../onboarding/logic';
 import { parseCsv, rowsToPeople, csvRegistrationId } from '../intake/csv';
+import {
+  resolveCategories,
+  buildDefaultDivisions,
+  buildPromotion,
+  type ResolvedCategory,
+  type CategoryDivisionPair,
+} from '../intake/promotion';
 import { C, serif } from '../ui/theme';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-interface ResolvedCategory {
-  categoryId: string;
-  label: string;
-  rawLabel: string;
-  unmapped: boolean;
-}
-
-interface CategoryDivisionPair {
-  categoryId: string;
-  division: string;
-}
 
 interface DrawerState {
   regId: string | null; // null = Quick-add (manual)
@@ -31,67 +26,6 @@ interface DrawerState {
   resolved: ResolvedCategory[];
   // per-category chosen division
   divisions: Record<string, string>;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function resolveCategories(
-  rawCategories: unknown,
-  structure: StructureConfig,
-): ResolvedCategory[] {
-  const labels: string[] = Array.isArray(rawCategories)
-    ? (rawCategories as unknown[]).filter((x): x is string => typeof x === 'string')
-    : typeof rawCategories === 'string'
-    ? [rawCategories]
-    : [];
-
-  return labels.map((rawLabel) => {
-    const cat = structure.categories.find(
-      (c) =>
-        c.zeffyLabels?.some((z) => z.toLowerCase() === rawLabel.toLowerCase()) ||
-        c.label.toLowerCase() === rawLabel.toLowerCase() ||
-        c.id.toLowerCase() === rawLabel.toLowerCase(),
-    );
-    return cat
-      ? { categoryId: cat.id, label: cat.label, rawLabel, unmapped: false }
-      : { categoryId: '', label: rawLabel, rawLabel, unmapped: true };
-  });
-}
-
-function buildDefaultDivisions(
-  resolved: ResolvedCategory[],
-  gender: 'male' | 'female' | null,
-  structure: StructureConfig,
-): Record<string, string> {
-  const divs: Record<string, string> = {};
-  for (const r of resolved) {
-    if (r.unmapped) continue;
-    const cat = structure.categories.find((c) => c.id === r.categoryId);
-    if (!cat) continue;
-    const d = defaultDivisionForCategory(cat, gender);
-    divs[r.categoryId] = d ?? (cat.divisions[0] ?? '');
-  }
-  return divs;
-}
-
-/** Auto-promotion plan for a registration, or null when it needs the manual drawer. */
-function buildPromotion(
-  reg: { parsedFields?: Record<string, unknown> },
-  structure: StructureConfig,
-): { fullName: string; gender: 'male' | 'female' | null; pairs: CategoryDivisionPair[] } | null {
-  const parsedFields = reg.parsedFields ?? {};
-  const fullName = typeof parsedFields.fullName === 'string' ? parsedFields.fullName.trim() : '';
-  if (!fullName) return null;
-  const genderRaw = parsedFields.gender;
-  const gender: 'male' | 'female' | null = genderRaw === 'male' || genderRaw === 'female' ? genderRaw : null;
-  const resolved = resolveCategories(parsedFields.categories, structure);
-  if (resolved.length === 0 || resolved.some((r) => r.unmapped)) return null;
-  const divisions = buildDefaultDivisions(resolved, gender, structure);
-  const pairs = resolved.map((r) => ({ categoryId: r.categoryId, division: divisions[r.categoryId] ?? '' }));
-  if (pairs.some((p) => !p.division)) return null; // gendered category without a gender → manual
-  return { fullName, gender, pairs };
 }
 
 // ---------------------------------------------------------------------------
@@ -539,39 +473,48 @@ export default function Registrations() {
   const handleCsvFile = async (file: File) => {
     setImportReport(null);
     setError(null);
-    const { people, errors } = rowsToPeople(parseCsv(await file.text()));
-    if (people.length === 0) {
-      setError(errors.length ? `CSV import failed — ${errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')}` : 'CSV import failed — no rows found.');
-      return;
-    }
-    setBusy(true);
-    let written = 0;
-    let existing = 0;
-    for (const p of people) {
-      try {
-        // create-only: an existing id (re-import) is rejected by rules → counted as already imported
-        await writeDoc(tp(`registrations/${csvRegistrationId(p)}`), {
-          source: 'csv',
-          zeffyPaymentId: null,
-          zeffyItemId: null,
-          kind: 'ticket',
-          buyer: {},
-          rawItem: { line: p.line },
-          parsedFields: { fullName: p.fullName, gender: p.gender, dateOfBirth: p.dateOfBirth, categories: p.categories },
-          paymentStatus: 'n/a',
-          createdAt: now(),
-          promotedContestantId: null,
-        }, false);
-        written++;
-      } catch {
-        existing++;
+    try {
+      const { people, errors } = rowsToPeople(parseCsv(await file.text()));
+      if (people.length === 0) {
+        setError(errors.length ? `CSV import failed — ${errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')}` : 'CSV import failed — no rows found.');
+        return;
       }
+      setBusy(true);
+      let written = 0;
+      let existing = 0;
+      const failed: string[] = [];
+      for (const p of people) {
+        try {
+          // create-only: an existing id (re-import) is rejected by rules → counted as already imported
+          await writeDoc(tp(`registrations/${csvRegistrationId(p)}`), {
+            source: 'csv',
+            zeffyPaymentId: null,
+            zeffyItemId: null,
+            kind: 'ticket',
+            buyer: {},
+            rawItem: { line: p.line },
+            parsedFields: { fullName: p.fullName, gender: p.gender, dateOfBirth: p.dateOfBirth, categories: p.categories },
+            paymentStatus: 'n/a',
+            createdAt: now(),
+            promotedContestantId: null,
+          }, false);
+          written++;
+        } catch (e) {
+          const code = (e as { code?: string })?.code ?? '';
+          if (code === 'permission-denied') existing++;
+          else failed.push(`line ${p.line}: ${e instanceof Error ? e.message : 'write failed'}`);
+        }
+      }
+      setBusy(false);
+      const parts = [`Imported ${written} registration${written === 1 ? '' : 's'}`];
+      if (existing) parts.push(`${existing} already imported`);
+      if (failed.length) parts.push(`${failed.length} FAILED (${failed.join('; ')})`);
+      if (errors.length) parts.push(`${errors.length} row${errors.length === 1 ? '' : 's'} skipped (${errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')})`);
+      setImportReport(parts.join(' · '));
+    } catch (e) {
+      setBusy(false);
+      setError(e instanceof Error ? e.message : 'CSV import failed — could not read file.');
     }
-    setBusy(false);
-    const parts = [`Imported ${written} registration${written === 1 ? '' : 's'}`];
-    if (existing) parts.push(`${existing} already imported`);
-    if (errors.length) parts.push(`${errors.length} row${errors.length === 1 ? '' : 's'} skipped (${errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')})`);
-    setImportReport(parts.join(' · '));
   };
 
   const handleBulkPromote = async () => {
@@ -583,8 +526,8 @@ export default function Registrations() {
       if (reg.kind !== 'ticket' || isPromoted(reg.id)) continue;
       const plan = buildPromotion(reg, structure);
       if (!plan) { skipped++; continue; }
+      const cid = crypto.randomUUID();
       try {
-        const cid = crypto.randomUUID();
         await writeDoc(tp(`contestants/${cid}`), {
           fullName: plan.fullName, gender: plan.gender, photoUrl: null,
           registrationId: reg.id, fields: reg.parsedFields ?? {}, active: true,
@@ -596,6 +539,11 @@ export default function Registrations() {
         ));
         promoted++;
       } catch (e) {
+        // compensate: a contestant doc without enrollments would read as promoted and block retry
+        try {
+          await removeDoc(tp(`contestants/${cid}`));
+          await Promise.all(plan.pairs.map((p) => removeDoc(tp(`enrollments/${enrollmentId(cid, p.categoryId)}`))));
+        } catch { /* best-effort */ }
         setError(e instanceof Error ? e.message : 'Write failed');
         break;
       }
@@ -825,7 +773,7 @@ export default function Registrations() {
                   textTransform: 'capitalize',
                 }}
               >
-                {reg.source === 'zeffy' ? 'Zeffy' : 'Manual'}
+                {reg.source === 'zeffy' ? 'Zeffy' : reg.source === 'csv' ? 'CSV' : 'Manual'}
               </span>
 
               {/* status badge */}
@@ -907,19 +855,6 @@ export default function Registrations() {
           }}
         >
           Saving…
-        </div>
-      )}
-      {error && (
-        <div
-          style={{
-            padding: '12px 22px',
-            fontSize: 13,
-            color: C.fail,
-            background: C.failBg,
-            borderTop: `1px solid ${C.failLine}`,
-          }}
-        >
-          Error: {error}
         </div>
       )}
     </div>
