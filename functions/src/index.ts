@@ -146,6 +146,12 @@ export const redeemJoinCode = onCall(REGION, async (req) => {
   if (typeof orgId !== 'string' || typeof compId !== 'string' || typeof code !== 'string' || !validateIds(orgId, compId) || !JOIN_CODE_RE.test(code)) {
     throw new HttpsError('invalid-argument', 'invalid join request');
   }
+  // Staff don't need seats — and letting them redeem burns the code for the real judge.
+  const callerOrg = await db.doc(`orgs/${orgId}/members/${uid}`).get();
+  const callerRole = callerOrg.data()?.role;
+  if (callerRole === 'owner' || callerRole === 'admin') {
+    throw new HttpsError('failed-precondition', 'organizers open competitions from the dashboard — codes are for judges and displays');
+  }
   const base = `orgs/${orgId}/competitions/${compId}`;
   try {
     const result = await db.runTransaction(async (tx) => {
@@ -193,4 +199,34 @@ export const mintJudgeToken = onCall(REGION, async (req) => {
   await db.doc(`${base}/judges/${judgeId}`).set({ uid: deviceUid }, { merge: true });
   const token = await getAuth().createCustomToken(deviceUid);
   return { token };
+});
+
+// Kick a competition member (judge/display): delete their membership, free the seat,
+// and delete any codes they redeemed so the seat can be re-issued. Org staff are
+// managed elsewhere — this callable refuses to touch them.
+export const removeMember = onCall(REGION, async (req) => {
+  const uid = requireAuth(req);
+  const { orgId, compId, memberUid } = (req.data ?? {}) as Record<string, unknown>;
+  if (typeof orgId !== 'string' || typeof compId !== 'string' || typeof memberUid !== 'string' || !validateIds(orgId, compId, memberUid)) {
+    throw new HttpsError('invalid-argument', 'invalid ids');
+  }
+  await requireOrgStaff(uid, orgId);
+  const base = `orgs/${orgId}/competitions/${compId}`;
+  const memberRef = db.doc(`${base}/members/${memberUid}`);
+  const member = await memberRef.get();
+  if (!member.exists) throw new HttpsError('not-found', 'not a member of this competition');
+  const role = member.data()?.role;
+  if (role !== 'judge' && role !== 'display') {
+    throw new HttpsError('failed-precondition', 'only judge and display members can be removed here');
+  }
+  const judgeId = member.data()?.judgeId;
+  const redeemed = await db.collection(`${base}/joinCodes`).where('redeemedBy', '==', memberUid).get();
+  const batch = db.batch();
+  batch.delete(memberRef);
+  if (typeof judgeId === 'string' && judgeId) {
+    batch.set(db.doc(`${base}/judges/${judgeId}`), { uid: FieldValue.delete() }, { merge: true });
+  }
+  redeemed.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
+  return { removed: true };
 });
