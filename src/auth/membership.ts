@@ -1,4 +1,4 @@
-import type { Role } from './claims';
+export type Role = 'admin' | 'judge' | 'display';
 
 export interface OrgMemberDoc {
   role: 'owner' | 'admin';

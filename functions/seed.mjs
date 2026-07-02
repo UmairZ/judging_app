@@ -49,6 +49,7 @@ async function main() {
   // ── tenant shell ──────────────────────────────────────────────────────────
   await db.doc('orgs/demo').set({ name: 'Demo Organization', ownerUid: admin.uid, plan: 'free', createdAt: FieldValue.serverTimestamp() });
   await db.doc(`orgs/demo/members/${admin.uid}`).set({ role: 'owner' });
+  await db.doc(`users/${admin.uid}/orgs/demo`).set({ role: 'owner', name: 'Demo Organization' });
   await db.doc(BASE).set({ name: '2026 Ibn Katheer Quran Competition', status: 'live', createdAt: FieldValue.serverTimestamp() });
   // judge auth uid == seat id here for convenience; the member doc binding is what the rules check
   for (const jid of ['j1', 'j2', 'j3']) {
@@ -63,7 +64,10 @@ async function main() {
   await db.doc(p('judges/j1')).set({ name: 'Ustadha Maryam', active: true });
   await db.doc(p('judges/j2')).set({ name: 'Ustadha Sara', active: true });
   await db.doc(p('judges/j3')).set({ name: 'Ustadha Huda', active: true });
-  await db.doc(p('panels/sisters')).set({ name: "Sisters' Panel", judgeIds: ['j1', 'j2', 'j3'] });
+  await db.doc(p('judges/j4')).set({ name: 'Ustadha Zaynab', active: true });
+  await db.doc(p('panels/sisters')).set({ name: "Sisters' Panel", judgeIds: ['j1', 'j2', 'j3', 'j4'] });
+  await db.doc(p('joinCodes/JUDGE234')).set({ role: 'judge', judgeId: 'j4', redeemedBy: null, createdAt: FieldValue.serverTimestamp() });
+  await db.doc(p('joinCodes/SCREEN22')).set({ role: 'display', redeemedBy: null, createdAt: FieldValue.serverTimestamp() });
   await db.doc(p('assignments/5_sisters')).set({ category: '5', division: 'sisters', panelId: 'sisters' });
 
   const people = [
@@ -87,6 +91,6 @@ async function main() {
   for (const j of ['j1', 'j2', 'j3']) await mk('khadija_5', j, [q(0, { pfail: 1, tmaj: 1, voice: 3 }), q(1, { pf: 2, voice: 3 }), q(2, { tmaj: 2, voice: 4 }), q(3, { pf: 1, tmin: 2, voice: 3 })]);
   for (const j of ['j1', 'j2']) await mk('aisha_5', j, [q(0, { pfail: 2, tmaj: 2, voice: 2 }), q(1, { pf: 1, voice: 3 }), q(2, { pfail: 1, voice: 3 }), q(3, { tmin: 1, voice: 4 })]);
 
-  console.log('seed complete: tenant demo/2026, 3 contestants in (5·sisters), 8 sessions, 1 pending registration, admin + 3 judges');
+  console.log('seed complete: tenant demo/2026, 3 contestants in (5·sisters), 8 sessions, 1 pending registration, admin + 4 judges, join codes JUDGE234 (judge j4) + SCREEN22 (display)');
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
