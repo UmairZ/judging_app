@@ -42,6 +42,7 @@ export interface EnrollmentDoc {
   contestantId: string;
   category: string;
   division: string;
+  round?: string; // schema hook: multi-round competitions (default 'main')
 }
 
 export interface SessionDoc {
@@ -49,6 +50,9 @@ export interface SessionDoc {
   judgeId: string;
   questions: Question[];
   notes?: string;
+  round?: string; // schema hook: multi-round competitions (default 'main')
+  startedAt?: unknown; // Firestore Timestamp, stamped on first write
+  endedAt?: unknown | null; // stamped at finalize (recording-bookmark hook)
   updatedAt: unknown; // Firestore Timestamp
   finalizedAt: unknown | null;
 }
