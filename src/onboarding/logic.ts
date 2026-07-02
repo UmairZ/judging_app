@@ -31,6 +31,7 @@ export function validateIds(...ids: string[]): boolean {
 
 /** Auth uid for an organizer-provisioned device — tenant-qualified so seats never collide across tenants. */
 export function provisionedUid(orgId: string, compId: string, judgeId: string): string {
+  if ([orgId, compId, judgeId].some((id) => id.includes('__'))) throw new Error('ids may not contain __');
   const uid = `${orgId}__${compId}__${judgeId}`;
   if (uid.length > 128) throw new Error('uid too long');
   return uid;
