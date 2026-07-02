@@ -22,6 +22,19 @@ export default function Devices() {
   const [selectedJudgeId, setSelectedJudgeId] = useState<string | null>(null);
   const [provisioning, setProvisioning] = useState(false);
   const [statusNote, setStatusNote] = useState<{ text: string; warn: boolean } | null>(null);
+  const [kicking, setKicking] = useState<string | null>(null);
+
+  const kickMember = async (memberUid: string) => {
+    if (!window.confirm('Kick this device? It loses access immediately; generate a new code to re-admit.')) return;
+    setKicking(memberUid);
+    try {
+      await httpsCallable(getFunctions(app, 'us-central1'), 'removeMember')({ orgId, compId, memberUid });
+    } catch (err) {
+      setStatusNote({ text: (err as { message?: string })?.message ?? 'Could not remove the member.', warn: true });
+    } finally {
+      setKicking(null);
+    }
+  };
 
   /** Return the panel this judge belongs to, or undefined. */
   const panelFor = (judgeId: string) =>
@@ -228,15 +241,19 @@ export default function Devices() {
               return (
                 <div key={j.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #EAE3D3', gap: 12 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>{j.name}</div>
-                  {code ? (
+                  {j.uid ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+                      <span style={{ color: C.green }}>connected ✓</span>
+                      <button onClick={() => void kickMember(j.uid!)} disabled={kicking === j.uid} style={{ background: 'none', border: 'none', color: C.fail, cursor: 'pointer', fontSize: 12.5 }}>
+                        {kicking === j.uid ? 'Kicking…' : 'Kick'}
+                      </button>
+                    </div>
+                  ) : code ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
                       <code style={{ background: '#fff', border: '1px solid #D8D0BE', borderRadius: 6, padding: '4px 8px', fontWeight: 700, letterSpacing: '.08em' }}>{code.id}</code>
-                      <span style={{ color: code.redeemedBy ? C.green : C.muted }}>{code.redeemedBy ? 'joined ✓' : 'waiting'}</span>
+                      <span style={{ color: C.muted }}>waiting</span>
                       <button onClick={() => { void navigator.clipboard.writeText(codeLink(orgId, compId, code.id)); }} style={{ background: 'none', border: 'none', color: C.green, cursor: 'pointer', fontSize: 12.5, textDecoration: 'underline' }}>Copy link</button>
-                      {/* ponytail: revoking a redeemed code can't kick the device — member removal is a follow-up callable */}
-                      {!code.redeemedBy && (
-                        <button onClick={() => { void removeDoc(tp(`joinCodes/${code.id}`)); }} style={{ background: 'none', border: 'none', color: C.fail, cursor: 'pointer', fontSize: 12.5 }}>Revoke</button>
-                      )}
+                      <button onClick={() => { void removeDoc(tp(`joinCodes/${code.id}`)); }} style={{ background: 'none', border: 'none', color: C.fail, cursor: 'pointer', fontSize: 12.5 }}>Revoke</button>
                     </div>
                   ) : (
                     <button onClick={() => { void writeDoc(tp(`joinCodes/${generateJoinCode()}`), { role: 'judge', judgeId: j.id, redeemedBy: null, createdAt: now() }, false); }} style={{ background: 'none', border: `1px solid ${C.green}`, color: C.green, borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12.5, fontWeight: 600 }}>
@@ -252,15 +269,19 @@ export default function Devices() {
               return (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 2px', gap: 12 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Projector / display screen</div>
-                  {code ? (
+                  {code && code.redeemedBy ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+                      <span style={{ color: C.green }}>connected ✓</span>
+                      <button onClick={() => void kickMember(code.redeemedBy!)} disabled={kicking === code.redeemedBy} style={{ background: 'none', border: 'none', color: C.fail, cursor: 'pointer', fontSize: 12.5 }}>
+                        {kicking === code.redeemedBy ? 'Kicking…' : 'Kick'}
+                      </button>
+                    </div>
+                  ) : code ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
                       <code style={{ background: '#fff', border: '1px solid #D8D0BE', borderRadius: 6, padding: '4px 8px', fontWeight: 700, letterSpacing: '.08em' }}>{code.id}</code>
-                      <span style={{ color: code.redeemedBy ? C.green : C.muted }}>{code.redeemedBy ? 'connected ✓' : 'waiting'}</span>
+                      <span style={{ color: C.muted }}>waiting</span>
                       <button onClick={() => { void navigator.clipboard.writeText(codeLink(orgId, compId, code.id)); }} style={{ background: 'none', border: 'none', color: C.green, cursor: 'pointer', fontSize: 12.5, textDecoration: 'underline' }}>Copy link</button>
-                      {/* ponytail: revoking a redeemed code can't kick the device — member removal is a follow-up callable */}
-                      {!code.redeemedBy && (
-                        <button onClick={() => { void removeDoc(tp(`joinCodes/${code.id}`)); }} style={{ background: 'none', border: 'none', color: C.fail, cursor: 'pointer', fontSize: 12.5 }}>Revoke</button>
-                      )}
+                      <button onClick={() => { void removeDoc(tp(`joinCodes/${code.id}`)); }} style={{ background: 'none', border: 'none', color: C.fail, cursor: 'pointer', fontSize: 12.5 }}>Revoke</button>
                     </div>
                   ) : (
                     <button onClick={() => { void writeDoc(tp(`joinCodes/${generateJoinCode()}`), { role: 'display', redeemedBy: null, createdAt: now() }, false); }} style={{ background: 'none', border: `1px solid ${C.green}`, color: C.green, borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12.5, fontWeight: 600 }}>

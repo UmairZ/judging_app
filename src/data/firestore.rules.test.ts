@@ -39,6 +39,7 @@ beforeEach(async () => {
     await setDoc(doc(db, `${P2}/members/uJudgeZ`), { role: 'judge', judgeId: 'jZ' });
     await setDoc(doc(db, 'users/staff1/orgs/org1'), { role: 'owner', name: 'Org One' });
     await setDoc(doc(db, `${P1}/joinCodes/JUDGE234`), { role: 'judge', judgeId: 'jC', redeemedBy: null });
+    await setDoc(doc(db, `${P1}/members/uNoSeat`), { role: 'judge' }); // corrupt: judge with no judgeId
   });
 });
 
@@ -90,6 +91,11 @@ describe('sessions — one writer per doc, judgeId from the member doc', () => {
 
   it('a display member cannot create a session', async () => {
     await assertFails(setDoc(doc(as('uDisplay1'), `${P1}/sessions/sd`), { judgeId: 'jA', enrollmentId: 'e1', questions: [] }));
+  });
+
+  it('a judge member doc without a judgeId cannot create sessions', async () => {
+    await assertFails(setDoc(doc(as('uNoSeat'), `${P1}/sessions/sq`), { judgeId: 'jA', enrollmentId: 'e1', questions: [] }));
+    await assertFails(setDoc(doc(as('uNoSeat'), `${P1}/sessions/sq2`), { enrollmentId: 'e1', questions: [] }));
   });
 });
 

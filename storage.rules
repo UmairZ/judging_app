@@ -1,13 +1,23 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Phase 2: tenant-scoped photo storage (orgs/{orgId}/competitions/{compId}/...)
-    // with membership checks via cross-service firestore.get(). Locked until then —
-    // the claims-based gate below died with custom claims, and the flat path
-    // isn't tenant-safe. Contestants.tsx degrades gracefully (upload catch).
-    match /contestants/{file=**} {
-      allow read: if false;
-      allow write: if false;
+    // Membership lives in Firestore; storage rules read it cross-service.
+    function isOrgStaff(orgId) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/orgs/$(orgId)/members/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role in ['owner', 'admin'];
+    }
+    function isCompMember(orgId, compId) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/orgs/$(orgId)/competitions/$(compId)/members/$(request.auth.uid));
+    }
+
+    // Contestant photos, tenant-scoped (same path shape as the Firestore docs).
+    match /orgs/{orgId}/competitions/{compId}/contestants/{contestantId}/photo {
+      allow read: if isOrgStaff(orgId) || isCompMember(orgId, compId);
+      allow write: if isOrgStaff(orgId)
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
     }
   }
 }

@@ -76,6 +76,11 @@ export const zeffyWebhook = onRequest({ region: 'us-central1', invoker: 'public'
 
 const REGION = { region: 'us-central1', invoker: 'public' } as const;
 
+// App Check enforcement is deploy-time config: set ENFORCE_APP_CHECK=true in the
+// functions env once the web app attests. The Zeffy webhook never enforces —
+// Zeffy's servers can't attest; its per-competition token is the boundary.
+const CALLABLE = { ...REGION, enforceAppCheck: process.env.ENFORCE_APP_CHECK === 'true' } as const;
+
 function requireAuth(req: { auth?: { uid: string } | null }): string {
   if (!req.auth?.uid) throw new HttpsError('unauthenticated', 'sign in first');
   return req.auth.uid;
@@ -88,7 +93,7 @@ async function requireOrgStaff(uid: string, orgId: string): Promise<void> {
 }
 
 // Create an org + owner membership + dashboard mirror, atomically. Fails if the id is taken.
-export const createOrg = onCall(REGION, async (req) => {
+export const createOrg = onCall(CALLABLE, async (req) => {
   const uid = requireAuth(req);
   // Anonymous accounts are for join codes; org creation needs a real account (App Check lands later).
   if ((req.auth?.token as { firebase?: { sign_in_provider?: string } })?.firebase?.sign_in_provider === 'anonymous') {
@@ -115,7 +120,7 @@ export const createOrg = onCall(REGION, async (req) => {
 });
 
 // Create a competition with default config docs. Caller must be org staff.
-export const createCompetition = onCall(REGION, async (req) => {
+export const createCompetition = onCall(CALLABLE, async (req) => {
   const uid = requireAuth(req);
   const { orgId, compId, name } = (req.data ?? {}) as Record<string, unknown>;
   if (typeof orgId !== 'string' || typeof compId !== 'string' || typeof name !== 'string' || !validateIds(orgId, compId) || !name.trim()) {
@@ -140,11 +145,17 @@ export const createCompetition = onCall(REGION, async (req) => {
 });
 
 // Redeem a join code: transactionally consume the code and write the member doc.
-export const redeemJoinCode = onCall(REGION, async (req) => {
+export const redeemJoinCode = onCall(CALLABLE, async (req) => {
   const uid = requireAuth(req);
   const { orgId, compId, code } = (req.data ?? {}) as Record<string, unknown>;
   if (typeof orgId !== 'string' || typeof compId !== 'string' || typeof code !== 'string' || !validateIds(orgId, compId) || !JOIN_CODE_RE.test(code)) {
     throw new HttpsError('invalid-argument', 'invalid join request');
+  }
+  // Staff don't need seats — and letting them redeem burns the code for the real judge.
+  const callerOrg = await db.doc(`orgs/${orgId}/members/${uid}`).get();
+  const callerRole = callerOrg.data()?.role;
+  if (callerRole === 'owner' || callerRole === 'admin') {
+    throw new HttpsError('failed-precondition', 'organizers open competitions from the dashboard — codes are for judges and displays');
   }
   const base = `orgs/${orgId}/competitions/${compId}`;
   try {
@@ -173,7 +184,7 @@ export const redeemJoinCode = onCall(REGION, async (req) => {
 
 // Provision a device for a judge seat (org-supplied hardware). Tenant-scoped, no custom claims:
 // the minted uid's authority comes entirely from the member doc written here.
-export const mintJudgeToken = onCall(REGION, async (req) => {
+export const mintJudgeToken = onCall(CALLABLE, async (req) => {
   const uid = requireAuth(req);
   const { orgId, compId, judgeId } = (req.data ?? {}) as Record<string, unknown>;
   if (typeof orgId !== 'string' || typeof compId !== 'string' || typeof judgeId !== 'string' || !validateIds(orgId, compId, judgeId)) {
@@ -183,14 +194,76 @@ export const mintJudgeToken = onCall(REGION, async (req) => {
   const base = `orgs/${orgId}/competitions/${compId}`;
   const seat = await db.doc(`${base}/judges/${judgeId}`).get();
   if (!seat.exists) throw new HttpsError('not-found', 'unknown judge seat');
+  const previousUid = seat.data()?.uid;
+
   let deviceUid: string;
   try {
     deviceUid = provisionedUid(orgId, compId, judgeId);
   } catch {
     throw new HttpsError('invalid-argument', 'ids invalid for a device uid');
   }
-  await db.doc(`${base}/members/${deviceUid}`).set({ role: 'judge', judgeId });
-  await db.doc(`${base}/judges/${judgeId}`).set({ uid: deviceUid }, { merge: true });
+
+  // Provisioning claims the seat: outstanding invitations for it are stale — delete them
+  // so an old link can't later re-bind the seat to a different device.
+  const stale = await db.collection(`${base}/joinCodes`).where('judgeId', '==', judgeId).get();
+
+  // Provisioning claims the seat exclusively: evict the previous holder's membership and codes
+  // so a ghost device can't keep scoring as this judge.
+  const evictPrevious = typeof previousUid === 'string' && previousUid && previousUid !== deviceUid;
+  const previousRedeemed = evictPrevious
+    ? await db.collection(`${base}/joinCodes`).where('redeemedBy', '==', previousUid).get()
+    : null;
+
+  const batch = db.batch();
+  if (evictPrevious) batch.delete(db.doc(`${base}/members/${previousUid}`));
+  const codeRefs = new Map<string, FirebaseFirestore.DocumentReference>();
+  stale.docs.forEach((d) => codeRefs.set(d.ref.path, d.ref));
+  previousRedeemed?.docs.forEach((d) => codeRefs.set(d.ref.path, d.ref));
+  codeRefs.forEach((ref) => batch.delete(ref));
+  batch.set(db.doc(`${base}/members/${deviceUid}`), { role: 'judge', judgeId });
+  batch.set(db.doc(`${base}/judges/${judgeId}`), { uid: deviceUid }, { merge: true });
+  await batch.commit();
+
   const token = await getAuth().createCustomToken(deviceUid);
   return { token };
+});
+
+// Kick a competition member (judge/display): delete their membership, free the seat,
+// and delete any codes they redeemed so the seat can be re-issued. Org staff are
+// managed elsewhere — this callable refuses to touch them.
+export const removeMember = onCall(CALLABLE, async (req) => {
+  const uid = requireAuth(req);
+  const { orgId, compId, memberUid } = (req.data ?? {}) as Record<string, unknown>;
+  if (typeof orgId !== 'string' || typeof compId !== 'string' || typeof memberUid !== 'string' || !validateIds(orgId, compId, memberUid)) {
+    throw new HttpsError('invalid-argument', 'invalid ids');
+  }
+  await requireOrgStaff(uid, orgId);
+  const base = `orgs/${orgId}/competitions/${compId}`;
+  const memberRef = db.doc(`${base}/members/${memberUid}`);
+  const member = await memberRef.get();
+  if (!member.exists) throw new HttpsError('not-found', 'not a member of this competition');
+  const role = member.data()?.role;
+  if (role !== 'judge' && role !== 'display') {
+    throw new HttpsError('failed-precondition', 'only judge and display members can be removed here');
+  }
+  const judgeId = member.data()?.judgeId;
+  const redeemed = await db.collection(`${base}/joinCodes`).where('redeemedBy', '==', memberUid).get();
+
+  // Also delete any outstanding (unredeemed) codes for this seat so the seat can be re-issued
+  let outstanding: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = null;
+  if (typeof judgeId === 'string' && judgeId) {
+    outstanding = await db.collection(`${base}/joinCodes`).where('judgeId', '==', judgeId).get();
+  }
+
+  const batch = db.batch();
+  batch.delete(memberRef);
+  if (typeof judgeId === 'string' && judgeId) {
+    batch.set(db.doc(`${base}/judges/${judgeId}`), { uid: FieldValue.delete() }, { merge: true });
+  }
+  redeemed.docs.forEach((d) => batch.delete(d.ref));
+  if (outstanding) {
+    outstanding.docs.forEach((d) => batch.delete(d.ref));
+  }
+  await batch.commit();
+  return { removed: true };
 });
