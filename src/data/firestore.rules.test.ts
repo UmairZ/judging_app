@@ -33,6 +33,7 @@ beforeEach(async () => {
     await setDoc(doc(db, 'orgs/org1/members/staff1'), { role: 'owner' });
     await setDoc(doc(db, `${P1}/members/uJudgeA`), { role: 'judge', judgeId: 'jA' });
     await setDoc(doc(db, `${P1}/members/uJudgeB`), { role: 'judge', judgeId: 'jB' });
+    await setDoc(doc(db, `${P1}/members/uDisplay1`), { role: 'display' });
     // org2: a foreign tenant
     await setDoc(doc(db, 'orgs/org2/members/staff2'), { role: 'admin' });
     await setDoc(doc(db, `${P2}/members/uJudgeZ`), { role: 'judge', judgeId: 'jZ' });
@@ -83,6 +84,10 @@ describe('sessions — one writer per doc, judgeId from the member doc', () => {
     const db = as('staff1');
     await assertSucceeds(setDoc(doc(db, `${P1}/sessions/s6`), { judgeId: 'jA', enrollmentId: 'e1', questions: [] }));
     await assertSucceeds(updateDoc(doc(db, `${P1}/sessions/s6`), { finalizedAt: 'now' }));
+  });
+
+  it('a display member cannot create a session', async () => {
+    await assertFails(setDoc(doc(as('uDisplay1'), `${P1}/sessions/sd`), { judgeId: 'jA', enrollmentId: 'e1', questions: [] }));
   });
 });
 
@@ -158,6 +163,10 @@ describe('cross-tenant isolation — the SaaS invariant', () => {
     await assertFails(getDoc(doc(db, `${P2}/config/structure`)));
     // even claiming their own seat id in the foreign tenant
     await assertFails(setDoc(doc(db, `${P2}/sessions/sy`), { judgeId: 'jA', enrollmentId: 'e1', questions: [] }));
+  });
+
+  it('a judge cannot write a sibling competition in the same org', async () => {
+    await assertFails(setDoc(doc(as('uJudgeA'), 'orgs/org1/competitions/comp2/sessions/sz'), { judgeId: 'jA', enrollmentId: 'e1', questions: [] }));
   });
 
   it('foreign staff cannot read another org’s member docs or org doc', async () => {
