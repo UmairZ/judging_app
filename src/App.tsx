@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { MembershipProvider, useMembership } from './auth/MembershipContext';
-import { TenantProvider } from './tenant/TenantContext';
+import { TenantProvider, useTenant } from './tenant/TenantContext';
+import { useDocData } from './data/db';
 import { parseRoute } from './onboarding/logic';
 import SignInScreen from './onboarding/SignInScreen';
 import OrgDashboard from './onboarding/OrgDashboard';
@@ -29,11 +30,20 @@ function Routed() {
 
 function RoleGate() {
   const { role, loading } = useMembership();
-  if (loading) return <Splash />;
+  const { orgId, compId } = useTenant();
+  const comp = useDocData<{ name?: string }>(`orgs/${orgId}/competitions/${compId}`);
+  if (loading || comp.loading) return <Splash />;
+  // Org staff resolve to 'admin' even for a typo'd competition id — writing there
+  // would create a ghost tenant. Gate on the competition doc actually existing.
+  if (role === 'admin' && !comp.data) return <CompNotFound />;
   if (role === 'admin') return <AdminApp />;
   if (role === 'judge') return <JudgeApp />;
   if (role === 'display') return <Projector />;
   return <NoAccess />;
+}
+
+function CompNotFound() {
+  return <GateShell title="Competition not found" body="No competition exists at this address. Check the link, or create it from your dashboard." />;
 }
 
 function GateShell({ title, body }: { title: string; body: string }) {
