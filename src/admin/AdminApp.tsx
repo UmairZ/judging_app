@@ -59,6 +59,7 @@ export default function AdminApp({ onExit }: { onExit?: () => void }) {
         <div style={{ marginTop: 'auto', padding: '18px 22px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {user && <div onClick={() => signOut()} style={{ cursor: 'pointer', fontSize: 13, color: '#9DBDB4' }}>Sign out</div>}
           {onExit && <div onClick={onExit} style={{ cursor: 'pointer', fontSize: 13, color: '#9DBDB4' }}>← Exit preview</div>}
+          <div onClick={() => { window.location.href = '/'; }} style={{ cursor: 'pointer', fontSize: 13, color: '#9DBDB4' }}>← Dashboard</div>
         </div>
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: 28 }}>{current.el}</div>
