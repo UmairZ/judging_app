@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseTenantPath, compBasePath } from './paths';
+import { parseRoute } from '../onboarding/logic';
 
 describe('parseTenantPath', () => {
   it('parses /{orgId}/{compId}', () => {
@@ -24,5 +25,21 @@ describe('parseTenantPath', () => {
 describe('compBasePath', () => {
   it('builds the nested competition path', () => {
     expect(compBasePath('demo', '2026')).toBe('orgs/demo/competitions/2026');
+  });
+});
+
+describe('parseRoute', () => {
+  it('root for /, single segment, invalid ids', () => {
+    expect(parseRoute('/')).toEqual({ kind: 'root' });
+    expect(parseRoute('/demo')).toEqual({ kind: 'root' });
+  });
+  it('tenant for /{org}/{comp} and deeper non-join paths', () => {
+    expect(parseRoute('/demo/2026')).toEqual({ kind: 'tenant', orgId: 'demo', compId: '2026' });
+    expect(parseRoute('/demo/2026/leaderboard')).toEqual({ kind: 'tenant', orgId: 'demo', compId: '2026' });
+  });
+  it('join with and without a code', () => {
+    expect(parseRoute('/demo/2026/join/JUDGE234')).toEqual({ kind: 'join', orgId: 'demo', compId: '2026', code: 'JUDGE234' });
+    expect(parseRoute('/demo/2026/join')).toEqual({ kind: 'join', orgId: 'demo', compId: '2026', code: null });
+    expect(parseRoute('/demo/2026/join/bad-code!')).toEqual({ kind: 'join', orgId: 'demo', compId: '2026', code: null });
   });
 });

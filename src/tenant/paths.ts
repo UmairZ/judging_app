@@ -1,5 +1,5 @@
 // Safe charset for org/competition ids — mirrors the judgeId constraint in functions.
-const SEG = /^[A-Za-z0-9_-]{1,128}$/;
+export const SEG = /^[A-Za-z0-9_-]{1,128}$/;
 
 /** Parse `/{orgId}/{compId}[/…]` from a location pathname. */
 export function parseTenantPath(pathname: string): { orgId: string; compId: string } | null {
