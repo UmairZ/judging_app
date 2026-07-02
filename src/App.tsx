@@ -5,6 +5,7 @@ import { TenantProvider } from './tenant/TenantContext';
 import { parseRoute } from './onboarding/logic';
 import SignInScreen from './onboarding/SignInScreen';
 import OrgDashboard from './onboarding/OrgDashboard';
+import JoinScreen from './onboarding/JoinScreen';
 import JudgeApp from './judge/JudgeApp';
 import AdminApp from './admin/AdminApp';
 import Projector from './admin/Projector';
@@ -14,10 +15,7 @@ function Routed() {
   const { user, loading } = useAuth();
   const route = useMemo(() => parseRoute(window.location.pathname), []);
   if (loading) return <Splash />;
-  if (route.kind === 'join') {
-    // Task 6 swaps this for <JoinScreen route={route} /> — until then joiners see sign-in / no-access.
-    if (!user) return <SignInScreen />;
-  }
+  if (route.kind === 'join') return <JoinScreen orgId={route.orgId} compId={route.compId} code={route.code} />;
   if (!user) return <SignInScreen />;
   if (route.kind === 'root') return <OrgDashboard />;
   return (
