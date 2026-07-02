@@ -35,7 +35,8 @@ service cloud.firestore {
       }
 
       match /competitions/{compId} {
-        allow read: if canReadComp(orgId, compId);
+        allow get: if canReadComp(orgId, compId);
+        allow list: if isOrgStaff(orgId); // dashboard lists an org's competitions
         allow write: if false; // Phase 2: create-competition flow
 
         match /members/{uid} {
@@ -73,7 +74,21 @@ service cloud.firestore {
                         && request.resource.data.judgeId == compMember(orgId, compId).judgeId);
           allow delete: if false;
         }
+
+        // Join codes are secrets between org staff and the function that redeems them.
+        // Staff create (unredeemed only) and revoke; redemption is callable-only.
+        match /joinCodes/{code} {
+          allow read, delete: if isOrgStaff(orgId);
+          allow create: if isOrgStaff(orgId) && request.resource.data.redeemedBy == null;
+          allow update: if false;
+        }
       }
+    }
+
+    // Dashboard mirror maintained by callables; a user sees only their own org list.
+    match /users/{uid}/orgs/{orgId} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if false;
     }
   }
 }
