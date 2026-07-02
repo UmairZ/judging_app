@@ -373,10 +373,18 @@ export default function Registrations() {
   const zeffyToken = zeffyCfg.data?.token ?? '';
   const webhookUrl = zeffyToken ? `${window.location.origin}/zeffy/${orgId}/${compId}?token=${zeffyToken}` : '';
   const [copied, setCopied] = useState(false);
+  const [rotating, setRotating] = useState(false);
 
   const rotateToken = async () => {
     if (zeffyToken && !window.confirm('Rotate the webhook token? The old URL stops working immediately — update it in Zeffy.')) return;
-    await writeDoc(tp('config/zeffy'), { token: generateWebhookToken() });
+    setRotating(true);
+    try {
+      await writeDoc(tp('config/zeffy'), { token: generateWebhookToken() });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not update the token');
+    } finally {
+      setRotating(false);
+    }
   };
   const copyUrl = async () => {
     try {
@@ -522,6 +530,7 @@ export default function Registrations() {
     setError(null);
     let promoted = 0;
     let skipped = 0;
+    let failed = false;
     for (const reg of registrations) {
       if (reg.kind !== 'ticket' || isPromoted(reg.id)) continue;
       const plan = buildPromotion(reg, structure);
@@ -545,12 +554,15 @@ export default function Registrations() {
           await Promise.all(plan.pairs.map((p) => removeDoc(tp(`enrollments/${enrollmentId(cid, p.categoryId)}`))));
         } catch { /* best-effort */ }
         setError(e instanceof Error ? e.message : 'Write failed');
+        failed = true;
         break;
       }
     }
     setBusy(false);
-    setFlash(`Promoted ${promoted} · ${skipped} need review (open each to resolve)`);
-    setTimeout(() => setFlash(null), 6000);
+    if (!failed) {
+      setFlash(`Promoted ${promoted} · ${skipped} need review (open each to resolve)`);
+      setTimeout(() => setFlash(null), 6000);
+    }
   };
 
   // Sort: ticket kind first, then donations/other; within ticket: pending before promoted
@@ -639,8 +651,8 @@ export default function Registrations() {
             <button onClick={() => void copyUrl()} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '9px 14px', cursor: 'pointer' }}>
               {copied ? '✓ Copied' : 'Copy URL'}
             </button>
-            <button onClick={() => void rotateToken()} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: C.brassDark, background: 'transparent', border: `1px solid ${C.brassDark}`, borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}>
-              Rotate token
+            <button onClick={() => void rotateToken()} disabled={rotating} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: C.brassDark, background: 'transparent', border: `1px solid ${C.brassDark}`, borderRadius: 6, padding: '8px 14px', cursor: rotating ? 'default' : 'pointer' }}>
+              {rotating ? 'Rotating…' : 'Rotate token'}
             </button>
           </>
         ) : zeffyCfg.loading ? (
@@ -648,8 +660,8 @@ export default function Registrations() {
         ) : (
           // Only offered once the doc has resolved — otherwise a click during the load
           // window would silently overwrite an existing token without the confirm prompt.
-          <button onClick={() => void rotateToken()} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '9px 18px', cursor: 'pointer' }}>
-            Generate webhook token
+          <button onClick={() => void rotateToken()} disabled={rotating} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '9px 18px', cursor: rotating ? 'default' : 'pointer' }}>
+            {rotating ? 'Generating…' : 'Generate webhook token'}
           </button>
         )}
       </div>

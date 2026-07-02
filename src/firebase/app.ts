@@ -3,6 +3,7 @@ import { initializeFirestore, persistentLocalCache, connectFirestoreEmulator } f
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 // Public client config (safe to commit — access is gated by Firestore rules + Auth).
 const firebaseConfig = {
@@ -15,6 +16,18 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
+
+// App Check is opt-in by configuration: set VITE_APPCHECK_SITE_KEY (reCAPTCHA v3)
+// to attest this web app. Unset (dev, self-hosters) → no-op.
+const appCheckKey = import.meta.env.VITE_APPCHECK_SITE_KEY as string | undefined;
+if (appCheckKey) {
+  if (import.meta.env.DEV) {
+    // Emulator/dev: use a debug token instead of real attestation.
+    (self as { FIREBASE_APPCHECK_DEBUG_TOKEN?: boolean }).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+  initializeAppCheck(app, { provider: new ReCaptchaV3Provider(appCheckKey), isTokenAutoRefreshEnabled: true });
+}
+
 // Offline-first: judge devices write locally and sync when connectivity returns.
 export const db = initializeFirestore(app, { localCache: persistentLocalCache({}) });
 export const auth = getAuth(app);
