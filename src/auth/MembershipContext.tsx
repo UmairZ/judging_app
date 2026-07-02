@@ -11,7 +11,7 @@ const Ctx = createContext<Value>({ role: null, judgeId: null, loading: true });
 /** Requires a signed-in user (render inside the auth gate) and a TenantProvider. */
 export function MembershipProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { orgId, compId: _compId, tp } = useTenant();
+  const { orgId, tp } = useTenant();
   const uid = user?.uid ?? '_none_'; // never rendered signed-out; placeholder keeps the doc path valid
   const org = useDocData<OrgMemberDoc>(`orgs/${orgId}/members/${uid}`);
   const comp = useDocData<CompMemberDoc>(tp(`members/${uid}`));
