@@ -128,6 +128,7 @@ Ordered roughly by expected value:
 11. **Audit log UI** — surface the `updatedBy`/`updatedAt` trail; optionally Firestore-trigger history docs.
 12. **Public registration form** — per-competition shareable registration page writing into `registrations`.
 13. **Billing** — Stripe (Firebase extension), limits gated on `orgs/{orgId}.plan`.
+14. **First-run setup experience** — a guided configuration flow for new competitions (categories, divisions, question counts, scoring, judges, intake). **Deliberately sequenced last among product phases** (decided 2026-07-02): its contents depend on engines still to be built (scoring model updates, question generation engine, and configuration surfaces not yet identified), so building it earlier would mean rebuilding it after every engine change. Foundation hooks already in place: competitions are created with `status: 'setup'` (unused until this phase) and default config docs, and every configuration area has an editing screen the flow can deep-link into. Until this ships, new competitions start from the seeded defaults and organizers configure via the existing admin tabs.
 
 ## 14. Out of scope
 
