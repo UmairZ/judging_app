@@ -87,5 +87,6 @@ export function rowsToPeople(rows: string[][]): CsvParseResult {
 /** Deterministic id so re-importing the same person is idempotent (create fails → "already imported"). */
 export function csvRegistrationId(person: { fullName: string; dateOfBirth: string | null }): string {
   const slug = person.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return `csv:${slug || 'unnamed'}:${person.dateOfBirth ?? 'nodob'}`;
+  const dob = person.dateOfBirth ? person.dateOfBirth.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : 'nodob';
+  return `csv:${slug || 'unnamed'}:${dob || 'nodob'}`;
 }

@@ -75,6 +75,8 @@ npx firebase deploy            # hosting + functions + rules
   - Manual: Contestants → + New, enter details directly.
   - CSV: Registrations → Import CSV, accepts headers `name`/`full name`, `gender`,
     `dob`/`date of birth`, `category`/`categories`; multi-category separators `;`/`|`.
+    Duplicate name+DOB rows are treated as the same person and report "already
+    imported" — give contestants distinct DOBs (or names) to import both.
   - Zeffy webhook: Configure the per-competition webhook URL + rotatable token in
     Registrations panel (no `ZEFFY_TOKEN` env required; webhook token is per-tenant
     and self-service rotatable).

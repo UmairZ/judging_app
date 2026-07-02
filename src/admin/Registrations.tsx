@@ -508,9 +508,9 @@ export default function Registrations() {
       setBusy(false);
       const parts = [`Imported ${written} registration${written === 1 ? '' : 's'}`];
       if (existing) parts.push(`${existing} already imported`);
-      if (failed.length) parts.push(`${failed.length} FAILED (${failed.join('; ')})`);
       if (errors.length) parts.push(`${errors.length} row${errors.length === 1 ? '' : 's'} skipped (${errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')})`);
       setImportReport(parts.join(' · '));
+      if (failed.length) setError(`${failed.length} row(s) FAILED — ${failed.join('; ')}`);
     } catch (e) {
       setBusy(false);
       setError(e instanceof Error ? e.message : 'CSV import failed — could not read file.');

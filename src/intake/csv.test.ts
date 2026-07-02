@@ -49,4 +49,8 @@ describe('csvRegistrationId', () => {
   it('strips non-alphanumerics from the slug', () => {
     expect(csvRegistrationId({ fullName: "O'Malley, Jr.", dateOfBirth: null })).toBe('csv:o-malley-jr:nodob');
   });
+  it('sanitizes slash-format dates so the id stays a single path segment', () => {
+    expect(csvRegistrationId({ fullName: 'Omar', dateOfBirth: '01/05/2010' })).toBe('csv:omar:01-05-2010');
+    expect(csvRegistrationId({ fullName: 'Omar', dateOfBirth: '  ' })).toBe('csv:omar:nodob');
+  });
 });
