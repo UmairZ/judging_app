@@ -592,7 +592,11 @@ export default function Registrations() {
               Rotate token
             </button>
           </>
+        ) : zeffyCfg.loading ? (
+          <span style={{ fontSize: 12.5, color: C.muted }}>Loading…</span>
         ) : (
+          // Only offered once the doc has resolved — otherwise a click during the load
+          // window would silently overwrite an existing token without the confirm prompt.
           <button onClick={() => void rotateToken()} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '9px 18px', cursor: 'pointer' }}>
             Generate webhook token
           </button>
