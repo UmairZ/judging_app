@@ -65,6 +65,47 @@ npx firebase deploy            # hosting + functions + rules
 # or scope it: npx firebase deploy --only hosting
 ```
 
+## Deploy your own instance
+
+**Prerequisites:**
+- A Firebase project on the **Blaze plan** (required for Cloud Functions)
+- `npx firebase login` to authenticate your machine
+
+**Setup:**
+
+1. **Enable services** in your Firebase console:
+   - Authentication: Email/Password, Google, Anonymous sign-in
+   - Firestore Database (start in production mode)
+   - Cloud Storage
+   - Cloud Functions (gen 2)
+
+2. **Update your project config:**
+   - Copy your Firebase web-app config from the console
+   - Paste it into `src/firebase/app.ts` (the `firebaseConfig` object — it's public client config, safe to commit)
+
+3. **Deploy:**
+   ```bash
+   npx firebase use --add              # select your project
+   npm --prefix functions install
+   npm install
+   npx firebase deploy                 # deploys hosting, functions, and Firestore rules
+   ```
+
+4. **Use the app:**
+   - Navigate to your hosting URL
+   - Sign up with email or Google
+   - Create an organization and competition
+   - Intake, judging, and live results all run from the app — no env vars required
+
+**Optional hardening (App Check):**
+For production, set up reCAPTCHA v3 protection:
+- Create a reCAPTCHA v3 key in your reCAPTCHA admin console
+- Set `VITE_APPCHECK_SITE_KEY` at build time (e.g., `npm run build -- --env.VITE_APPCHECK_SITE_KEY=your_key`)
+- In `functions/.env`, set `ENFORCE_APP_CHECK=true`
+- Enable App Check enforcement in your Firebase console
+
+**Note:** A migration script for importing pre-SaaS single-tenant data is available on request.
+
 ## How it fits together
 
 - **Structure** (`config/structure`) defines categories × divisions, which
