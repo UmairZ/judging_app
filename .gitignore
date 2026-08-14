@@ -22,3 +22,9 @@ functions/.env
 
 # Firebase deploy cache
 .firebase/
+
+# AI tooling and internal working documents
+CLAUDE.md
+AGENTS.md
+.claude/
+docs/superpowers/
