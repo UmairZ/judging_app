@@ -9,7 +9,11 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\""
+    "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\"",
+    "build:sandbox": "tsc && vite build --mode sandbox",
+    "deploy:sandbox": "npm run build:sandbox && firebase deploy -P sandbox",
+    "deploy:prod": "node scripts/confirm-prod.mjs && npm run build && firebase deploy -P prod",
+    "emulators": "firebase emulators:start --only firestore,auth,functions,storage --project demo-ubayy"
   },
   "dependencies": {
     "firebase": "^12.15.0",
