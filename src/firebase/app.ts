@@ -29,7 +29,7 @@ export const storage = getStorage(app);
 // Dev against the local emulator suite when VITE_USE_EMULATOR=1 (see .env.development).
 // Production builds talk to the real project above.
 if (import.meta.env.VITE_USE_EMULATOR === '1') {
-  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  connectFirestoreEmulator(db, '127.0.0.1', 8180);
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectStorageEmulator(storage, '127.0.0.1', 9199);
   connectFunctionsEmulator(getFunctions(app, 'us-central1'), '127.0.0.1', 5001);
