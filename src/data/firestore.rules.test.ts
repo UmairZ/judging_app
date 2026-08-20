@@ -17,7 +17,7 @@ const P2 = 'orgs/org2/competitions/comp2';
 beforeAll(async () => {
   env = await initializeTestEnvironment({
     projectId: 'demo-ibn-katheer',
-    firestore: { rules: readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8080 },
+    firestore: { rules: readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8180 },
   });
 });
 

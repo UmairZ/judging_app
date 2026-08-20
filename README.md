@@ -30,7 +30,7 @@ npm --prefix functions run build
 npm run emulators
 
 # 3. seed fake contest data (in another shell)
-FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 \
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8180 \
 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 \
 GCLOUD_PROJECT=demo-ubayy \
   node functions/seed.mjs
