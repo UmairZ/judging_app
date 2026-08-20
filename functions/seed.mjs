@@ -5,7 +5,13 @@ import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
-initializeApp({ projectId: 'ibn-katheer-judging-bc25d' });
+// Refuse to run outside the emulator: without these vars, firebase-admin would
+// use real credentials and write demo data into a live project.
+if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+  console.error('seed.mjs is emulator-only. Set FIRESTORE_EMULATOR_HOST and FIREBASE_AUTH_EMULATOR_HOST (see README).');
+  process.exit(1);
+}
+initializeApp({ projectId: process.env.GCLOUD_PROJECT ?? 'demo-ubayy' });
 const db = getFirestore();
 const auth = getAuth();
 

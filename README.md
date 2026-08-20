@@ -4,7 +4,7 @@ A PWA for running a Qur'an memorization contest: judges grade contestants live o
 their own devices, scores roll up to a live leaderboard, and an audience projector
 shows standings. Replaces a Google Forms workflow.
 
-**Live:** https://ibn-katheer-judging-bc25d.web.app
+**Live:** https://ubayy.app (prod) · https://ubayy-sandbox.web.app (sandbox)
 
 ## Stack
 
@@ -27,12 +27,12 @@ npm install
 npm --prefix functions run build
 
 # 2. start the emulators (firestore, auth, functions)
-npx firebase emulators:start --only firestore,auth,functions
+npm run emulators
 
 # 3. seed fake contest data (in another shell)
 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 \
 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 \
-GCLOUD_PROJECT=ibn-katheer-judging-bc25d \
+GCLOUD_PROJECT=demo-ubayy \
   node functions/seed.mjs
 
 # 4. run the app
