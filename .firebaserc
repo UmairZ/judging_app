@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "ibn-katheer-judging-bc25d"
+    "default": "ubayy-sandbox",
+    "sandbox": "ubayy-sandbox",
+    "prod": "ubayy-prod",
+    "legacy": "ibn-katheer-judging-bc25d"
   }
 }
