@@ -8,6 +8,7 @@
     "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --packages=external --outfile=lib/index.js"
   },
   "dependencies": {
+    "@sentry/node": "^10.70.0",
     "firebase-admin": "^13.0.2",
     "firebase-functions": "^6.1.1"
   },

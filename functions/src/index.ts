@@ -6,6 +6,15 @@ import { handleZeffyWebhook, verifyZeffyRequest, tenantFromWebhookPath } from '.
 import { validateIds, provisionedUid, validateRedeem, JOIN_CODE_RE } from '../../src/onboarding/logic';
 import { DEFAULT_STRUCTURE_CONFIG } from '../../src/domain/structure';
 import { DEFAULT_SCORING_CONFIG } from '../../src/scoring/config';
+import * as Sentry from '@sentry/node';
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.GCLOUD_PROJECT });
+}
+// No-op without a DSN; callables/webhook call this from their catch blocks.
+const reportError = (err: unknown): void => {
+  if (process.env.SENTRY_DSN) Sentry.captureException(err);
+};
 
 initializeApp();
 const db = getFirestore();
@@ -65,6 +74,7 @@ export const zeffyWebhook = onRequest({ region: 'us-central1', invoker: 'public'
     });
     res.status(200).json({ ok: true, processed: result.processed });
   } catch (err) {
+    reportError(err);
     console.error('zeffyWebhook', err);
     if (err instanceof Error && err.message === 'invalid registration id') {
       res.status(400).send('bad request');
@@ -110,6 +120,7 @@ export const createOrg = onCall(CALLABLE, async (req) => {
     batch.set(db.doc(`users/${uid}/orgs/${orgId}`), { role: 'owner', name: name.trim() });
     await batch.commit();
   } catch (err) {
+    reportError(err);
     const code = (err as { code?: number | string })?.code;
     if (code === 6 || String((err as Error)?.message).includes('ALREADY_EXISTS')) {
       throw new HttpsError('already-exists', 'that org id is taken');
@@ -135,6 +146,7 @@ export const createCompetition = onCall(CALLABLE, async (req) => {
     batch.set(db.doc(`${base}/config/scoring`), DEFAULT_SCORING_CONFIG);
     await batch.commit();
   } catch (err) {
+    reportError(err);
     const code = (err as { code?: number | string })?.code;
     if (code === 6 || String((err as Error)?.message).includes('ALREADY_EXISTS')) {
       throw new HttpsError('already-exists', 'that competition id is taken');
@@ -173,6 +185,7 @@ export const redeemJoinCode = onCall(CALLABLE, async (req) => {
     });
     return result;
   } catch (err) {
+    reportError(err);
     const msg = (err as Error)?.message;
     if (msg === 'not-found') throw new HttpsError('not-found', 'code not recognized');
     if (msg === 'already-redeemed') throw new HttpsError('failed-precondition', 'code already used');
