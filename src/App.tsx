@@ -5,7 +5,7 @@ import { TenantProvider, useTenant } from './tenant/TenantContext';
 import { useDocData } from './data/db';
 import { parseRoute } from './onboarding/logic';
 import SignInScreen from './onboarding/SignInScreen';
-import LandingPage from './onboarding/LandingPage';
+import Landing from './marketing/Landing';
 import OrgDashboard from './onboarding/OrgDashboard';
 import JoinScreen from './onboarding/JoinScreen';
 import JudgeApp from './judge/JudgeApp';
@@ -16,9 +16,13 @@ import { C, serif } from './ui/theme';
 function Routed() {
   const { user, loading } = useAuth();
   const route = useMemo(() => parseRoute(window.location.pathname), []);
+  // No dedicated /signin route exists yet; the landing page's "Sign in" link
+  // points at /?signin=1, which this flag picks up to show SignInScreen in place
+  // of the marketing page without introducing a new route kind.
+  const wantsSignIn = useMemo(() => new URLSearchParams(window.location.search).get('signin') === '1', []);
   if (loading) return <Splash />;
   if (route.kind === 'join') return <JoinScreen orgId={route.orgId} compId={route.compId} code={route.code} />;
-  if (!user) return route.kind === 'root' ? <LandingPage /> : <SignInScreen />;
+  if (!user) return route.kind === 'root' && !wantsSignIn ? <Landing /> : <SignInScreen />;
   if (route.kind === 'root') return <OrgDashboard />;
   return (
     <TenantProvider orgId={route.orgId} compId={route.compId}>
