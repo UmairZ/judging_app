@@ -13,6 +13,7 @@ import {
 } from '../scoring';
 import { DEFAULT_STRUCTURE_CONFIG, generateSlots, slotId, type StructureConfig, type Slot } from '../domain/structure';
 import { enrollmentId } from '../domain/ids';
+import { judgesFinishedLabel } from './logic';
 import Wordmark from '../ui/Wordmark';
 import { C, serif, pct } from '../ui/theme';
 import GradingScreen from '../judge/GradingScreen';
@@ -246,7 +247,7 @@ export default function Leaderboard() {
           const on = i === sel;
           return (
             <button key={slotId(s)} onClick={() => { setSel(i); setAdjusting(null); }} style={{ fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 6, cursor: 'pointer', border: on ? 'none' : `1px solid ${C.cardLine}`, background: on ? C.gold : '#fff', color: on ? '#06211C' : C.sub }}>
-              {catLabel(s.category)} · {divLabel(s.division)}
+              {catLabel(s.category)} · {divLabel(s.division)} · {rankRowsForSlot(s).length}
             </button>
           );
         })}
@@ -315,10 +316,10 @@ export default function Leaderboard() {
         const allFinal = r.panelSize > 0 && r.finalizedCount >= r.panelSize;
         const partial = !allFinal; // score is provisional until every judge has finalized
         const statusText = allFinal
-          ? `${r.panelSize} / ${r.panelSize} ✓ FINAL`
+          ? `${judgesFinishedLabel(r.panelSize, r.panelSize)} ✓ FINAL`
           : r.summary.startedCount > 0
-            ? `${r.finalizedCount} / ${r.panelSize} · in progress`
-            : `0 / ${r.panelSize} · not started`;
+            ? `${judgesFinishedLabel(r.finalizedCount, r.panelSize)} · in progress`
+            : `${judgesFinishedLabel(0, r.panelSize)} · not started`;
         const statusColor = allFinal ? C.green : r.summary.startedCount > 0 ? C.brassDark : C.muted;
         const open = expandedId === r.contestantId;
         return (

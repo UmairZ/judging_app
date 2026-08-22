@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCollection, useDocData, writeDoc, removeDoc, now } from '../data/db';
 import { useTenant } from '../tenant/TenantContext';
 import type { RegistrationDoc, ContestantDoc } from '../data/types';
@@ -13,6 +13,7 @@ import {
   type ResolvedCategory,
   type CategoryDivisionPair,
 } from '../intake/promotion';
+import { recordCountLabel } from './logic';
 import { C, serif } from '../ui/theme';
 
 // ---------------------------------------------------------------------------
@@ -375,6 +376,14 @@ export default function Registrations() {
   const [copied, setCopied] = useState(false);
   const [rotating, setRotating] = useState(false);
 
+  // Zeffy panels collapse behind a disclosure — default open only when a webhook token
+  // already exists (an established integration is worth surfacing; a fresh one isn't).
+  const [zeffyOpen, setZeffyOpen] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (zeffyOpen === null && !zeffyCfg.loading) setZeffyOpen(!!zeffyCfg.data?.token);
+  }, [zeffyOpen, zeffyCfg.loading, zeffyCfg.data?.token]);
+  const zeffyPanelOpen = zeffyOpen ?? false;
+
   const rotateToken = async () => {
     if (zeffyToken && !window.confirm('Rotate the webhook token? The old URL stops working immediately — update it in Zeffy.')) return;
     setRotating(true);
@@ -597,7 +606,7 @@ export default function Registrations() {
           Registrations
         </span>
         <span style={{ fontSize: 12, color: C.muted, marginLeft: 10 }}>
-          immutable · {registrations.length} records
+          {recordCountLabel(registrations.length)} · payment records are never edited
         </span>
         <input ref={fileInputRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
           onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleCsvFile(f); e.target.value = ''; }} />
@@ -605,6 +614,10 @@ export default function Registrations() {
           style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}>
           Import CSV
         </button>
+        <a href="/marketing/registrations-template.csv" download
+          style={{ fontSize: 12, fontWeight: 600, color: C.green, textDecoration: 'none' }}>
+          Download template
+        </a>
         <button onClick={() => void handleBulkPromote()} disabled={busy}
           style={{ fontSize: 12.5, fontWeight: 600, color: C.green, background: 'transparent', border: `1px solid ${C.green}`, borderRadius: 6, padding: '7px 14px', cursor: 'pointer' }}>
           Promote all ready
@@ -612,57 +625,71 @@ export default function Registrations() {
         <span style={{ fontSize: 12, color: C.muted }}>To add someone manually, use <strong style={{ color: C.sub }}>Contestants → + New</strong>.</span>
       </div>
 
-      {/* Zeffy event-title filter */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 22px', borderBottom: `1px solid ${C.line}`, background: C.parchment, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 200, flex: '1 1 240px' }}>
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: C.greenDeep }}>Zeffy event filter</div>
-          <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.45 }}>
-            Zeffy sends every form to one webhook — only submissions whose event title matches this are accepted. Must equal the event's <strong style={{ color: C.sub }}>exact</strong> name in Zeffy.
-          </div>
-        </div>
-        <input
-          value={zeffyValue}
-          onChange={(e) => { setZeffyTitle(e.target.value); setZeffySaved(false); }}
-          placeholder="e.g. 2026 Spring Qur'an Competition"
-          style={{ flex: '2 1 280px', minWidth: 220, fontSize: 13.5, padding: '9px 12px', border: `1px solid ${C.cardLine}`, borderRadius: 7, outline: 'none', background: '#fff' }}
-        />
-        <button
-          onClick={saveZeffy}
-          disabled={!zeffyDirty}
-          style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: zeffyDirty ? C.green : (zeffySaved ? C.green : C.muted), border: 'none', borderRadius: 6, padding: '9px 18px', cursor: zeffyDirty ? 'pointer' : 'default' }}
+      {/* Zeffy integration — collapsed by default unless a webhook token already exists */}
+      <div style={{ borderBottom: `1px solid ${C.line}` }}>
+        <div
+          onClick={() => setZeffyOpen(!zeffyPanelOpen)}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', cursor: 'pointer', background: C.parchment, fontSize: 12.5, fontWeight: 600, color: C.greenDeep }}
         >
-          {zeffySaved && !zeffyDirty ? '✓ Saved' : 'Save'}
-        </button>
-      </div>
-
-      {/* Zeffy webhook URL + token management */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 22px', borderBottom: `1px solid ${C.line}`, background: C.parchment, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 200, flex: '1 1 240px' }}>
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: C.greenDeep }}>Zeffy webhook</div>
-          <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.45 }}>
-            Paste this URL into Zeffy's webhook settings. The token is this competition's secret — rotate it if it leaks.
-          </div>
+          <span>Zeffy integration {zeffyPanelOpen ? '▾' : '▸'}</span>
         </div>
-        {zeffyToken ? (
+
+        {zeffyPanelOpen && (
           <>
-            <code style={{ flex: '2 1 280px', minWidth: 220, fontSize: 12, padding: '9px 12px', border: `1px solid ${C.cardLine}`, borderRadius: 7, background: '#fff', color: C.ink, overflowX: 'auto', whiteSpace: 'nowrap' }}>
-              {webhookUrl}
-            </code>
-            <button onClick={() => void copyUrl()} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '9px 14px', cursor: 'pointer' }}>
-              {copied ? '✓ Copied' : 'Copy URL'}
-            </button>
-            <button onClick={() => void rotateToken()} disabled={rotating} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: C.brassDark, background: 'transparent', border: `1px solid ${C.brassDark}`, borderRadius: 6, padding: '8px 14px', cursor: rotating ? 'default' : 'pointer' }}>
-              {rotating ? 'Rotating…' : 'Rotate token'}
-            </button>
+            {/* Zeffy event-title filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 22px', borderTop: `1px solid ${C.line}`, background: C.parchment, flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 200, flex: '1 1 240px' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: C.greenDeep }}>Zeffy event filter</div>
+                <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.45 }}>
+                  Zeffy sends every form to one webhook — only submissions whose event title matches this are accepted. Must equal the event's <strong style={{ color: C.sub }}>exact</strong> name in Zeffy.
+                </div>
+              </div>
+              <input
+                value={zeffyValue}
+                onChange={(e) => { setZeffyTitle(e.target.value); setZeffySaved(false); }}
+                placeholder="e.g. 2026 Spring Qur'an Competition"
+                style={{ flex: '2 1 280px', minWidth: 220, fontSize: 13.5, padding: '9px 12px', border: `1px solid ${C.cardLine}`, borderRadius: 7, outline: 'none', background: '#fff' }}
+              />
+              <button
+                onClick={saveZeffy}
+                disabled={!zeffyDirty}
+                style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: zeffyDirty ? C.green : (zeffySaved ? C.green : C.muted), border: 'none', borderRadius: 6, padding: '9px 18px', cursor: zeffyDirty ? 'pointer' : 'default' }}
+              >
+                {zeffySaved && !zeffyDirty ? '✓ Saved' : 'Save'}
+              </button>
+            </div>
+
+            {/* Zeffy webhook URL + token management */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 22px', borderTop: `1px solid ${C.line}`, background: C.parchment, flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 200, flex: '1 1 240px' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: C.greenDeep }}>Zeffy webhook</div>
+                <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.45 }}>
+                  Paste this URL into Zeffy's webhook settings. The token is this competition's secret — rotate it if it leaks.
+                </div>
+              </div>
+              {zeffyToken ? (
+                <>
+                  <code style={{ flex: '2 1 280px', minWidth: 220, fontSize: 12, padding: '9px 12px', border: `1px solid ${C.cardLine}`, borderRadius: 7, background: '#fff', color: C.ink, overflowX: 'auto', whiteSpace: 'nowrap' }}>
+                    {webhookUrl}
+                  </code>
+                  <button onClick={() => void copyUrl()} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '9px 14px', cursor: 'pointer' }}>
+                    {copied ? '✓ Copied' : 'Copy URL'}
+                  </button>
+                  <button onClick={() => void rotateToken()} disabled={rotating} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: C.brassDark, background: 'transparent', border: `1px solid ${C.brassDark}`, borderRadius: 6, padding: '8px 14px', cursor: rotating ? 'default' : 'pointer' }}>
+                    {rotating ? 'Rotating…' : 'Rotate token'}
+                  </button>
+                </>
+              ) : zeffyCfg.loading ? (
+                <span style={{ fontSize: 12.5, color: C.muted }}>Loading…</span>
+              ) : (
+                // Only offered once the doc has resolved — otherwise a click during the load
+                // window would silently overwrite an existing token without the confirm prompt.
+                <button onClick={() => void rotateToken()} disabled={rotating} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '9px 18px', cursor: rotating ? 'default' : 'pointer' }}>
+                  {rotating ? 'Generating…' : 'Generate webhook token'}
+                </button>
+              )}
+            </div>
           </>
-        ) : zeffyCfg.loading ? (
-          <span style={{ fontSize: 12.5, color: C.muted }}>Loading…</span>
-        ) : (
-          // Only offered once the doc has resolved — otherwise a click during the load
-          // window would silently overwrite an existing token without the confirm prompt.
-          <button onClick={() => void rotateToken()} disabled={rotating} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '9px 18px', cursor: rotating ? 'default' : 'pointer' }}>
-            {rotating ? 'Generating…' : 'Generate webhook token'}
-          </button>
         )}
       </div>
 
@@ -679,8 +706,11 @@ export default function Registrations() {
       )}
 
       {error && (
-        <div style={{ padding: '10px 22px', fontSize: 13, fontWeight: 600, color: C.fail, background: C.failBg, borderBottom: `1px solid ${C.line}` }}>
-          {error}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 22px', fontSize: 13, fontWeight: 600, color: C.fail, background: C.failBg, borderBottom: `1px solid ${C.line}` }}>
+          <span style={{ flex: 1 }}>{error}</span>
+          <button onClick={() => setError(null)} aria-label="Dismiss" style={{ flexShrink: 0, fontSize: 16, lineHeight: 1, fontWeight: 700, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+            ×
+          </button>
         </div>
       )}
 
