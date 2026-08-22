@@ -5,7 +5,7 @@ import { TenantProvider, useTenant } from './tenant/TenantContext';
 import { useDocData } from './data/db';
 import { parseRoute } from './onboarding/logic';
 import SignInScreen from './onboarding/SignInScreen';
-import LandingPage from './onboarding/LandingPage';
+import Home02 from './marketing/Home02';
 import OrgDashboard from './onboarding/OrgDashboard';
 import JoinScreen from './onboarding/JoinScreen';
 import JudgeApp from './judge/JudgeApp';
@@ -18,7 +18,7 @@ function Routed() {
   const route = useMemo(() => parseRoute(window.location.pathname), []);
   if (loading) return <Splash />;
   if (route.kind === 'join') return <JoinScreen orgId={route.orgId} compId={route.compId} code={route.code} />;
-  if (!user) return route.kind === 'root' ? <LandingPage /> : <SignInScreen />;
+  if (!user) return route.kind === 'root' ? <Home02 /> : <SignInScreen />;
   if (route.kind === 'root') return <OrgDashboard />;
   return (
     <TenantProvider orgId={route.orgId} compId={route.compId}>
