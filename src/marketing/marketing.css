@@ -20,24 +20,20 @@
 }
 
 @theme {
-  --font-display: 'Spectral', serif;
-  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  /* Stock Oatmeal (taupe-instrument colorway), per operator decision 2026-08-22:
+     no retheming — the template's own fonts, palette, and components, verbatim. */
+  --font-display: 'Instrument Serif', serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
 
-  /* Oatmeal's olive scale remapped to the Ubayy palette: vendored components
-     read these names, so the whole template rethemes from here. */
-  --color-olive-50: #FBF8F1;
-  --color-olive-100: #F4EFE4;
-  --color-olive-200: #EAE3D4;
-  --color-olive-300: #E6DEC9;
-  --color-olive-400: #8A938E;
-  --color-olive-500: #5C6661;
-  --color-olive-600: #206560;
-  --color-olive-700: #185049;
-  --color-olive-800: #16413B;
-  --color-olive-900: #1C2926;
-  --color-olive-950: #131C1A;
-
-  --color-brass-300: #DCB75E;
-  --color-brass-500: #B99644;
-  --color-brass-700: #9C7C34;
+  --color-taupe-50: oklch(98.6% 0.002 67.8);
+  --color-taupe-100: oklch(96% 0.002 17.2);
+  --color-taupe-200: oklch(92.2% 0.005 34.3);
+  --color-taupe-300: oklch(86.8% 0.007 39.5);
+  --color-taupe-400: oklch(71.4% 0.014 41.2);
+  --color-taupe-500: oklch(54.7% 0.021 43.1);
+  --color-taupe-600: oklch(43.8% 0.017 39.3);
+  --color-taupe-700: oklch(36.7% 0.016 35.7);
+  --color-taupe-800: oklch(26.8% 0.011 36.5);
+  --color-taupe-900: oklch(21.4% 0.009 43.1);
+  --color-taupe-950: oklch(14.7% 0.004 49.3);
 }

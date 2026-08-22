@@ -1,6 +1,5 @@
 // Adapted from "Oatmeal" (Tailwind Plus), used under the Tailwind Plus license
 // as part of the Ubayy application. Not for redistribution outside this product.
-
 import { clsx } from 'clsx/lite'
 import type { ComponentProps, ReactNode } from 'react'
 import { Button } from './button'
@@ -31,7 +30,7 @@ export function EmailSignupForm({
       <input
         className={clsx(
           'min-w-0 flex-1 px-3 text-sm/7 focus:outline-hidden dark:text-white',
-          variant === 'normal' && 'text-olive-950',
+          variant === 'normal' && 'text-taupe-950',
           variant === 'overlay' && 'text-white placeholder:text-white/60',
         )}
         type="email"

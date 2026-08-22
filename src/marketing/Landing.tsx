@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import './marketing.css';
-import Wordmark from '../ui/Wordmark';
 import { arabic, C } from '../ui/theme';
 import StarDivider from './StarDivider';
 import DemoGrading from './DemoGrading';
@@ -78,11 +77,11 @@ function RequestInviteForm({ className }: { className?: string }) {
 
 export default function Landing() {
   return (
-    <div className="tw-preflight">
+    <div className="tw-preflight min-h-screen bg-taupe-100 font-sans antialiased">
       <NavbarWithLogoActionsAndCenteredLinks
         logo={
           <NavbarLogo href="/">
-            <Wordmark size={22} />
+            <span className="font-display text-2xl text-taupe-950">Ubayy.</span>
           </NavbarLogo>
         }
         links={
@@ -111,7 +110,7 @@ export default function Landing() {
             <img src="/marketing/hero-scoring.png" alt="The Ubayy scoring screen" width={1200} height={800} />
           }
           footer={
-            <p className="text-center text-sm/7 text-olive-600 dark:text-olive-500">
+            <p className="text-center text-sm/7 text-taupe-600 dark:text-taupe-500">
               The scoring screen, live at the Ibn Katheer Qur'an Competition.
             </p>
           }
@@ -199,7 +198,7 @@ export default function Landing() {
           img={
             <div
               aria-hidden
-              className="flex size-full items-center justify-center bg-olive-800 text-brass-300"
+              className="flex size-full items-center justify-center bg-taupe-800 text-taupe-300"
             >
               <svg width="24" height="24" viewBox="0 0 18 18">
                 <rect x="4" y="4" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.1" />

@@ -1,6 +1,5 @@
 // Adapted from "Oatmeal" (Tailwind Plus), used under the Tailwind Plus license
 // as part of the Ubayy application. Not for redistribution outside this product.
-
 import { clsx } from 'clsx/lite'
 import type { ComponentProps, ReactNode } from 'react'
 import { Section } from '../elements/section'
@@ -17,13 +16,13 @@ export function FeatureThreeColumnWithDemos({
   subheadline: ReactNode
 } & ComponentProps<'div'>) {
   return (
-    <div className={clsx('rounded-lg bg-olive-950/2.5 p-2 dark:bg-white/5', className)} {...props}>
+    <div className={clsx('rounded-lg bg-taupe-950/2.5 p-2 dark:bg-white/5', className)} {...props}>
       <div className="relative overflow-hidden rounded-sm dark:after:absolute dark:after:inset-0 dark:after:rounded-sm dark:after:outline-1 dark:after:-outline-offset-1 dark:after:outline-white/10">
         {demo}
       </div>
       <div className="p-6 sm:p-10 lg:p-6">
-        <h3 className="text-base/8 font-medium text-olive-950 dark:text-white">{headline}</h3>
-        <div className="mt-2 flex flex-col gap-4 text-sm/7 text-olive-700 dark:text-olive-400">{subheadline}</div>
+        <h3 className="text-base/8 font-medium text-taupe-950 dark:text-white">{headline}</h3>
+        <div className="mt-2 flex flex-col gap-4 text-sm/7 text-taupe-700 dark:text-taupe-400">{subheadline}</div>
       </div>
     </div>
   )

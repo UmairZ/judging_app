@@ -1,6 +1,5 @@
 // Adapted from "Oatmeal" (Tailwind Plus), used under the Tailwind Plus license
 // as part of the Ubayy application. Not for redistribution outside this product.
-
 import { clsx } from 'clsx/lite'
 import type { ComponentProps, ReactNode } from 'react'
 import { Container } from '../elements/container'
@@ -26,7 +25,7 @@ export function HeroWithDemoOnBackground({
 } & ComponentProps<'section'>) {
   return (
     <section className={clsx('flex flex-col gap-16 px-2 pb-16', className)} {...props}>
-      <Wallpaper className="rounded-lg" color="green">
+      <Wallpaper className="rounded-lg" color="brown">
         <div className="-mx-2 sm:px-6 md:px-12 lg:px-0">
           <Container className="flex flex-col gap-16">
             <div className="flex gap-x-10 gap-y-16 max-lg:flex-col sm:gap-y-24">

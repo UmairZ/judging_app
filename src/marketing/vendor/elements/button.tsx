@@ -1,6 +1,5 @@
 // Adapted from "Oatmeal" (Tailwind Plus), used under the Tailwind Plus license
 // as part of the Ubayy application. Not for redistribution outside this product.
-
 import { clsx } from 'clsx/lite'
 import type { ComponentProps } from 'react'
 
@@ -25,8 +24,8 @@ export function Button({
       className={clsx(
         'inline-flex shrink-0 items-center justify-center gap-1 rounded-full text-sm/7 font-medium',
         color === 'dark/light' &&
-          'bg-olive-950 text-white hover:bg-olive-800 dark:bg-olive-300 dark:text-olive-950 dark:hover:bg-olive-200',
-        color === 'light' && 'hover bg-white text-olive-950 hover:bg-olive-100 dark:bg-olive-100 dark:hover:bg-white',
+          'bg-taupe-950 text-white hover:bg-taupe-800 dark:bg-taupe-300 dark:text-taupe-950 dark:hover:bg-taupe-200',
+        color === 'light' && 'hover bg-white text-taupe-950 hover:bg-taupe-100 dark:bg-taupe-100 dark:hover:bg-white',
         sizes[size],
         className,
       )}
@@ -52,8 +51,8 @@ export function ButtonLink({
       className={clsx(
         'inline-flex shrink-0 items-center justify-center gap-1 rounded-full text-sm/7 font-medium',
         color === 'dark/light' &&
-          'bg-olive-950 text-white hover:bg-olive-800 dark:bg-olive-300 dark:text-olive-950 dark:hover:bg-olive-200',
-        color === 'light' && 'hover bg-white text-olive-950 hover:bg-olive-100 dark:bg-olive-100 dark:hover:bg-white',
+          'bg-taupe-950 text-white hover:bg-taupe-800 dark:bg-taupe-300 dark:text-taupe-950 dark:hover:bg-taupe-200',
+        color === 'light' && 'hover bg-white text-taupe-950 hover:bg-taupe-100 dark:bg-taupe-100 dark:hover:bg-white',
         sizes[size],
         className,
       )}
@@ -74,7 +73,7 @@ export function SoftButton({
     <button
       type={type}
       className={clsx(
-        'inline-flex shrink-0 items-center justify-center gap-1 rounded-full bg-olive-950/10 text-sm/7 font-medium text-olive-950 hover:bg-olive-950/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20',
+        'inline-flex shrink-0 items-center justify-center gap-1 rounded-full bg-taupe-950/10 text-sm/7 font-medium text-taupe-950 hover:bg-taupe-950/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20',
         sizes[size],
         className,
       )}
@@ -96,7 +95,7 @@ export function SoftButtonLink({
     <a
       href={href}
       className={clsx(
-        'inline-flex shrink-0 items-center justify-center gap-1 rounded-full bg-olive-950/10 text-sm/7 font-medium text-olive-950 hover:bg-olive-950/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20',
+        'inline-flex shrink-0 items-center justify-center gap-1 rounded-full bg-taupe-950/10 text-sm/7 font-medium text-taupe-950 hover:bg-taupe-950/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20',
         sizes[size],
         className,
       )}
@@ -120,7 +119,7 @@ export function PlainButton({
       type={type}
       className={clsx(
         'inline-flex shrink-0 items-center justify-center gap-2 rounded-full text-sm/7 font-medium',
-        color === 'dark/light' && 'text-olive-950 hover:bg-olive-950/10 dark:text-white dark:hover:bg-white/10',
+        color === 'dark/light' && 'text-taupe-950 hover:bg-taupe-950/10 dark:text-white dark:hover:bg-white/10',
         color === 'light' && 'text-white hover:bg-white/15 dark:hover:bg-white/10',
         sizes[size],
         className,
@@ -146,7 +145,7 @@ export function PlainButtonLink({
       href={href}
       className={clsx(
         'inline-flex shrink-0 items-center justify-center gap-2 rounded-full text-sm/7 font-medium',
-        color === 'dark/light' && 'text-olive-950 hover:bg-olive-950/10 dark:text-white dark:hover:bg-white/10',
+        color === 'dark/light' && 'text-taupe-950 hover:bg-taupe-950/10 dark:text-white dark:hover:bg-white/10',
         color === 'light' && 'text-white hover:bg-white/15 dark:hover:bg-white/10',
         sizes[size],
         className,
