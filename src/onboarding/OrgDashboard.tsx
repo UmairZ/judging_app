@@ -35,6 +35,8 @@ export default function OrgDashboard() {
 
         {creating ? (
           <CreateOrgForm onDone={() => setCreating(false)} />
+        ) : user?.isAnonymous ? (
+          <div style={{ fontSize: 14, color: C.muted, marginTop: 20 }}>You're joined as a judge. Organizer accounts can create competitions — sign in with email or Google to get started.</div>
         ) : (
           <button onClick={() => setCreating(true)} style={primaryBtn}>+ New organization</button>
         )}
@@ -77,7 +79,8 @@ function CreateOrgForm({ onDone }: { onDone: () => void }) {
       await httpsCallable(fns, 'createOrg')({ orgId, name: name.trim() });
       onDone();
     } catch (err) {
-      setError((err as { message?: string })?.message ?? 'Could not create the organization.');
+      const errMsg = (err as { message?: string })?.message ?? 'Could not create the organization.';
+      setError(errMsg.includes('early access') ? 'early access' : errMsg);
       setBusy(false);
     }
   };
@@ -86,7 +89,7 @@ function CreateOrgForm({ onDone }: { onDone: () => void }) {
       <div style={{ fontFamily: serif, fontSize: 16, fontWeight: 600, color: C.greenDeep, marginBottom: 12 }}>New organization</div>
       <input style={input} placeholder="Organization name" value={name} onChange={(e) => { setName(e.target.value); if (!idTouched) setOrgId(slugifyOrgId(e.target.value)); }} autoFocus />
       <input style={input} placeholder="URL id (e.g. ibn-katheer)" value={orgId} onChange={(e) => { setIdTouched(true); setOrgId(e.target.value); }} />
-      {error && <div style={{ color: C.fail, fontSize: 12.5, marginBottom: 10 }}>{error}</div>}
+      {error && <div style={{ color: C.fail, fontSize: 12.5, marginBottom: 10 }}>{error.includes('early access') ? <>Ubayy is in early access — request an invite on the <a href="/" style={{ color: 'inherit', textDecoration: 'underline' }}>home page</a> and we'll be in touch.</> : error}</div>}
       <div style={{ display: 'flex', gap: 10 }}>
         <button type="submit" disabled={busy} style={primaryBtn}>{busy ? 'Creating…' : 'Create'}</button>
         <button type="button" onClick={onDone} style={{ background: 'none', border: 'none', color: C.sub, cursor: 'pointer', fontSize: 13 }}>Cancel</button>
