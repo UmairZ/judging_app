@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useDocData, writeDoc, now, useSyncState } from '../data/db';
+import { useDocData, now, useSyncState } from '../data/db';
+import { useDb } from '../data/backend';
 import { useTenant } from '../tenant/TenantContext';
 import type { SessionDoc } from '../data/types';
 import { C, serif, pct } from '../ui/theme';
@@ -37,6 +38,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const sessionId = `${enrollmentId}__${judgeId}`;
   const { data: sessionDoc, loading } = useDocData<SessionDoc>(tp(`sessions/${sessionId}`));
   const sync = useSyncState(tp(`sessions/${sessionId}`));
+  const { write } = useDb();
   // How many panel judges have started this contestant — passed in by the parent, which
   // already subscribes to the sessions collection (no extra listener here).
   const startedCount = meta.startedCount;
@@ -71,7 +73,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   // Single write path — lazy creation: the doc only appears once the judge grades.
   const persist = (extra: Record<string, unknown> = {}) => {
     const payloadQs = tieBreak ? [...primaryRef.current, ...questions] : questions;
-    void writeDoc(tp(`sessions/${sessionId}`), {
+    void write(tp(`sessions/${sessionId}`), {
       enrollmentId, judgeId, questions: payloadQs, notes,
       round: 'main',
       // startedAt is written once: only while the live doc doesn't carry it yet.
@@ -154,7 +156,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const reopen = () => {
     setLocked(false);
     dirty.current = true; // subsequent edits will persist again
-    void writeDoc(tp(`sessions/${sessionId}`), { enrollmentId, judgeId, finalizedAt: null }, true);
+    void write(tp(`sessions/${sessionId}`), { enrollmentId, judgeId, finalizedAt: null }, true);
   };
   const submitTieBreak = () => {
     if (!canFinish) { setActive(firstUnratedVoice); setVoiceNudge(true); return; }
