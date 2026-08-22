@@ -4,7 +4,7 @@ A PWA for running a Qur'an memorization contest: judges grade contestants live o
 their own devices, scores roll up to a live leaderboard, and an audience projector
 shows standings. Replaces a Google Forms workflow.
 
-**Live:** https://ubayy.app (prod) · https://ubayy-sandbox.web.app (sandbox)
+**Live:** https://ubayy-prod.web.app (prod; custom domain https://ubayy.app coming) · https://ubayy-sbx.web.app (sandbox)
 
 ## Stack
 
@@ -16,8 +16,8 @@ shows standings. Replaces a Google Forms workflow.
 ## Local development
 
 Dev runs against the local Firebase **emulator suite** (`.env.development` sets
-`VITE_USE_EMULATOR=1`; production builds use the real project in
-`src/firebase/app.ts`).
+`VITE_USE_EMULATOR=1`; sandbox and production builds instead read `.env.sandbox`
+and `.env.production` — see [Environments](#environments)).
 
 ```bash
 npm install
@@ -50,6 +50,45 @@ The seed script provisions tenant `demo/2026` with an admin
 redeem them. Custom claims are fully retired — all authorization is via
 Firestore member docs (`orgs/{org}/members`, `orgs/{org}/competitions/{comp}/members`).
 
+## Environments
+
+There are three environments, each backed by its own Firebase project:
+
+| Environment | Project | Config source | How it's selected |
+| --- | --- | --- | --- |
+| Dev / emulator | `demo-ubayy` (fake, offline-only) | hardcoded in `src/firebase/config.ts` | `.env.development` sets `VITE_USE_EMULATOR=1`; `npm run dev` / `npm run emulators` |
+| Sandbox | `ubayy-sbx` | `.env.sandbox` | `npm run build:sandbox` / `npm run deploy:sandbox` (`--mode sandbox`) |
+| Production | `ubayy-prod` | `.env.production` | `npm run build` / `npm run deploy:prod` (default mode) |
+
+`.env.sandbox` and `.env.production` each hold the Firebase web-app config for
+that project, as `VITE_FB_*` keys:
+
+- `VITE_FB_API_KEY`
+- `VITE_FB_AUTH_DOMAIN`
+- `VITE_FB_PROJECT_ID`
+- `VITE_FB_STORAGE_BUCKET`
+- `VITE_FB_MESSAGING_SENDER_ID`
+- `VITE_FB_APP_ID`
+
+Both files also accept optional `VITE_APPCHECK_SITE_KEY` (reCAPTCHA v3 site
+key — enables App Check) and `VITE_SENTRY_DSN` (enables Sentry error
+reporting); leaving either blank/unset keeps that feature off.
+
+These env files are **committed to the repo** — Firebase web config is public
+client config, not a secret (access is gated by Firestore/Storage rules and
+Auth, not by hiding this config). Do not treat these files as credentials.
+
+`.firebaserc` maps each Firebase CLI project alias to its project id:
+
+- `default` / `sandbox` → `ubayy-sbx`
+- `prod` → `ubayy-prod`
+- `legacy` → `ibn-katheer-judging-bc25d` (the pre-SaaS single-tenant project —
+  never deploy here)
+
+The `deploy:sandbox` / `deploy:prod` npm scripts pass the matching `-P` alias
+and `--mode` together, so a build always ships to the project it was built
+for. See [Deploy](#deploy) below.
+
 ## Testing
 
 ```bash
@@ -60,10 +99,15 @@ npm run test:rules  # Firestore security-rules tests against the emulator
 ## Deploy
 
 ```bash
-npm run build
-npx firebase deploy            # hosting + functions + rules
-# or scope it: npx firebase deploy --only hosting
+npm run deploy:sandbox   # builds in sandbox mode, deploys to ubayy-sbx
+npm run deploy:prod      # builds in prod mode, asks you to type "ubayy-prod", then deploys
 ```
+
+These are the only supported deploy commands — each one builds with the matching
+`--mode` and deploys to the matching Firebase project alias in the same step.
+Never run a bare `npx firebase deploy` after a separate `npm run build`: the
+build and the deploy target can silently mismatch (e.g. a prod-config build
+pushed to the sandbox alias, or vice versa).
 
 ## Deploy your own instance
 
@@ -79,16 +123,27 @@ npx firebase deploy            # hosting + functions + rules
    - Cloud Storage
    - Cloud Functions (gen 2)
 
-2. **Update your project config:**
+2. **Set your project config:**
    - Copy your Firebase web-app config from the console
-   - Paste it into `src/firebase/app.ts` (the `firebaseConfig` object — it's public client config, safe to commit)
+   - Create a `.env.production` file in the repo root with the six keys (it's
+     public client config, safe to commit — see [Environments](#environments)):
+     ```
+     VITE_FB_API_KEY=...
+     VITE_FB_AUTH_DOMAIN=...
+     VITE_FB_PROJECT_ID=...
+     VITE_FB_STORAGE_BUCKET=...
+     VITE_FB_MESSAGING_SENDER_ID=...
+     VITE_FB_APP_ID=...
+     ```
+   - Optionally add `VITE_APPCHECK_SITE_KEY` and `VITE_SENTRY_DSN` to the same
+     file (leave them out to keep App Check / Sentry off)
 
 3. **Deploy:**
    ```bash
    npx firebase use --add              # select your project
    npm --prefix functions install
    npm install
-   npx firebase deploy                 # deploys hosting, functions, and Firestore + Storage rules
+   npm run deploy:prod                 # builds with .env.production, deploys hosting + functions + rules
    ```
 
 4. **Use the app:**
@@ -100,7 +155,7 @@ npx firebase deploy            # hosting + functions + rules
 **Optional hardening (App Check):**
 For production, set up reCAPTCHA v3 protection:
 - Create a reCAPTCHA v3 key in your reCAPTCHA admin console
-- Set `VITE_APPCHECK_SITE_KEY` at build time: create a `.env.production` file in the repo root containing `VITE_APPCHECK_SITE_KEY=your_key` (Vite picks it up automatically), then `npm run build`
+- Add `VITE_APPCHECK_SITE_KEY=your_key` to your `.env.production` (Vite picks it up automatically), then `npm run deploy:prod`
 - In `functions/.env`, set `ENFORCE_APP_CHECK=true`
 - Enable App Check enforcement in your Firebase console
 

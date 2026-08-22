@@ -27,7 +27,7 @@ export const auth = getAuth(app);
 export const storage = getStorage(app);
 
 // Dev against the local emulator suite when VITE_USE_EMULATOR=1 (see .env.development).
-// Production builds talk to the real project above.
+// Real builds talk to the project configured in .env.sandbox / .env.production.
 if (import.meta.env.VITE_USE_EMULATOR === '1') {
   connectFirestoreEmulator(db, '127.0.0.1', 8180);
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
