@@ -78,7 +78,7 @@ function RequestInviteForm({ className }: { className?: string }) {
 
 export default function Landing() {
   return (
-    <>
+    <div className="tw-preflight">
       <NavbarWithLogoActionsAndCenteredLinks
         logo={
           <NavbarLogo href="/">
@@ -261,6 +261,6 @@ export default function Landing() {
         }
         fineprint="Ubayy began at the Ibn Katheer Qur'an Competition. © 2026 Ubayy."
       />
-    </>
+    </div>
   );
 }

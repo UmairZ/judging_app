@@ -1,7 +1,23 @@
 /* Marketing register only — imported by src/marketing/Landing.tsx alone.
-   No Tailwind preflight: existing app screens keep their inline-styled look. */
+   No GLOBAL Tailwind preflight: existing app screens keep their inline-styled
+   look. The vendored template assumes preflight, so the base rules it relies
+   on are restored below, scoped under .tw-preflight (the Landing root).
+   Layer order is declared so utilities always beat these base rules. */
+@layer theme, base, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
+
+@layer base {
+  .tw-preflight :where(*, ::before, ::after) { box-sizing: border-box; }
+  .tw-preflight :where(h1, h2, h3, h4, h5, p, figure, blockquote, dl, dd, ul, ol) { margin: 0; }
+  .tw-preflight :where(ul, ol) { list-style: none; padding: 0; }
+  .tw-preflight :where(img, svg, video, canvas) { display: block; vertical-align: middle; }
+  .tw-preflight :where(img, video) { max-width: 100%; height: auto; }
+  .tw-preflight :where(h1, h2, h3, h4, h5) { font-size: inherit; font-weight: inherit; }
+  .tw-preflight :where(button, input, select, textarea) { font: inherit; color: inherit; }
+  .tw-preflight :where(button) { background: transparent; border: 0; padding: 0; cursor: pointer; }
+  .tw-preflight :where(a) { color: inherit; text-decoration: inherit; }
+}
 
 @theme {
   --font-display: 'Spectral', serif;
