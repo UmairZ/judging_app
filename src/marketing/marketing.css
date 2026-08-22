@@ -1,0 +1,27 @@
+/* Marketing register only — imported by src/marketing/Landing.tsx alone.
+   No Tailwind preflight: existing app screens keep their inline-styled look. */
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+@theme {
+  --font-display: 'Spectral', serif;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+
+  /* Oatmeal's olive scale remapped to the Ubayy palette: vendored components
+     read these names, so the whole template rethemes from here. */
+  --color-olive-50: #FBF8F1;
+  --color-olive-100: #F4EFE4;
+  --color-olive-200: #EAE3D4;
+  --color-olive-300: #E6DEC9;
+  --color-olive-400: #8A938E;
+  --color-olive-500: #5C6661;
+  --color-olive-600: #206560;
+  --color-olive-700: #185049;
+  --color-olive-800: #16413B;
+  --color-olive-900: #1C2926;
+  --color-olive-950: #131C1A;
+
+  --color-brass-300: #DCB75E;
+  --color-brass-500: #B99644;
+  --color-brass-700: #9C7C34;
+}
