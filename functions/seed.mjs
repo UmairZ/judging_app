@@ -47,16 +47,16 @@ const p = (rel) => `${BASE}/${rel}`;
 
 async function main() {
   // ── auth users (no custom claims — authorization is member docs) ─────────
-  const admin = await auth.createUser({ email: 'admin@ibnkatheer.local', password: 'admin123' }).catch(() => auth.getUserByEmail('admin@ibnkatheer.local'));
+  const admin = await auth.createUser({ email: 'admin@demo.local', password: 'admin123' }).catch(() => auth.getUserByEmail('admin@demo.local'));
   for (const jid of ['j1', 'j2', 'j3']) {
     await auth.createUser({ uid: jid, email: `${jid}@judge.local`, password: 'judge123' }).catch(() => auth.getUser(jid));
   }
 
   // ── tenant shell ──────────────────────────────────────────────────────────
-  await db.doc('orgs/demo').set({ name: 'Demo Organization', ownerUid: admin.uid, plan: 'free', createdAt: FieldValue.serverTimestamp() });
+  await db.doc('orgs/demo').set({ name: 'Demo Masjid', ownerUid: admin.uid, plan: 'free', createdAt: FieldValue.serverTimestamp() });
   await db.doc(`orgs/demo/members/${admin.uid}`).set({ role: 'owner' });
-  await db.doc(`users/${admin.uid}/orgs/demo`).set({ role: 'owner', name: 'Demo Organization' });
-  await db.doc(BASE).set({ name: '2026 Ibn Katheer Quran Competition', status: 'live', createdAt: FieldValue.serverTimestamp() });
+  await db.doc(`users/${admin.uid}/orgs/demo`).set({ role: 'owner', name: 'Demo Masjid' });
+  await db.doc(BASE).set({ name: '2026 Demo Masjid Qur\'an Competition', status: 'live', createdAt: FieldValue.serverTimestamp() });
   // judge auth uid == seat id here for convenience; the member doc binding is what the rules check
   for (const jid of ['j1', 'j2', 'j3']) {
     await db.doc(p(`members/${jid}`)).set({ role: 'judge', judgeId: jid });
@@ -65,7 +65,7 @@ async function main() {
   // ── competition data (same demo content, nested paths) ───────────────────
   await db.doc(p('config/structure')).set(STRUCTURE);
   await db.doc(p('config/scoring')).set(SCORING);
-  await db.doc(p('config/zeffy')).set({ eventTitle: '2026 Ibn Katheer Quran Competition' });
+  await db.doc(p('config/zeffy')).set({ eventTitle: '2026 Demo Masjid Qur\'an Competition' });
 
   await db.doc(p('judges/j1')).set({ name: 'Ustadha Maryam', active: true });
   await db.doc(p('judges/j2')).set({ name: 'Ustadha Sara', active: true });

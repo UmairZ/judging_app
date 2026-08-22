@@ -13,6 +13,7 @@ import {
 } from '../scoring';
 import { DEFAULT_STRUCTURE_CONFIG, generateSlots, slotId, type StructureConfig, type Slot } from '../domain/structure';
 import { enrollmentId } from '../domain/ids';
+import Wordmark from '../ui/Wordmark';
 import { C, serif, pct } from '../ui/theme';
 import GradingScreen from '../judge/GradingScreen';
 import Projector from './Projector';
@@ -200,7 +201,7 @@ export default function Leaderboard() {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ibn-katheer-results-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `ubayy-results-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -220,7 +221,7 @@ export default function Leaderboard() {
   return (
     <div style={{ background: C.cream, borderRadius: 8, boxShadow: '0 6px 22px rgba(20,40,36,.14)', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', padding: '18px 26px', borderBottom: `1px solid ${C.line}`, background: C.greenDeep }}>
-        <img src="/ibn-katheer-logo.svg" alt="" style={{ height: 32, width: 'auto', marginRight: 14, filter: 'brightness(0) invert(1)', opacity: 0.92 }} />
+        <div style={{ marginRight: 14 }}><Wordmark size={24} onDark /></div>
         <div>
           <div style={{ fontFamily: serif, fontSize: 19, fontWeight: 600, color: '#fff' }}>Live Leaderboard</div>
           <div style={{ fontSize: 12, color: '#9DBDB4' }}>Recomputed from synced sessions</div>

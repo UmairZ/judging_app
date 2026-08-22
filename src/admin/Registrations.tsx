@@ -623,7 +623,7 @@ export default function Registrations() {
         <input
           value={zeffyValue}
           onChange={(e) => { setZeffyTitle(e.target.value); setZeffySaved(false); }}
-          placeholder="e.g. 2026 Ibn Katheer Quran Competition"
+          placeholder="e.g. 2026 Spring Qur'an Competition"
           style={{ flex: '2 1 280px', minWidth: 220, fontSize: 13.5, padding: '9px 12px', border: `1px solid ${C.cardLine}`, borderRadius: 7, outline: 'none', background: '#fff' }}
         />
         <button

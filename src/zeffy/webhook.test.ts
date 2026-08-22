@@ -3,14 +3,14 @@ import { verifyZeffyRequest, handleZeffyWebhook, tenantFromWebhookPath, type Reg
 import { PAYLOAD_THREE_CATS } from './__fixtures__/payloads';
 import type { RegistrationDoc } from '../data/types';
 
-const EXPECTED = { token: 'secret-123', eventTitle: '2026 Ibn Katheer Quran Competition' };
+const EXPECTED = { token: 'secret-123', eventTitle: "2026 Spring Qur'an Competition" };
 
 describe('verifyZeffyRequest', () => {
   it('accepts the right token and event title', () => {
     expect(verifyZeffyRequest({ token: 'secret-123', eventTitle: EXPECTED.eventTitle }, EXPECTED)).toBe(true);
   });
   it('tolerates surrounding whitespace in the title', () => {
-    expect(verifyZeffyRequest({ token: 'secret-123', eventTitle: '  2026 Ibn Katheer Quran Competition ' }, EXPECTED)).toBe(true);
+    expect(verifyZeffyRequest({ token: 'secret-123', eventTitle: "  2026 Spring Qur'an Competition " }, EXPECTED)).toBe(true);
   });
   it('rejects a wrong or missing token', () => {
     expect(verifyZeffyRequest({ token: 'nope', eventTitle: EXPECTED.eventTitle }, EXPECTED)).toBe(false);

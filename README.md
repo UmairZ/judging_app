@@ -1,8 +1,10 @@
-# Ibn Katheer Qur'an Competition — Judging App
+# Ubayy
 
 A PWA for running a Qur'an memorization contest: judges grade contestants live on
 their own devices, scores roll up to a live leaderboard, and an audience projector
 shows standings. Replaces a Google Forms workflow.
+
+Ubayy began at the Ibn Katheer Qur'an Competition.
 
 **Live:** https://ubayy-prod.web.app (prod; custom domain https://ubayy.app coming) · https://ubayy-sbx.web.app (sandbox)
 
@@ -44,7 +46,7 @@ create an org and a competition. Existing tenants are reached by join links
 of the form `/{org}/{comp}/join/{CODE}`.
 
 The seed script provisions tenant `demo/2026` with an admin
-(`admin@ibnkatheer.local` / `admin123`) and two demo join codes: `JUDGE234`
+(`admin@demo.local` / `admin123`) and two demo join codes: `JUDGE234`
 (judge seat "Ustadha Zaynab") and `SCREEN22` (display/projector). Open
 `http://localhost:5173/demo/2026/join/JUDGE234` or `.../join/SCREEN22` to
 redeem them. Custom claims are fully retired — all authorization is via

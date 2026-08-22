@@ -63,7 +63,7 @@ export default function SignInScreen() {
 
       {import.meta.env.DEV && (
         <div style={{ marginTop: 26, fontSize: 12.5, color: C.muted }}>
-          <div>Dev · emulator admin: <code>admin@ibnkatheer.local</code> / <code>admin123</code></div>
+          <div>Dev · emulator admin: <code>admin@demo.local</code> / <code>admin123</code></div>
           <button onClick={() => void signInEmail('j1@judge.local', 'judge123')} style={{ marginTop: 8, background: 'transparent', border: 'none', color: C.green, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>Sign in as a judge (j1)</button>
         </div>
       )}

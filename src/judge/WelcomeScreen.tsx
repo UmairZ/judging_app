@@ -1,4 +1,5 @@
 import { C, serif, arabic } from '../ui/theme';
+import Wordmark from '../ui/Wordmark';
 
 /** Branded judge welcome — device is pre-bound to the judge; no login. */
 export default function WelcomeScreen({ name, subtitle, onStart }: { name: string; subtitle: string; onStart: () => void }) {
@@ -10,9 +11,9 @@ export default function WelcomeScreen({ name, subtitle, onStart }: { name: strin
         <span style={{ width: 90, height: 1, background: 'linear-gradient(90deg, #D8C9A4, transparent)' }} />
       </div>
 
-      <img src="/ibn-katheer-logo.svg" alt="Ibn Katheer Qur'an Competition" style={{ width: 200, height: 150, objectFit: 'contain', marginBottom: 18 }} />
+      <div style={{ marginBottom: 18 }}><Wordmark size={26} /></div>
       <div style={{ fontFamily: arabic, fontSize: 22, color: C.brassDark, direction: 'rtl', marginBottom: 12 }}>بسم الله</div>
-      <div style={{ fontSize: 12.5, letterSpacing: '.22em', textTransform: 'uppercase', color: C.green, fontWeight: 600, marginBottom: 12 }}>2026 Ibn Katheer Qur'an Competition</div>
+      <div style={{ fontSize: 12.5, letterSpacing: '.22em', textTransform: 'uppercase', color: C.green, fontWeight: 600, marginBottom: 12 }}>Qur'an Competition Judging</div>
       <div style={{ fontFamily: serif, fontSize: 44, fontWeight: 600, color: C.greenDeep, marginBottom: 8 }}>Welcome, {name}</div>
       <div style={{ fontSize: 15, color: '#6B6355', marginBottom: 34 }}>{subtitle}</div>
 

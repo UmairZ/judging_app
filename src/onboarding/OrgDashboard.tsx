@@ -88,7 +88,7 @@ function CreateOrgForm({ onDone }: { onDone: () => void }) {
     <form onSubmit={submit} style={{ background: C.cream, borderRadius: 10, padding: '20px 24px', maxWidth: 420 }}>
       <div style={{ fontFamily: serif, fontSize: 16, fontWeight: 600, color: C.greenDeep, marginBottom: 12 }}>New organization</div>
       <input style={input} placeholder="Organization name" value={name} onChange={(e) => { setName(e.target.value); if (!idTouched) setOrgId(slugifyOrgId(e.target.value)); }} autoFocus />
-      <input style={input} placeholder="URL id (e.g. ibn-katheer)" value={orgId} onChange={(e) => { setIdTouched(true); setOrgId(e.target.value); }} />
+      <input style={input} placeholder="URL id (e.g. demo-masjid)" value={orgId} onChange={(e) => { setIdTouched(true); setOrgId(e.target.value); }} />
       {error && <div style={{ color: C.fail, fontSize: 12.5, marginBottom: 10 }}>{error.includes('early access') ? <>Ubayy is in early access — request an invite on the <a href="/" style={{ color: 'inherit', textDecoration: 'underline' }}>home page</a> and we'll be in touch.</> : error}</div>}
       <div style={{ display: 'flex', gap: 10 }}>
         <button type="submit" disabled={busy} style={primaryBtn}>{busy ? 'Creating…' : 'Create'}</button>

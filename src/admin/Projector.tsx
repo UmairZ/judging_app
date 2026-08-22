@@ -11,6 +11,7 @@ import {
 } from '../scoring';
 import { DEFAULT_STRUCTURE_CONFIG, generateSlots, type StructureConfig } from '../domain/structure';
 import { C, serif, pct } from '../ui/theme';
+import Wordmark from '../ui/Wordmark';
 
 interface Row {
   contestantId: string;
@@ -134,24 +135,9 @@ export default function Projector() {
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 6 }}>
-        {/* Logo circle */}
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
-            background: C.cream,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <img
-            src="/ibn-katheer-logo.svg"
-            alt=""
-            style={{ width: 30, height: 30, objectFit: 'contain' }}
-          />
+        {/* Wordmark */}
+        <div style={{ display: 'flex', alignItems: 'center', height: 56, flexShrink: 0 }}>
+          <Wordmark size={28} onDark />
         </div>
 
         {/* Title block */}
@@ -166,7 +152,7 @@ export default function Projector() {
               marginBottom: 2,
             }}
           >
-            2026 Ibn Katheer Qur'an Competition
+            Ubayy
           </div>
           <div
             style={{

@@ -1,4 +1,4 @@
-/** Shared design tokens for the Ibn Katheer design language (teal + brass, cream surfaces). */
+/** Shared design tokens for Ubayy's design language (teal + brass, cream surfaces). */
 export const C = {
   ink: '#1C2926',
   green: '#206560',

@@ -8,6 +8,7 @@ import {
   type ScoringConfig,
 } from '../scoring';
 import { C, serif } from '../ui/theme';
+import Wordmark from '../ui/Wordmark';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -126,10 +127,7 @@ export default function ScoringConfig() {
         display: 'flex', alignItems: 'center', padding: '18px 26px',
         borderBottom: `1px solid ${C.line}`, background: C.greenDeep,
       }}>
-        <img src="/ibn-katheer-logo.svg" alt="" style={{
-          height: 32, width: 'auto', marginRight: 14,
-          filter: 'brightness(0) invert(1)', opacity: 0.92,
-        }} />
+        <div style={{ marginRight: 14 }}><Wordmark size={24} onDark /></div>
         <div>
           <div style={{ fontFamily: serif, fontSize: 19, fontWeight: 600, color: '#fff' }}>
             Scoring config · live

@@ -7,6 +7,7 @@ import ScoringConfig from './ScoringConfig';
 import Devices from './Devices';
 import { useAuth } from '../auth/AuthContext';
 import { C, serif } from '../ui/theme';
+import Wordmark from '../ui/Wordmark';
 
 type NavItem = { id: string; label: string; el: ReactNode };
 type NavRow = NavItem | { group: string };
@@ -34,7 +35,7 @@ export default function AdminApp({ onExit }: { onExit?: () => void }) {
     <div style={{ display: 'flex', height: '100vh', background: C.canvas }}>
       <div style={{ width: 240, flex: 'none', background: C.greenDeep, color: '#fff', display: 'flex', flexDirection: 'column', padding: '22px 0', overflow: 'auto' }}>
         <div style={{ padding: '0 22px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/ibn-katheer-logo.svg" alt="" style={{ height: 34, filter: 'brightness(0) invert(1)' }} />
+          <Wordmark size={20} onDark />
           <div style={{ fontFamily: serif, fontSize: 16, fontWeight: 600 }}>Admin</div>
         </div>
         {NAV.map((n, i) => {

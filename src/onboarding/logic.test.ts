@@ -19,7 +19,7 @@ describe('generateWebhookToken', () => {
 
 describe('slugifyOrgId', () => {
   it('lowercases, hyphenates spaces, strips unsafe chars', () => {
-    expect(slugifyOrgId('Ibn Katheer Masjid!')).toBe('ibn-katheer-masjid');
+    expect(slugifyOrgId('Demo Masjid!')).toBe('demo-masjid');
     expect(slugifyOrgId('  Al-Noor  Center  ')).toBe('al-noor-center');
   });
   it('caps at 128 and never returns empty for weird input', () => {
