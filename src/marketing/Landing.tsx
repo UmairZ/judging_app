@@ -219,7 +219,7 @@ export default function Landing() {
           byline="Ubayy began at the Ibn Katheer Qur'an Competition, where its scoring system judged its first live contest."
         />
 
-        <FAQsTwoColumnAccordion>
+        <FAQsTwoColumnAccordion headline="Questions &amp; Answers">
           <Faq
             question="When can I sign up?"
             answer="Ubayy is in early access. We onboard competitions one at a time so every organizer gets real support — request an invite and we'll reach out as capacity opens."
