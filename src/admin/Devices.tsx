@@ -1,19 +1,40 @@
 import { useState } from 'react';
 import { signInWithCustomToken } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useCollection } from '../data/db';
-import type { JudgeDoc, PanelDoc, AssignmentDoc } from '../data/types';
+import { useCollection, writeDoc, removeDoc, now } from '../data/db';
+import { useTenant } from '../tenant/TenantContext';
+import type { JudgeDoc, PanelDoc, AssignmentDoc, JoinCodeDoc } from '../data/types';
+import { generateJoinCode } from '../onboarding/logic';
 import { app, auth } from '../firebase/app';
 import { C, serif, initials } from '../ui/theme';
 
+function codeLink(orgId: string, compId: string, code: string) {
+  return `${window.location.origin}/${orgId}/${compId}/join/${code}`;
+}
+
 export default function Devices() {
-  const judges = [...useCollection<JudgeDoc>('judges')].sort((a, b) => a.name.localeCompare(b.name));
-  const panels = useCollection<PanelDoc>('panels');
-  const assignments = useCollection<AssignmentDoc>('assignments');
+  const { orgId, compId, tp } = useTenant();
+  const judges = [...useCollection<JudgeDoc>(tp('judges'))].sort((a, b) => a.name.localeCompare(b.name));
+  const panels = useCollection<PanelDoc>(tp('panels'));
+  const assignments = useCollection<AssignmentDoc>(tp('assignments'));
+  const joinCodes = useCollection<JoinCodeDoc>(tp('joinCodes'));
 
   const [selectedJudgeId, setSelectedJudgeId] = useState<string | null>(null);
   const [provisioning, setProvisioning] = useState(false);
-  const [statusNote, setStatusNote] = useState<string | null>(null);
+  const [statusNote, setStatusNote] = useState<{ text: string; warn: boolean } | null>(null);
+  const [kicking, setKicking] = useState<string | null>(null);
+
+  const kickMember = async (memberUid: string) => {
+    if (!window.confirm('Kick this device? It loses access immediately; generate a new code to re-admit.')) return;
+    setKicking(memberUid);
+    try {
+      await httpsCallable(getFunctions(app, 'us-central1'), 'removeMember')({ orgId, compId, memberUid });
+    } catch (err) {
+      setStatusNote({ text: (err as { message?: string })?.message ?? 'Could not remove the member.', warn: true });
+    } finally {
+      setKicking(null);
+    }
+  };
 
   /** Return the panel this judge belongs to, or undefined. */
   const panelFor = (judgeId: string) =>
@@ -31,17 +52,18 @@ export default function Devices() {
     setProvisioning(true);
     setStatusNote(null);
     try {
-      const fn = httpsCallable<{ judgeId: string }, { token: string }>(
+      const fn = httpsCallable<{ orgId: string; compId: string; judgeId: string }, { token: string }>(
         getFunctions(app, 'us-central1'),
         'mintJudgeToken',
       );
-      const result = await fn({ judgeId: selectedJudgeId });
+      const result = await fn({ orgId, compId, judgeId: selectedJudgeId });
       await signInWithCustomToken(auth, result.data.token);
-      setStatusNote('Device provisioned. Handing over to judge…');
+      setStatusNote({ text: 'Device provisioned. Handing over to judge…', warn: false });
     } catch {
-      setStatusNote(
-        'Provisioning function not available in this environment — works once deployed.',
-      );
+      setStatusNote({
+        text: 'Device provisioning is being rebuilt for the SaaS model — returns in a later update.',
+        warn: true,
+      });
     } finally {
       setProvisioning(false);
     }
@@ -195,17 +217,80 @@ export default function Devices() {
                 style={{
                   marginTop: 14,
                   fontSize: 12.5,
-                  color: statusNote.startsWith('Provisioning function') ? C.brassDark : C.green,
-                  background: statusNote.startsWith('Provisioning function') ? C.pill : C.pillGreen,
-                  border: `1px solid ${statusNote.startsWith('Provisioning function') ? '#DcCFAE' : '#B5D4CB'}`,
+                  color: statusNote.warn ? C.brassDark : C.green,
+                  background: statusNote.warn ? C.pill : C.pillGreen,
+                  border: `1px solid ${statusNote.warn ? '#DcCFAE' : '#B5D4CB'}`,
                   borderRadius: 6,
                   padding: '10px 14px',
                   lineHeight: 1.5,
                 }}
               >
-                {statusNote}
+                {statusNote.text}
               </div>
             )}
+          </div>
+        </div>
+
+        <div style={{ flex: '0 0 auto', minWidth: 300, maxWidth: 620, marginTop: 24 }}>
+          <div style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 10 }}>
+            Join codes — judges bring their own device
+          </div>
+          <div style={{ background: C.cream, borderRadius: 6, padding: '16px 22px', boxShadow: '0 6px 22px rgba(20,40,36,.14)' }}>
+            {judges.map((j) => {
+              const code = joinCodes.find((c) => c.role === 'judge' && c.judgeId === j.id);
+              return (
+                <div key={j.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #EAE3D3', gap: 12 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>{j.name}</div>
+                  {j.uid ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+                      <span style={{ color: C.green }}>connected ✓</span>
+                      <button onClick={() => void kickMember(j.uid!)} disabled={kicking === j.uid} style={{ background: 'none', border: 'none', color: C.fail, cursor: 'pointer', fontSize: 12.5 }}>
+                        {kicking === j.uid ? 'Kicking…' : 'Kick'}
+                      </button>
+                    </div>
+                  ) : code ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+                      <code style={{ background: '#fff', border: '1px solid #D8D0BE', borderRadius: 6, padding: '4px 8px', fontWeight: 700, letterSpacing: '.08em' }}>{code.id}</code>
+                      <span style={{ color: C.muted }}>waiting</span>
+                      <button onClick={() => { void navigator.clipboard.writeText(codeLink(orgId, compId, code.id)); }} style={{ background: 'none', border: 'none', color: C.green, cursor: 'pointer', fontSize: 12.5, textDecoration: 'underline' }}>Copy link</button>
+                      <button onClick={() => { void removeDoc(tp(`joinCodes/${code.id}`)); }} style={{ background: 'none', border: 'none', color: C.fail, cursor: 'pointer', fontSize: 12.5 }}>Revoke</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { void writeDoc(tp(`joinCodes/${generateJoinCode()}`), { role: 'judge', judgeId: j.id, redeemedBy: null, createdAt: now() }, false); }} style={{ background: 'none', border: `1px solid ${C.green}`, color: C.green, borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12.5, fontWeight: 600 }}>
+                      Generate code
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {/* display seat */}
+            {(() => {
+              const code = joinCodes.find((c) => c.role === 'display');
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 2px', gap: 12 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Projector / display screen</div>
+                  {code && code.redeemedBy ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+                      <span style={{ color: C.green }}>connected ✓</span>
+                      <button onClick={() => void kickMember(code.redeemedBy!)} disabled={kicking === code.redeemedBy} style={{ background: 'none', border: 'none', color: C.fail, cursor: 'pointer', fontSize: 12.5 }}>
+                        {kicking === code.redeemedBy ? 'Kicking…' : 'Kick'}
+                      </button>
+                    </div>
+                  ) : code ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+                      <code style={{ background: '#fff', border: '1px solid #D8D0BE', borderRadius: 6, padding: '4px 8px', fontWeight: 700, letterSpacing: '.08em' }}>{code.id}</code>
+                      <span style={{ color: C.muted }}>waiting</span>
+                      <button onClick={() => { void navigator.clipboard.writeText(codeLink(orgId, compId, code.id)); }} style={{ background: 'none', border: 'none', color: C.green, cursor: 'pointer', fontSize: 12.5, textDecoration: 'underline' }}>Copy link</button>
+                      <button onClick={() => { void removeDoc(tp(`joinCodes/${code.id}`)); }} style={{ background: 'none', border: 'none', color: C.fail, cursor: 'pointer', fontSize: 12.5 }}>Revoke</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { void writeDoc(tp(`joinCodes/${generateJoinCode()}`), { role: 'display', redeemedBy: null, createdAt: now() }, false); }} style={{ background: 'none', border: `1px solid ${C.green}`, color: C.green, borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12.5, fontWeight: 600 }}>
+                      Generate code
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

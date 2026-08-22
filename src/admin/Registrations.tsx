@@ -1,25 +1,23 @@
-import { useMemo, useState } from 'react';
-import { useCollection, useDocData, writeDoc } from '../data/db';
+import { useMemo, useRef, useState } from 'react';
+import { useCollection, useDocData, writeDoc, removeDoc, now } from '../data/db';
+import { useTenant } from '../tenant/TenantContext';
 import type { RegistrationDoc, ContestantDoc } from '../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, defaultDivisionForCategory, type StructureConfig, type Category } from '../domain/structure';
 import { enrollmentId } from '../domain/ids';
+import { generateWebhookToken } from '../onboarding/logic';
+import { parseCsv, rowsToPeople, csvRegistrationId } from '../intake/csv';
+import {
+  resolveCategories,
+  buildDefaultDivisions,
+  buildPromotion,
+  type ResolvedCategory,
+  type CategoryDivisionPair,
+} from '../intake/promotion';
 import { C, serif } from '../ui/theme';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-interface ResolvedCategory {
-  categoryId: string;
-  label: string;
-  rawLabel: string;
-  unmapped: boolean;
-}
-
-interface CategoryDivisionPair {
-  categoryId: string;
-  division: string;
-}
 
 interface DrawerState {
   regId: string | null; // null = Quick-add (manual)
@@ -28,46 +26,6 @@ interface DrawerState {
   resolved: ResolvedCategory[];
   // per-category chosen division
   divisions: Record<string, string>;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function resolveCategories(
-  rawCategories: unknown,
-  structure: StructureConfig,
-): ResolvedCategory[] {
-  const labels: string[] = Array.isArray(rawCategories)
-    ? (rawCategories as unknown[]).filter((x): x is string => typeof x === 'string')
-    : typeof rawCategories === 'string'
-    ? [rawCategories]
-    : [];
-
-  return labels.map((rawLabel) => {
-    const cat = structure.categories.find(
-      (c) => c.zeffyLabels?.some((z) => z.toLowerCase() === rawLabel.toLowerCase()),
-    );
-    return cat
-      ? { categoryId: cat.id, label: cat.label, rawLabel, unmapped: false }
-      : { categoryId: '', label: rawLabel, rawLabel, unmapped: true };
-  });
-}
-
-function buildDefaultDivisions(
-  resolved: ResolvedCategory[],
-  gender: 'male' | 'female' | null,
-  structure: StructureConfig,
-): Record<string, string> {
-  const divs: Record<string, string> = {};
-  for (const r of resolved) {
-    if (r.unmapped) continue;
-    const cat = structure.categories.find((c) => c.id === r.categoryId);
-    if (!cat) continue;
-    const d = defaultDivisionForCategory(cat, gender);
-    divs[r.categoryId] = d ?? (cat.divisions[0] ?? '');
-  }
-  return divs;
 }
 
 // ---------------------------------------------------------------------------
@@ -392,22 +350,49 @@ function PromoteDrawer({ state, structure, onClose, onChange, onSubmit }: Drawer
 // ---------------------------------------------------------------------------
 
 export default function Registrations() {
-  const registrations = useCollection<RegistrationDoc>('registrations');
-  const contestants = useCollection<ContestantDoc>('contestants');
-  const structure = useDocData<StructureConfig>('config/structure').data ?? DEFAULT_STRUCTURE_CONFIG;
+  const { orgId, compId, tp } = useTenant();
+  const registrations = useCollection<RegistrationDoc>(tp('registrations'));
+  const contestants = useCollection<ContestantDoc>(tp('contestants'));
+  const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
 
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importReport, setImportReport] = useState<string | null>(null);
 
   // Zeffy event-title filter (admin-editable; the webhook reads config/zeffy.eventTitle).
-  const zeffyCfg = useDocData<{ eventTitle?: string }>('config/zeffy');
+  const zeffyCfg = useDocData<{ eventTitle?: string; token?: string }>(tp('config/zeffy'));
   const [zeffyTitle, setZeffyTitle] = useState<string | null>(null); // null until edited → never clobbers live value
   const [zeffySaved, setZeffySaved] = useState(false);
   const zeffyValue = zeffyTitle ?? zeffyCfg.data?.eventTitle ?? '';
   const zeffyDirty = zeffyTitle !== null && zeffyTitle.trim() !== (zeffyCfg.data?.eventTitle ?? '').trim();
-  const saveZeffy = async () => { await writeDoc('config/zeffy', { eventTitle: zeffyValue.trim() }); setZeffySaved(true); };
+  const saveZeffy = async () => { await writeDoc(tp('config/zeffy'), { eventTitle: zeffyValue.trim() }); setZeffySaved(true); };
+
+  const zeffyToken = zeffyCfg.data?.token ?? '';
+  const webhookUrl = zeffyToken ? `${window.location.origin}/zeffy/${orgId}/${compId}?token=${zeffyToken}` : '';
+  const [copied, setCopied] = useState(false);
+  const [rotating, setRotating] = useState(false);
+
+  const rotateToken = async () => {
+    if (zeffyToken && !window.confirm('Rotate the webhook token? The old URL stops working immediately — update it in Zeffy.')) return;
+    setRotating(true);
+    try {
+      await writeDoc(tp('config/zeffy'), { token: generateWebhookToken() });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not update the token');
+    } finally {
+      setRotating(false);
+    }
+  };
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch { /* non-secure context — the URL is visible to select manually */ }
+  };
 
   const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
 
@@ -459,7 +444,7 @@ export default function Registrations() {
         .filter((p) => p.division);
 
       // 1. Write contestant doc
-      await writeDoc(`contestants/${cid}`, {
+      await writeDoc(tp(`contestants/${cid}`), {
         fullName: name,
         gender: gender ?? null,
         photoUrl: null,
@@ -471,10 +456,11 @@ export default function Registrations() {
       // 2. Write enrollment docs
       await Promise.all(
         pairs.map((p) =>
-          writeDoc(`enrollments/${enrollmentId(cid, p.categoryId)}`, {
+          writeDoc(tp(`enrollments/${enrollmentId(cid, p.categoryId)}`), {
             contestantId: cid,
             category: p.categoryId,
             division: p.division,
+            round: 'main',
           }),
         ),
       );
@@ -489,6 +475,93 @@ export default function Registrations() {
       setError(e instanceof Error ? e.message : 'Write failed');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleCsvFile = async (file: File) => {
+    setImportReport(null);
+    setError(null);
+    try {
+      const { people, errors } = rowsToPeople(parseCsv(await file.text()));
+      if (people.length === 0) {
+        setError(errors.length ? `CSV import failed — ${errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')}` : 'CSV import failed — no rows found.');
+        return;
+      }
+      setBusy(true);
+      let written = 0;
+      let existing = 0;
+      const failed: string[] = [];
+      for (const p of people) {
+        try {
+          // create-only: an existing id (re-import) is rejected by rules → counted as already imported
+          await writeDoc(tp(`registrations/${csvRegistrationId(p)}`), {
+            source: 'csv',
+            zeffyPaymentId: null,
+            zeffyItemId: null,
+            kind: 'ticket',
+            buyer: {},
+            rawItem: { line: p.line },
+            parsedFields: { fullName: p.fullName, gender: p.gender, dateOfBirth: p.dateOfBirth, categories: p.categories },
+            paymentStatus: 'n/a',
+            createdAt: now(),
+            promotedContestantId: null,
+          }, false);
+          written++;
+        } catch (e) {
+          const code = (e as { code?: string })?.code ?? '';
+          if (code === 'permission-denied') existing++;
+          else failed.push(`line ${p.line}: ${e instanceof Error ? e.message : 'write failed'}`);
+        }
+      }
+      setBusy(false);
+      const parts = [`Imported ${written} registration${written === 1 ? '' : 's'}`];
+      if (existing) parts.push(`${existing} already imported`);
+      if (errors.length) parts.push(`${errors.length} row${errors.length === 1 ? '' : 's'} skipped (${errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')})`);
+      setImportReport(parts.join(' · '));
+      if (failed.length) setError(`${failed.length} row(s) FAILED — ${failed.join('; ')}`);
+    } catch (e) {
+      setBusy(false);
+      setError(e instanceof Error ? e.message : 'CSV import failed — could not read file.');
+    }
+  };
+
+  const handleBulkPromote = async () => {
+    setBusy(true);
+    setError(null);
+    let promoted = 0;
+    let skipped = 0;
+    let failed = false;
+    for (const reg of registrations) {
+      if (reg.kind !== 'ticket' || isPromoted(reg.id)) continue;
+      const plan = buildPromotion(reg, structure);
+      if (!plan) { skipped++; continue; }
+      const cid = crypto.randomUUID();
+      try {
+        await writeDoc(tp(`contestants/${cid}`), {
+          fullName: plan.fullName, gender: plan.gender, photoUrl: null,
+          registrationId: reg.id, fields: reg.parsedFields ?? {}, active: true,
+        });
+        await Promise.all(plan.pairs.map((p) =>
+          writeDoc(tp(`enrollments/${enrollmentId(cid, p.categoryId)}`), {
+            contestantId: cid, category: p.categoryId, division: p.division, round: 'main',
+          }),
+        ));
+        promoted++;
+      } catch (e) {
+        // compensate: a contestant doc without enrollments would read as promoted and block retry
+        try {
+          await removeDoc(tp(`contestants/${cid}`));
+          await Promise.all(plan.pairs.map((p) => removeDoc(tp(`enrollments/${enrollmentId(cid, p.categoryId)}`))));
+        } catch { /* best-effort */ }
+        setError(e instanceof Error ? e.message : 'Write failed');
+        failed = true;
+        break;
+      }
+    }
+    setBusy(false);
+    if (!failed) {
+      setFlash(`Promoted ${promoted} · ${skipped} need review (open each to resolve)`);
+      setTimeout(() => setFlash(null), 6000);
     }
   };
 
@@ -526,7 +599,17 @@ export default function Registrations() {
         <span style={{ fontSize: 12, color: C.muted, marginLeft: 10 }}>
           immutable · {registrations.length} records
         </span>
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: C.muted }}>To add someone manually, use <strong style={{ color: C.sub }}>Contestants → + New</strong>.</span>
+        <input ref={fileInputRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleCsvFile(f); e.target.value = ''; }} />
+        <button onClick={() => fileInputRef.current?.click()} disabled={busy}
+          style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer' }}>
+          Import CSV
+        </button>
+        <button onClick={() => void handleBulkPromote()} disabled={busy}
+          style={{ fontSize: 12.5, fontWeight: 600, color: C.green, background: 'transparent', border: `1px solid ${C.green}`, borderRadius: 6, padding: '7px 14px', cursor: 'pointer' }}>
+          Promote all ready
+        </button>
+        <span style={{ fontSize: 12, color: C.muted }}>To add someone manually, use <strong style={{ color: C.sub }}>Contestants → + New</strong>.</span>
       </div>
 
       {/* Zeffy event-title filter */}
@@ -552,9 +635,52 @@ export default function Registrations() {
         </button>
       </div>
 
+      {/* Zeffy webhook URL + token management */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 22px', borderBottom: `1px solid ${C.line}`, background: C.parchment, flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 200, flex: '1 1 240px' }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: C.greenDeep }}>Zeffy webhook</div>
+          <div style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.45 }}>
+            Paste this URL into Zeffy's webhook settings. The token is this competition's secret — rotate it if it leaks.
+          </div>
+        </div>
+        {zeffyToken ? (
+          <>
+            <code style={{ flex: '2 1 280px', minWidth: 220, fontSize: 12, padding: '9px 12px', border: `1px solid ${C.cardLine}`, borderRadius: 7, background: '#fff', color: C.ink, overflowX: 'auto', whiteSpace: 'nowrap' }}>
+              {webhookUrl}
+            </code>
+            <button onClick={() => void copyUrl()} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '9px 14px', cursor: 'pointer' }}>
+              {copied ? '✓ Copied' : 'Copy URL'}
+            </button>
+            <button onClick={() => void rotateToken()} disabled={rotating} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: C.brassDark, background: 'transparent', border: `1px solid ${C.brassDark}`, borderRadius: 6, padding: '8px 14px', cursor: rotating ? 'default' : 'pointer' }}>
+              {rotating ? 'Rotating…' : 'Rotate token'}
+            </button>
+          </>
+        ) : zeffyCfg.loading ? (
+          <span style={{ fontSize: 12.5, color: C.muted }}>Loading…</span>
+        ) : (
+          // Only offered once the doc has resolved — otherwise a click during the load
+          // window would silently overwrite an existing token without the confirm prompt.
+          <button onClick={() => void rotateToken()} disabled={rotating} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: '#fff', background: C.green, border: 'none', borderRadius: 6, padding: '9px 18px', cursor: rotating ? 'default' : 'pointer' }}>
+            {rotating ? 'Generating…' : 'Generate webhook token'}
+          </button>
+        )}
+      </div>
+
       {flash && (
         <div style={{ padding: '10px 22px', fontSize: 13, fontWeight: 600, color: C.green, background: C.pillGreen, borderBottom: `1px solid ${C.line}` }}>
           {flash}
+        </div>
+      )}
+
+      {importReport && (
+        <div style={{ padding: '10px 22px', fontSize: 13, fontWeight: 600, color: C.green, background: C.pillGreen, borderBottom: `1px solid ${C.line}` }}>
+          {importReport}
+        </div>
+      )}
+
+      {error && (
+        <div style={{ padding: '10px 22px', fontSize: 13, fontWeight: 600, color: C.fail, background: C.failBg, borderBottom: `1px solid ${C.line}` }}>
+          {error}
         </div>
       )}
 
@@ -659,7 +785,7 @@ export default function Registrations() {
                   textTransform: 'capitalize',
                 }}
               >
-                {reg.source === 'zeffy' ? 'Zeffy' : 'Manual'}
+                {reg.source === 'zeffy' ? 'Zeffy' : reg.source === 'csv' ? 'CSV' : 'Manual'}
               </span>
 
               {/* status badge */}
@@ -741,19 +867,6 @@ export default function Registrations() {
           }}
         >
           Saving…
-        </div>
-      )}
-      {error && (
-        <div
-          style={{
-            padding: '12px 22px',
-            fontSize: 13,
-            color: C.fail,
-            background: C.failBg,
-            borderTop: `1px solid ${C.failLine}`,
-          }}
-        >
-          Error: {error}
         </div>
       )}
     </div>

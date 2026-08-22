@@ -27,6 +27,8 @@ export interface Session {
 }
 
 export interface ScoringConfig {
+  /** Rubric identifier — future scoring models get new ids; presets are named configs. */
+  model: string;
   weights: { hifz: number; tajweed: number; voice: number };
   hifz_base: number;
   tajweed_base: number;

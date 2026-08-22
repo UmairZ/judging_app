@@ -1,6 +1,7 @@
 import type { ScoringConfig } from './types';
 
 export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
+  model: 'deduction-v1',
   weights: { hifz: 70, tajweed: 25, voice: 5 },
   hifz_base: 10,
   tajweed_base: 10,

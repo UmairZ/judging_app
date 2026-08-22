@@ -3,6 +3,14 @@ import type { Question } from '../scoring';
 export interface JudgeDoc {
   name: string;
   active: boolean;
+  uid?: string; // set when a device/person claims this seat (join code or provisioning)
+}
+
+export interface JoinCodeDoc {
+  role: 'judge' | 'display';
+  judgeId?: string;
+  redeemedBy: string | null;
+  createdAt: unknown;
 }
 
 export interface PanelDoc {
@@ -17,7 +25,7 @@ export interface AssignmentDoc {
 }
 
 export interface RegistrationDoc {
-  source: 'zeffy' | 'manual';
+  source: 'zeffy' | 'manual' | 'csv';
   zeffyPaymentId: string | null;
   zeffyItemId: string | null;
   kind: 'ticket' | 'donation' | 'other';
@@ -42,6 +50,7 @@ export interface EnrollmentDoc {
   contestantId: string;
   category: string;
   division: string;
+  round?: string; // schema hook: multi-round competitions (default 'main')
 }
 
 export interface SessionDoc {
@@ -49,6 +58,9 @@ export interface SessionDoc {
   judgeId: string;
   questions: Question[];
   notes?: string;
+  round?: string; // schema hook: multi-round competitions (default 'main')
+  startedAt?: unknown; // Firestore Timestamp, stamped on first write
+  endedAt?: unknown | null; // stamped at finalize (recording-bookmark hook)
   updatedAt: unknown; // Firestore Timestamp
   finalizedAt: unknown | null;
 }

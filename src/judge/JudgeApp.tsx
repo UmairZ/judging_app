@@ -1,5 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { useMembership } from '../auth/MembershipContext';
+import { useTenant } from '../tenant/TenantContext';
 import { useCollection, useDocData } from '../data/db';
 import type { JudgeDoc, PanelDoc, AssignmentDoc, TiebreakDoc, SessionDoc, ContestantDoc, EnrollmentDoc } from '../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, type StructureConfig } from '../domain/structure';
@@ -11,21 +13,23 @@ import GradingScreen from './GradingScreen';
 import { buildJudgeQueue, type JudgeQueueItem } from './useJudgeQueue';
 
 export default function JudgeApp() {
-  const { user, signInAdmin } = useAuth();
-  const judgeId = user?.uid ?? '';
+  const { signInEmail } = useAuth();
+  const { judgeId: memberJudgeId } = useMembership();
+  const judgeId = memberJudgeId ?? '';
+  const { tp } = useTenant();
   const [screen, setScreen] = useState<'welcome' | 'dashboard' | 'grading' | 'tiebreak'>('welcome');
   const [selected, setSelected] = useState<JudgeQueueItem | null>(null);
   const [tbTarget, setTbTarget] = useState<TieBreakItem | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
 
-  const judges = useCollection<JudgeDoc>('judges');
-  const panels = useCollection<PanelDoc>('panels');
-  const assignments = useCollection<AssignmentDoc>('assignments');
-  const tiebreaks = useCollection<TiebreakDoc>('tiebreaks');
-  const sessions = useCollection<SessionDoc>('sessions');
-  const contestants = useCollection<ContestantDoc>('contestants');
-  const enrollments = useCollection<EnrollmentDoc>('enrollments');
-  const structure = useDocData<StructureConfig>('config/structure').data ?? DEFAULT_STRUCTURE_CONFIG;
+  const judges = useCollection<JudgeDoc>(tp('judges'));
+  const panels = useCollection<PanelDoc>(tp('panels'));
+  const assignments = useCollection<AssignmentDoc>(tp('assignments'));
+  const tiebreaks = useCollection<TiebreakDoc>(tp('tiebreaks'));
+  const sessions = useCollection<SessionDoc>(tp('sessions'));
+  const contestants = useCollection<ContestantDoc>(tp('contestants'));
+  const enrollments = useCollection<EnrollmentDoc>(tp('enrollments'));
+  const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
 
   // Single source for the queue — collections are subscribed once here, not again inside the hook.
   const items = useMemo(
@@ -117,12 +121,12 @@ export default function JudgeApp() {
         title="Hold to switch to admin"
         style={{ position: 'fixed', top: 0, left: 0, width: 64, height: 64, zIndex: 60 }}
       />
-      {adminOpen && <AdminReentry onClose={() => setAdminOpen(false)} signInAdmin={signInAdmin} />}
+      {adminOpen && <AdminReentry onClose={() => setAdminOpen(false)} signInEmail={signInEmail} />}
     </>
   );
 }
 
-function AdminReentry({ onClose, signInAdmin }: { onClose: () => void; signInAdmin: (email: string, password: string) => Promise<unknown> }) {
+function AdminReentry({ onClose, signInEmail }: { onClose: () => void; signInEmail: (email: string, password: string) => Promise<unknown> }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -133,7 +137,7 @@ function AdminReentry({ onClose, signInAdmin }: { onClose: () => void; signInAdm
     setBusy(true);
     setError('');
     try {
-      await signInAdmin(email, password); // success → auth switches, App re-routes to AdminApp
+      await signInEmail(email, password); // success → auth switches, App re-routes to AdminApp
     } catch {
       setError('Sign-in failed — check the admin email and password.');
       setBusy(false);

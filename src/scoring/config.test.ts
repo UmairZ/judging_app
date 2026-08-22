@@ -6,6 +6,10 @@ import {
 } from './config';
 
 describe('DEFAULT_SCORING_CONFIG', () => {
+  it('carries the scoring model version for future rubric variants', () => {
+    expect(DEFAULT_SCORING_CONFIG.model).toBe('deduction-v1');
+  });
+
   it('matches the spec defaults', () => {
     expect(DEFAULT_SCORING_CONFIG.weights).toEqual({ hifz: 70, tajweed: 25, voice: 5 });
     expect(DEFAULT_SCORING_CONFIG.hifz_base).toBe(10);
