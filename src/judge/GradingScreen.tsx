@@ -17,15 +17,15 @@ import {
 } from '../scoring';
 
 /* ---- the five deduction keys, grouped as in the design ---- */
-type KeyDef = { type: DeductionEventType; label: string; tag: string; tagColor: string; tagBg: string; desc: string };
+type KeyDef = { type: DeductionEventType; label: string; desc: string };
 const HIFZ_KEYS: KeyDef[] = [
-  { type: 'self_corrected', label: 'Self-corrected', tag: '−0', tagColor: C.sub, tagBg: '#F0ECE0', desc: 'Slipped but caught and fixed it themselves — no penalty, tracked only.' },
-  { type: 'prompted_fixed', label: 'Prompted', tag: '−1', tagColor: C.brassDark, tagBg: C.pill, desc: 'Needed a hint to recall the next word, then continued.' },
-  { type: 'prompted_failed', label: 'Prompted-failed', tag: '−2', tagColor: C.fail, tagBg: C.failBg, desc: 'Hint given, but still could not continue the passage.' },
+  { type: 'self_corrected', label: 'Self-corrected', desc: 'Slipped but caught and fixed it themselves — no penalty, tracked only.' },
+  { type: 'prompted_fixed', label: 'Prompted', desc: 'Needed a hint to recall the next word, then continued.' },
+  { type: 'prompted_failed', label: 'Prompted-failed', desc: 'Hint given, but still could not continue the passage.' },
 ];
 const TAJWEED_KEYS: KeyDef[] = [
-  { type: 'tajweed_major', label: 'Tajweed major', tag: '−1', tagColor: C.brassDark, tagBg: C.pill, desc: 'A clear tajweed rule was broken (e.g. a missed elongation or rule of nūn).' },
-  { type: 'tajweed_minor', label: 'Tajweed minor', tag: '−0.5', tagColor: C.sub, tagBg: '#F0ECE0', desc: 'A slight imperfection in articulation or pronunciation.' },
+  { type: 'tajweed_major', label: 'Tajweed major', desc: 'A clear tajweed rule was broken (e.g. a missed elongation or rule of nūn).' },
+  { type: 'tajweed_minor', label: 'Tajweed minor', desc: 'A slight imperfection in articulation or pronunciation.' },
 ];
 
 
@@ -400,7 +400,6 @@ function StepperCard({ def, count, onInc, onDec }: { def: KeyDef; count: number;
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <span style={{ fontSize: 18, fontWeight: 600, color: C.ink, whiteSpace: 'nowrap' }}>{def.label}</span>
-          <span style={{ fontSize: 11.5, fontWeight: 700, color: def.tagColor, background: def.tagBg, padding: '2px 9px', borderRadius: 999, whiteSpace: 'nowrap', flex: 'none' }}>{def.tag}</span>
         </div>
         <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{def.desc}</div>
       </div>
