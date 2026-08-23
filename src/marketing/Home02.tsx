@@ -80,42 +80,42 @@ export default function Page() {
             <>
               <img
                 className="bg-white/75 md:hidden dark:hidden"
-                src="https://assets.tailwindplus.com/screenshots/1.webp?top=900"
+                src="/marketing/hero-scoring.png"
                 alt=""
                 width="3440"
                 height="1500"
               />
               <img
                 className="bg-black/75 not-dark:hidden md:hidden"
-                src="https://assets.tailwindplus.com/screenshots/1.webp?top=900&color=taupe"
+                src="/marketing/hero-scoring.png"
                 alt=""
                 width="3440"
                 height="1500"
               />
               <img
                 className="bg-white/75 max-md:hidden lg:hidden dark:hidden"
-                src="https://assets.tailwindplus.com/screenshots/1.webp?top=1200"
+                src="/marketing/hero-scoring.png"
                 alt=""
                 width="3440"
                 height="1500"
               />
               <img
                 className="bg-black/75 not-dark:hidden max-md:hidden lg:hidden"
-                src="https://assets.tailwindplus.com/screenshots/1.webp?top=1200&color=taupe"
+                src="/marketing/hero-scoring.png"
                 alt=""
                 width="3440"
                 height="1500"
               />
               <img
                 className="bg-white/75 max-lg:hidden dark:hidden"
-                src="https://assets.tailwindplus.com/screenshots/1.webp?top=1500"
+                src="/marketing/hero-scoring.png"
                 alt=""
                 width="3440"
                 height="1500"
               />
               <img
                 className="bg-black/75 not-dark:hidden max-lg:hidden"
-                src="https://assets.tailwindplus.com/screenshots/1.webp?top=1500&color=taupe"
+                src="/marketing/hero-scoring.png"
                 alt=""
                 width="3440"
                 height="1500"
@@ -245,42 +245,42 @@ export default function Page() {
                 demo={
                   <Screenshot wallpaper="blue" placement="bottom-right">
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?left=1200&top=736"
+                      src="/marketing/feature-join.png"
                       alt=""
                       className="bg-white/75 sm:hidden dark:hidden"
                       width={1200}
                       height={736}
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?left=1200&top=736&color=taupe"
+                      src="/marketing/feature-join.png"
                       alt=""
                       width={1200}
                       height={736}
                       className="bg-black/75 not-dark:hidden sm:hidden"
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?left=1800&top=736"
+                      src="/marketing/feature-join.png"
                       alt=""
                       className="bg-white/75 max-sm:hidden lg:hidden dark:hidden"
                       width={1800}
                       height={736}
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?left=1800&top=736&color=taupe"
+                      src="/marketing/feature-join.png"
                       alt=""
                       width={1800}
                       height={736}
                       className="bg-black/75 not-dark:hidden max-sm:hidden lg:hidden"
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?left=1200&top=736"
+                      src="/marketing/feature-join.png"
                       alt=""
                       className="bg-white/75 max-lg:hidden dark:hidden"
                       width={1200}
                       height={736}
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?left=1200&top=736&color=taupe"
+                      src="/marketing/feature-join.png"
                       alt=""
                       width={1200}
                       height={736}
@@ -295,42 +295,42 @@ export default function Page() {
                 demo={
                   <Screenshot wallpaper="purple" placement="top-left">
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?right=1200&bottom=736"
+                      src="/marketing/feature-scoring.png"
                       alt=""
                       className="bg-white/75 sm:hidden dark:hidden"
                       width={1200}
                       height={736}
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?right=1200&bottom=736&color=taupe"
+                      src="/marketing/feature-scoring.png"
                       alt=""
                       width={1200}
                       height={736}
                       className="bg-black/75 not-dark:hidden sm:hidden"
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?right=1800&bottom=736"
+                      src="/marketing/feature-scoring.png"
                       alt=""
                       className="bg-white/75 max-sm:hidden lg:hidden dark:hidden"
                       width={1800}
                       height={736}
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?right=1800&bottom=736&color=taupe"
+                      src="/marketing/feature-scoring.png"
                       alt=""
                       width={1800}
                       height={736}
                       className="bg-black/75 not-dark:hidden max-sm:hidden lg:hidden"
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?right=1200&bottom=736"
+                      src="/marketing/feature-scoring.png"
                       alt=""
                       className="bg-white/75 max-lg:hidden dark:hidden"
                       width={1200}
                       height={736}
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?right=1200&bottom=736&color=taupe"
+                      src="/marketing/feature-scoring.png"
                       alt=""
                       width={1200}
                       height={736}
@@ -345,42 +345,42 @@ export default function Page() {
                 demo={
                   <Screenshot wallpaper="brown" placement="bottom-left">
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?right=1200&top=736"
+                      src="/marketing/feature-results.png"
                       alt=""
                       className="bg-white/75 sm:hidden dark:hidden"
                       width={1200}
                       height={736}
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?right=1200&top=736&color=taupe"
+                      src="/marketing/feature-results.png"
                       alt=""
                       width={1200}
                       height={736}
                       className="bg-black/75 not-dark:hidden sm:hidden"
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?right=1800&top=736"
+                      src="/marketing/feature-results.png"
                       alt=""
                       className="bg-white/75 max-sm:hidden lg:hidden dark:hidden"
                       width={1800}
                       height={736}
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?right=1800&top=736&color=taupe"
+                      src="/marketing/feature-results.png"
                       alt=""
                       className="bg-black/75 not-dark:hidden max-sm:hidden lg:hidden"
                       width={1800}
                       height={736}
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?right=1200&top=736"
+                      src="/marketing/feature-results.png"
                       alt=""
                       className="bg-white/75 max-lg:hidden dark:hidden"
                       width={1200}
                       height={736}
                     />
                     <img
-                      src="https://assets.tailwindplus.com/screenshots/1.webp?right=1200&top=736&color=taupe"
+                      src="/marketing/feature-results.png"
                       alt=""
                       className="bg-black/75 not-dark:hidden max-lg:hidden"
                       width={1200}
