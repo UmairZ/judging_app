@@ -235,7 +235,7 @@ export default function Page() {
             </p>
           }
           cta={
-            <Link href="#">
+            <Link href="/demo">
               See how it works <ArrowNarrowRightIcon />
             </Link>
           }
@@ -546,7 +546,7 @@ export default function Page() {
                 Request an invite
               </ButtonLink>
 
-              <PlainButtonLink href="https://ibnkatheercomp.org" size="lg">
+              <PlainButtonLink href="/demo" size="lg">
                 See it in action <ChevronIcon />
               </PlainButtonLink>
             </div>
@@ -558,27 +558,37 @@ export default function Page() {
         id="footer"
         links={
           <>
+            {/* Product links hidden until their pages exist — re-enable by removing false && */}
+            {false && (
             <FooterCategory title="Product">
               <FooterLink href="#">Features</FooterLink>
               <FooterLink href="#">Pricing</FooterLink>
             </FooterCategory>
+            )}
+            {/* Company links hidden until their pages exist — re-enable by removing false && */}
+            {false && (
             <FooterCategory title="Company">
               <FooterLink href="#">About</FooterLink>
               <FooterLink href="#">Blog</FooterLink>
               <FooterLink href="#">Press Kit</FooterLink>
             </FooterCategory>
+            )}
+            {/* Resources links hidden until their pages exist — re-enable by removing false && */}
+            {false && (
             <FooterCategory title="Resources">
               <FooterLink href="#">Help Center</FooterLink>
               <FooterLink href="#">Docs</FooterLink>
               <FooterLink href="#">Status</FooterLink>
               <FooterLink href="#">Contact</FooterLink>
             </FooterCategory>
+            )}
             <FooterCategory title="Legal">
               <FooterLink href="#">Privacy Policy</FooterLink>
               <FooterLink href="#">Terms of Service</FooterLink>
             </FooterCategory>
             <FooterCategory title="Connect">
-              <FooterLink href="#">X</FooterLink>
+              {/* X hidden for now */}
+              {false && <FooterLink href="#">X</FooterLink>}
               <FooterLink href="https://github.com/UmairZ/judging_app">GitHub</FooterLink>
             </FooterCategory>
           </>

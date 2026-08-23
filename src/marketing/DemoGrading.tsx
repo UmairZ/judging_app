@@ -7,8 +7,8 @@ import GradingScreen from '../judge/GradingScreen';
 export default function DemoGrading() {
   const backend = useMemo(() => new InMemoryBackend(), []);
   return (
-    <div className="overflow-hidden rounded-2xl border border-olive-300 bg-olive-50 shadow-sm">
-      <div className="bg-olive-800 px-4 py-2 text-center text-sm text-olive-100">
+    <div className="overflow-hidden rounded-2xl border border-taupe-300 bg-taupe-50 shadow-sm">
+      <div className="bg-taupe-800 px-4 py-2 text-center text-sm text-taupe-100">
         Live demo — grade the contestant below. Nothing is saved.
       </div>
       <DbProvider backend={backend}>
