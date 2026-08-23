@@ -288,8 +288,8 @@ export default function Page() {
                     />
                   </Screenshot>
                 }
-                headline="Shared Inbox"
-                subheadline={<p>Manage support emails together in real time — no more support email hot potato.</p>}
+                headline="Judges join in seconds"
+                subheadline={<p>Each judge scans a code and scores on their own phone — no accounts, no app store, no IT desk.</p>}
               />
               <FeatureThreeColumnWithDemos
                 demo={
@@ -338,8 +338,8 @@ export default function Page() {
                     />
                   </Screenshot>
                 }
-                headline="Collision Detection"
-                subheadline={<p>See when a teammate is replying before you hit send. Goodbye duplicate replies.</p>}
+                headline="Scoring that holds up"
+                subheadline={<p>Raw deductions are the source of truth — scores recompute instantly, and every point can be explained to a parent.</p>}
               />
               <FeatureThreeColumnWithDemos
                 demo={
@@ -388,8 +388,8 @@ export default function Page() {
                     />
                   </Screenshot>
                 }
-                headline="Inbox Agent"
-                subheadline={<p>Get valuable context without having to read through your customer's angry emails.</p>}
+                headline="Finals night, no formulas"
+                subheadline={<p>A live leaderboard and projector mode, recomputed from every synced session the moment it lands.</p>}
               />
             </>
           }
