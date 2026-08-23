@@ -24,7 +24,7 @@ import { TestimonialLargeQuote } from './vendor/sections/testimonial-with-large-
 
 export default function Page() {
   return (
-    <>
+    <div className="min-h-screen bg-taupe-100">
       <NavbarWithLogoActionsAndCenteredLinks
         id="navbar"
         links={
@@ -585,6 +585,6 @@ export default function Page() {
         }
         fineprint="© 2026 Ubayy."
       />
-    </>
+    </div>
   )
 }
