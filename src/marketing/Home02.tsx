@@ -228,11 +228,11 @@ export default function Page() {
         {/* Features */}
         <Features
           id="features"
-          headline="Everything you need to deliver personal, organized, and delightful support."
+          headline="Everything you need to run a fair, organized competition."
           subheadline={
             <p>
-              Work smarter, reply faster, and keep every customer conversation right where it belongs — in one simple
-              inbox, where you can ignore it.
+              Registration, judge panels, live scoring, and results — Ubayy handles the whole day, so your team can
+              focus on the reciters instead of the spreadsheets.
             </p>
           }
           cta={
