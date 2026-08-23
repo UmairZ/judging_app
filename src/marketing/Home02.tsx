@@ -533,21 +533,21 @@ export default function Page() {
         {/* Call To Action */}
         <CallToActionSimple
           id="call-to-action"
-          headline="Ready to make customer support feel simple again?"
+          headline="Ready when your competition is."
           subheadline={
             <p>
-              Join hundreds of teams using Ubayy to deliver faster, friendlier email support — using a massive network
-              of low wage workers stationed around the globe
+              We onboard competitions one at a time, with real support at every step — request an invite and we'll be
+              in touch.
             </p>
           }
           cta={
             <div className="flex items-center gap-4">
-              <ButtonLink href="#" size="lg">
-                Start free trial
+              <ButtonLink href="#hero" size="lg">
+                Request an invite
               </ButtonLink>
 
-              <PlainButtonLink href="#" size="lg">
-                Book a demo <ChevronIcon />
+              <PlainButtonLink href="https://ibnkatheercomp.org" size="lg">
+                See it in action <ChevronIcon />
               </PlainButtonLink>
             </div>
           }
