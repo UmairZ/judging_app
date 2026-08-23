@@ -398,18 +398,17 @@ export default function Page() {
         {/* Stats */}
         <StatsWithGraph
           id="stats"
-          eyebrow="Built for scale"
-          headline="The inbox powering customer conversations everywhere."
+          eyebrow="Built for competition day"
+          headline="Venue Wi-Fi is not a scoring strategy."
           subheadline={
             <p>
-              Ubayy helps teams deliver personal, organized, and fast customer support across the world. From small
-              startups to enterprise teams, we process millions of messages each month — using a massive network of low
-              wage workers stationed around the globe.
+              Ubayy is offline-first: every tap a judge makes is saved on their device the moment it happens, then
+              synced when the connection returns. Gym Wi-Fi can come and go — the scores don't.
             </p>
           }
         >
-          <Stat stat="2M+" text="Emails manually processed every week across thousands of teams." />
-          <Stat stat="99.98%" text="Uptime — because your customers never stop complaining." />
+          <Stat stat="0" text="Scores lost to a dropped connection. Grading, notes, and edits all work with no signal at all." />
+          <Stat stat="100%" text="Of the leaderboard recomputed automatically as sessions sync back in. No refresh button, no formulas." />
         </StatsWithGraph>
 
         {/* Testimonial */}
