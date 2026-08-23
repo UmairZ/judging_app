@@ -411,7 +411,8 @@ export default function Page() {
           <Stat stat="100%" text="Of the leaderboard recomputed automatically as sessions sync back in. No refresh button, no formulas." />
         </StatsWithGraph>
 
-        {/* Testimonial */}
+        {/* Testimonial — disabled for now; re-enable by removing `false && (` and `)` */}
+        {false && (
         <TestimonialLargeQuote
           id="testimonial"
           quote={
@@ -432,32 +433,34 @@ export default function Page() {
           name="Jordan Rogers"
           byline="Founder at Anomaly"
         />
+        )}
 
         {/* FAQs */}
         <FAQsTwoColumnAccordion id="faqs" headline="Questions & Answers">
           <Faq
             id="faq-1"
-            question="Do I need a credit card to start the free trial?"
-            answer="Yes, but don't worry, you won't be charged until the trial period is over. We won't send you an email reminding you when this happens because we are really hoping you'll forget and we can keep charging you until your cards expires"
+            question="How do I get access?"
+            answer="Ubayy is in early access — we're a young product, and we onboard competitions one at a time so every organizer gets real support. Request an invite with your email and we'll reach out as capacity opens."
           />
           <Faq
             id="faq-2"
-            question="Can my whole team use the same inbox?"
-            answer="Yes, the more the merrier! Ubayy works best when your entire company has access. We will charge you per additional seat, but we won't tell you about this until you get your invoice."
+            question="Can judges really use their own phones?"
+            answer="Yes — each judge scans a code and lands straight in their judging queue. No accounts, no downloads, and scoring keeps working even when the venue Wi-Fi doesn't."
           />
           <Faq
             id="faq-3"
-            question="Is the AI agent actually a bunch of people in India?"
-            answer="Not just India! We have people in lots of countries around the world pretending to be an AI, including some that are currently under sanctions, so we can't legally mention them here."
+            question="What does it cost?"
+            answer="Nothing during early access. Paid plans for hosted competitions will come later — and self-hosting the open-source version stays free forever."
           />
           <Faq
             id="faq-4"
-            question="Does Ubayy replace my email client?"
-            answer="Absolutely. The idea is that we transition you away from email entirely, so you become completely dependent on our service. Like a parasite living off a host."
+            question="Can I run it myself?"
+            answer="Yes. Ubayy is open source: clone the repository and deploy it to your own Firebase project. The README walks through the whole setup."
           />
         </FAQsTwoColumnAccordion>
 
-        {/* Pricing */}
+        {/* Pricing — disabled until official pricing exists; re-enable by removing `false && (` and `)` */}
+        {false && (
         <PricingMultiTier
           id="pricing"
           headline="Pricing to fit your business needs."
@@ -525,6 +528,7 @@ export default function Page() {
             </>
           }
         />
+        )}
 
         {/* Call To Action */}
         <CallToActionSimple
@@ -557,29 +561,25 @@ export default function Page() {
             <FooterCategory title="Product">
               <FooterLink href="#">Features</FooterLink>
               <FooterLink href="#">Pricing</FooterLink>
-              <FooterLink href="#">Integrations</FooterLink>
             </FooterCategory>
             <FooterCategory title="Company">
               <FooterLink href="#">About</FooterLink>
-              <FooterLink href="#">Careers</FooterLink>
               <FooterLink href="#">Blog</FooterLink>
               <FooterLink href="#">Press Kit</FooterLink>
             </FooterCategory>
             <FooterCategory title="Resources">
               <FooterLink href="#">Help Center</FooterLink>
-              <FooterLink href="#">API Docs</FooterLink>
+              <FooterLink href="#">Docs</FooterLink>
               <FooterLink href="#">Status</FooterLink>
               <FooterLink href="#">Contact</FooterLink>
             </FooterCategory>
             <FooterCategory title="Legal">
               <FooterLink href="#">Privacy Policy</FooterLink>
               <FooterLink href="#">Terms of Service</FooterLink>
-              <FooterLink href="#">Security</FooterLink>
             </FooterCategory>
             <FooterCategory title="Connect">
               <FooterLink href="#">X</FooterLink>
-              <FooterLink href="#">GitHub</FooterLink>
-              <FooterLink href="#">YouTube</FooterLink>
+              <FooterLink href="https://github.com/UmairZ/judging_app">GitHub</FooterLink>
             </FooterCategory>
           </>
         }
