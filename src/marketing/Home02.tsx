@@ -124,6 +124,8 @@ export default function Page() {
             </>
           }
           footer={
+            /* Logo strip hidden until higher-quality files arrive — re-enable by removing `false &&` */
+            false && (
             <LogoGrid>
               <Logo style={{ height: '2.75rem' }}>
                 <img
@@ -162,6 +164,7 @@ export default function Page() {
                 />
               </Logo>
             </LogoGrid>
+            )
           }
         />
 
