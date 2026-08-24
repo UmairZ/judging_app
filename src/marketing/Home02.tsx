@@ -125,38 +125,38 @@ export default function Page() {
           }
           footer={
             <LogoGrid>
-              <Logo>
+              <Logo style={{ height: '2.75rem' }}>
                 <img
                   src="/marketing/logos/ibn-katheer.png"
                   alt="Ibn Katheer Quran Competition"
-                  className="max-h-10 w-auto opacity-80 grayscale mix-blend-multiply"
+                  className="w-auto"
                   width={160}
                   height={40}
                 />
               </Logo>
-              <Logo>
+              <Logo style={{ height: '2.75rem' }}>
                 <img
                   src="/marketing/logos/bilal-masjid.png"
                   alt="Bilal Masjid, Beaverton Oregon"
-                  className="max-h-10 w-auto opacity-80 grayscale mix-blend-multiply"
+                  className="w-auto"
                   width={114}
                   height={40}
                 />
               </Logo>
-              <Logo>
+              <Logo style={{ height: '2.75rem' }}>
                 <img
                   src="/marketing/logos/icch.png"
                   alt="Islamic Community Center of Hillsboro"
-                  className="max-h-10 w-auto opacity-80 grayscale mix-blend-multiply"
+                  className="w-auto"
                   width={80}
                   height={40}
                 />
               </Logo>
-              <Logo style={{ height: '3.25rem' }}>
+              <Logo style={{ height: '3.75rem' }}>
                 <img
                   src="/marketing/logos/as-saber.png"
                   alt="Masjed As-Saber, Islamic Center of Portland"
-                  className="w-auto opacity-80 grayscale mix-blend-multiply"
+                  className="w-auto"
                   width={52}
                   height={52}
                 />
