@@ -29,7 +29,7 @@ export default function Page() {
         id="navbar"
         links={
           <>
-            <NavbarLink href="#">About</NavbarLink>
+            <NavbarLink href="/about">About</NavbarLink>
             <NavbarLink href="#">Docs</NavbarLink>
             <NavbarLink href="#" className="sm:hidden">
               Log in
@@ -46,7 +46,7 @@ export default function Page() {
             <PlainButtonLink href="#" className="max-sm:hidden">
               Log in
             </PlainButtonLink>
-            <ButtonLink href="#">Get started</ButtonLink>
+            <ButtonLink href="#hero">Get started</ButtonLink>
           </>
         }
       />
