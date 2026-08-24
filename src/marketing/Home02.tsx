@@ -29,6 +29,7 @@ export default function Page() {
         id="navbar"
         links={
           <>
+            <NavbarLink href="/">Home</NavbarLink>
             <NavbarLink href="/about">About</NavbarLink>
             <NavbarLink href="#">Docs</NavbarLink>
             <NavbarLink href="#" className="sm:hidden">
@@ -126,98 +127,38 @@ export default function Page() {
             <LogoGrid>
               <Logo>
                 <img
-                  src="https://assets.tailwindplus.com/logos/9.svg?color=black&height=32"
-                  className="dark:hidden"
-                  alt=""
-                  width={51}
-                  height={32}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/logos/9.svg?color=white&height=32"
-                  className="bg-black/75 not-dark:hidden"
-                  alt=""
-                  width={51}
-                  height={32}
+                  src="/marketing/logos/ibn-katheer.png"
+                  alt="Ibn Katheer Quran Competition"
+                  className="max-h-10 w-auto opacity-80 grayscale mix-blend-multiply"
+                  width={160}
+                  height={40}
                 />
               </Logo>
               <Logo>
                 <img
-                  src="https://assets.tailwindplus.com/logos/10.svg?color=black&height=32"
-                  className="dark:hidden"
-                  alt=""
-                  width={70}
-                  height={32}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/logos/10.svg?color=white&height=32"
-                  className="bg-black/75 not-dark:hidden"
-                  alt=""
-                  width={70}
-                  height={32}
+                  src="/marketing/logos/bilal-masjid.png"
+                  alt="Bilal Masjid, Beaverton Oregon"
+                  className="max-h-10 w-auto opacity-80 grayscale mix-blend-multiply"
+                  width={114}
+                  height={40}
                 />
               </Logo>
               <Logo>
                 <img
-                  src="https://assets.tailwindplus.com/logos/11.svg?color=black&height=32"
-                  className="dark:hidden"
-                  alt=""
-                  width={100}
-                  height={32}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/logos/11.svg?color=white&height=32"
-                  className="bg-black/75 not-dark:hidden"
-                  alt=""
-                  width={100}
-                  height={32}
+                  src="/marketing/logos/icch.png"
+                  alt="Islamic Community Center of Hillsboro"
+                  className="max-h-10 w-auto opacity-80 grayscale mix-blend-multiply"
+                  width={80}
+                  height={40}
                 />
               </Logo>
-              <Logo>
+              <Logo style={{ height: '3.25rem' }}>
                 <img
-                  src="https://assets.tailwindplus.com/logos/12.svg?color=black&height=32"
-                  className="dark:hidden"
-                  alt=""
-                  width={85}
-                  height={32}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/logos/12.svg?color=white&height=32"
-                  className="bg-black/75 not-dark:hidden"
-                  alt=""
-                  width={85}
-                  height={32}
-                />
-              </Logo>
-              <Logo>
-                <img
-                  src="https://assets.tailwindplus.com/logos/13.svg?color=black&height=32"
-                  className="dark:hidden"
-                  alt=""
-                  width={75}
-                  height={32}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/logos/13.svg?color=white&height=32"
-                  className="bg-black/75 not-dark:hidden"
-                  alt=""
-                  width={75}
-                  height={32}
-                />
-              </Logo>
-              <Logo>
-                <img
-                  src="https://assets.tailwindplus.com/logos/8.svg?color=black&height=32"
-                  className="dark:hidden"
-                  alt=""
-                  width={85}
-                  height={32}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/logos/8.svg?color=white&height=32"
-                  className="bg-black/75 not-dark:hidden"
-                  alt=""
-                  width={85}
-                  height={32}
+                  src="/marketing/logos/as-saber.png"
+                  alt="Masjed As-Saber, Islamic Center of Portland"
+                  className="w-auto opacity-80 grayscale mix-blend-multiply"
+                  width={52}
+                  height={52}
                 />
               </Logo>
             </LogoGrid>

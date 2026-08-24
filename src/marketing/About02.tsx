@@ -28,7 +28,8 @@ export default function Page() {
         id="navbar"
         links={
           <>
-                        <NavbarLink href="/about">About</NavbarLink>
+                        <NavbarLink href="/">Home</NavbarLink>
+            <NavbarLink href="/about">About</NavbarLink>
             <NavbarLink href="#">Docs</NavbarLink>
             <NavbarLink href="#" className="sm:hidden">
               Log in
