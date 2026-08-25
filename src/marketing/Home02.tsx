@@ -1,4 +1,6 @@
 import './oatmeal.css';
+import { useState, type FormEvent } from 'react';
+import { submitWaitlist } from './waitlist';
 import { AnnouncementBadge } from './vendor/elements/announcement-badge'
 import { ButtonLink, PlainButtonLink, SoftButtonLink } from './vendor/elements/button'
 import { EmailSignupForm } from './vendor/elements/email-signup-form'
@@ -22,6 +24,45 @@ import { Plan, PricingMultiTier } from './vendor/sections/pricing-multi-tier'
 import { Stat, StatsWithGraph } from './vendor/sections/stats-with-graph'
 import { TestimonialLargeQuote } from './vendor/sections/testimonial-with-large-quote'
 
+
+/** Request-invite form: the stock EmailSignupForm wired to submitWaitlist,
+ * with a confirmation message replacing the form on success. */
+function RequestInviteForm() {
+  const [state, setState] = useState<'idle' | 'busy' | 'done'>('idle');
+  const [error, setError] = useState('');
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const input = e.currentTarget.querySelector<HTMLInputElement>('input[type="email"]');
+    const email = input?.value ?? '';
+    setState('busy');
+    setError('');
+    try {
+      await submitWaitlist({ email });
+      setState('done');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong — try again.');
+      setState('idle');
+    }
+  };
+
+  if (state === 'done') {
+    return <p className="text-[0.9375rem] font-medium text-white">You&apos;re on the list — we onboard competitions one at a time.</p>;
+  }
+
+  return (
+    <div>
+      <EmailSignupForm
+        className="max-w-full"
+        variant="overlay"
+        onSubmit={(e: FormEvent<HTMLFormElement>) => void submit(e)}
+        cta={<span className="flex items-center gap-1">Request invite <ArrowNarrowRightIcon /></span>}
+      />
+      {error && <p className="mt-2 text-[0.8125rem] text-red-300">{error}</p>}
+    </div>
+  );
+}
+
 export default function Page() {
   return (
     <div className="min-h-screen bg-taupe-100">
@@ -30,11 +71,10 @@ export default function Page() {
         links={
           <>
             <NavbarLink href="/">Home</NavbarLink>
-            <NavbarLink href="/about">About</NavbarLink>
-            <NavbarLink href="#">Docs</NavbarLink>
-            <NavbarLink href="#" className="sm:hidden">
-              Log in
-            </NavbarLink>
+            {/* About/Docs hidden until their pages have real content */}
+            {false && <NavbarLink href="/about">About</NavbarLink>}
+            {false && <NavbarLink href="#">Docs</NavbarLink>}
+            {false && <NavbarLink href="#" className="sm:hidden">Log in</NavbarLink>}
           </>
         }
         logo={
@@ -44,9 +84,7 @@ export default function Page() {
         }
         actions={
           <>
-            <PlainButtonLink href="#" className="max-sm:hidden">
-              Log in
-            </PlainButtonLink>
+            {false && <PlainButtonLink href="#" className="max-sm:hidden">Log in</PlainButtonLink>}
             <ButtonLink href="#hero">Get started</ButtonLink>
           </>
         }
@@ -67,15 +105,7 @@ export default function Page() {
             </p>
           }
           cta={
-            <EmailSignupForm
-              className="max-w-full"
-              variant="overlay"
-              cta={
-                <>
-                  Request invite <ArrowNarrowRightIcon />
-                </>
-              }
-            />
+            <RequestInviteForm />
           }
           demo={
             <>
@@ -526,10 +556,13 @@ export default function Page() {
               <FooterLink href="#">Contact</FooterLink>
             </FooterCategory>
             )}
+            {/* Legal links hidden until the pages exist */}
+            {false && (
             <FooterCategory title="Legal">
               <FooterLink href="#">Privacy Policy</FooterLink>
               <FooterLink href="#">Terms of Service</FooterLink>
             </FooterCategory>
+            )}
             <FooterCategory title="Connect">
               {/* X hidden for now */}
               {false && <FooterLink href="#">X</FooterLink>}
