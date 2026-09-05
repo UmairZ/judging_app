@@ -1,6 +1,8 @@
 import { useAuth } from '../auth/AuthContext';
 import { useCollection } from '../data/db';
+import { AccountPage } from './AccountPage';
 import { HomePage } from './HomePage';
+import { OrgSettingsPage } from './OrgSettingsPage';
 import { OrgSidebar } from './OrgSidebar';
 import { PortalShell } from './PortalShell';
 import { parsePortalRoute, type PortalRoute } from './routes';
@@ -28,6 +30,8 @@ export function PortalRoot() {
 
 function renderRoute(route: PortalRoute) {
   if (route === null || route.kind === 'home') return <HomePage />;
-  // Task 5 replaces the org/account placeholders; Task 6 replaces the comp shell.
+  if (route.kind === 'org') return <OrgSettingsPage />;
+  if (route.kind === 'account') return <AccountPage />;
+  // Task 6 replaces the comp shell.
   return <div>coming soon</div>;
 }
