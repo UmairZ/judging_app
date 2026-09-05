@@ -72,4 +72,33 @@ describe('org home (PortalRoot + HomePage)', () => {
     expect(await screen.findByText('4')).toBeTruthy(); // judges
     expect(await screen.findByText('5')).toBeTruthy(); // categories
   });
+
+  it('falls back to the true newest competition by createdAt when none are live', async () => {
+    const backend = new InMemoryBackend();
+    backend.seed('users/u1/orgs/ik', { role: 'owner', name: 'Ibn Katheer' });
+
+    // Neither competition is live. Seeded OUT of chronological order — 'newer'
+    // (createdAt 2000) is inserted before 'older' (createdAt 1000) — so a naive
+    // "last element of the collection" pick would land on 'older' (wrong).
+    // Sorting by createdAt descending must pick 'newer'.
+    backend.seed('orgs/ik/competitions/newer', { name: 'Newer Contest', status: 'setup', createdAt: 2000 });
+    backend.seed('orgs/ik/competitions/older', { name: 'Older Contest', status: 'setup', createdAt: 1000 });
+
+    for (let i = 1; i <= 7; i += 1) {
+      backend.seed(`orgs/ik/competitions/newer/registrations/r${i}`, {});
+    }
+    for (let i = 1; i <= 2; i += 1) {
+      backend.seed(`orgs/ik/competitions/older/registrations/r${i}`, {});
+    }
+
+    render(
+      <DbProvider backend={backend}>
+        <PortalRoot />
+      </DbProvider>,
+    );
+
+    // Registrations stat must reflect 'newer' (7), never 'older' (2).
+    expect(await screen.findByText('7')).toBeTruthy();
+    expect(screen.queryByText('2')).toBeNull();
+  });
 });

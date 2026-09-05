@@ -26,6 +26,7 @@ interface OrgMirror {
 interface CompDoc {
   name: string;
   status: CompStatus;
+  createdAt?: unknown;
 }
 
 const STATUS_LABEL: Record<CompStatus, string> = {
@@ -37,6 +38,28 @@ const STATUS_LABEL: Record<CompStatus, string> = {
 function firstNameOf(user: { displayName?: string | null; email?: string | null } | null): string {
   const source = user?.displayName || user?.email || '';
   return source.split('@')[0].split(' ')[0] || 'there';
+}
+
+/** `createdAt` may be a Firestore `Timestamp` (live backend), a plain millis
+ * number (InMemoryBackend's resolved sentinel), or absent — normalize all of
+ * those to a millis number so "newest" can be a real sort, not array order. */
+function createdAtMillis(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (value && typeof value === 'object' && typeof (value as { toMillis?: unknown }).toMillis === 'function') {
+    return (value as { toMillis: () => number }).toMillis();
+  }
+  return -Infinity;
+}
+
+/** First live competition, else the newest by `createdAt` (missing createdAt
+ * sorts oldest) — collection order from Firestore/InMemoryBackend is otherwise
+ * unordered without an explicit orderBy. */
+function targetCompetition<T extends { status: CompStatus; createdAt?: unknown }>(
+  comps: WithId<T>[],
+): WithId<T> | undefined {
+  const live = comps.find((c) => c.status === 'live');
+  if (live) return live;
+  return [...comps].sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))[0];
 }
 
 /* Copy of ./stat.tsx WITHOUT the change-badge line — spec: no delta badges. */
@@ -57,7 +80,7 @@ export function HomePage() {
   const orgId = org?.id;
 
   const comps = useCollection<CompDoc>(orgId ? `orgs/${orgId}/competitions` : '__no_org__');
-  const targetComp = comps.find((c) => c.status === 'live') ?? comps[comps.length - 1];
+  const targetComp = targetCompetition(comps);
 
   const statBase = orgId && targetComp ? compBasePath(orgId, targetComp.id) : null;
   const registrations = useCount(statBase ? `${statBase}/registrations` : null);
