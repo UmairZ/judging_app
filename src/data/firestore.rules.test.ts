@@ -6,7 +6,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { addDoc, collection, doc, getDoc, getDocs, serverTimestamp, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getCountFromServer, getDoc, getDocs, serverTimestamp, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 
@@ -118,6 +118,11 @@ describe('staff-only collections', () => {
 });
 
 describe('registrations — immutable master', () => {
+  it('aggregate count is governed by list rules (staff yes, anon no)', async () => {
+    await assertSucceeds(getCountFromServer(collection(as('staff1'), `${P1}/registrations`)));
+    await assertFails(getCountFromServer(collection(anon(), `${P1}/registrations`)));
+  });
+
   it('staff can create; a judge cannot create or read', async () => {
     await assertSucceeds(setDoc(doc(as('staff1'), `${P1}/registrations/p1:i1`), { source: 'manual' }));
     await assertFails(setDoc(doc(as('uJudgeA'), `${P1}/registrations/p1:i2`), { source: 'manual' }));

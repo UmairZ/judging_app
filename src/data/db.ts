@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  collection,
   doc,
   onSnapshot,
   setDoc,
@@ -19,13 +18,30 @@ export type WithId<T> = T & { id: string };
  * no composite-index plumbing required.
  */
 export function useCollection<T>(colName: string): WithId<T>[] {
+  const backend = useBackend();
   const [rows, setRows] = useState<WithId<T>[]>([]);
   useEffect(() => {
-    return onSnapshot(collection(db, colName), (snap) => {
-      setRows(snap.docs.map((d) => ({ id: d.id, ...(d.data() as T) })));
+    return backend.subscribeCollection(colName, (docs) => {
+      setRows(docs as WithId<T>[]);
     });
-  }, [colName]);
+  }, [backend, colName]);
   return rows;
+}
+
+/**
+ * Aggregate count of docs in a collection, optionally only those where
+ * `presentField` is non-null. Null while loading or when `path` is null.
+ */
+export function useCount(path: string | null, presentField?: string): number | null {
+  const b = useBackend();
+  const [n, setN] = useState<number | null>(null);
+  useEffect(() => {
+    if (!path) return;
+    let on = true;
+    void b.count(path, presentField).then((c) => { if (on) setN(c); });
+    return () => { on = false; };
+  }, [b, path, presentField]);
+  return path ? n : null;
 }
 
 /** Live subscription to a single document (e.g. `config/scoring`). */
