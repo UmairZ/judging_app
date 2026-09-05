@@ -109,6 +109,14 @@ export const createOrg = onCall(CALLABLE, async (req) => {
   if ((req.auth?.token as { firebase?: { sign_in_provider?: string } })?.firebase?.sign_in_provider === 'anonymous') {
     throw new HttpsError('permission-denied', 'create an account (email or Google) to start an organization');
   }
+  // Closed signup: only invited emails may open an organization. Allowlist doc ids are
+  // lowercase emails (runbook: always write them lowercased).
+  const email = (req.auth?.token?.email as string | undefined)?.toLowerCase();
+  if (!email) throw new HttpsError('permission-denied', 'Sign in with an email account to create an organization.');
+  const invited = await db.doc(`allowlist/${email}`).get();
+  if (!invited.exists) {
+    throw new HttpsError('permission-denied', 'Ubayy is in early access — request an invite from the home page.');
+  }
   const { orgId, name } = (req.data ?? {}) as { orgId?: unknown; name?: unknown };
   if (typeof orgId !== 'string' || typeof name !== 'string' || !validateIds(orgId) || !name.trim()) {
     throw new HttpsError('invalid-argument', 'invalid org id or name');
