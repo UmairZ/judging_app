@@ -11,10 +11,14 @@ import {
   SidebarSpacer,
 } from './vendor/sidebar';
 
-export function OrgSidebar({ orgId, orgName }: { orgId: string; orgName: string }) {
+/** `orgName` is null for a signed-in account with no org bound yet (e.g. a
+ * judge account) — the sidebar (and critically its Sign out) still renders,
+ * just with the product name standing in for an org. */
+export function OrgSidebar({ orgName }: { orgName: string | null }) {
   const { user, signOut } = useAuth();
   const pathname = window.location.pathname;
-  const initial = (orgName || orgId).charAt(0).toUpperCase();
+  const headerLabel = orgName ?? 'Ubayy';
+  const initial = headerLabel.charAt(0).toUpperCase();
 
   return (
     <Sidebar>
@@ -23,7 +27,7 @@ export function OrgSidebar({ orgId, orgName }: { orgId: string; orgName: string 
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-zinc-900 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900">
             {initial}
           </div>
-          <span className="truncate text-sm/5 font-medium text-zinc-950 dark:text-white">{orgName}</span>
+          <span className="truncate text-sm/5 font-medium text-zinc-950 dark:text-white">{headerLabel}</span>
         </div>
       </SidebarHeader>
 

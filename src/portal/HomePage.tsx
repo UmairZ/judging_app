@@ -73,24 +73,38 @@ function Stat({ title, value }: { title: string; value: string }) {
   );
 }
 
+/**
+ * Org binding lives here, at the top of the tree, so a no-org account (e.g. a
+ * judge) never mounts any org-scoped subscription — no path is ever built
+ * from a missing orgId, so no Firestore path can contain a sentinel/reserved
+ * segment (Firestore rejects any collection/doc id shaped like `__foo__`).
+ * `user!` is safe: HomePage only renders once App.tsx has confirmed a
+ * signed-in user (see PortalRoot.tsx), matching OrgDashboard.tsx's convention.
+ */
 export function HomePage() {
   const { user } = useAuth();
-  const orgs = useCollection<OrgMirror>(user ? `users/${user.uid}/orgs` : '__no_user__');
+  const orgs = useCollection<OrgMirror>(`users/${user!.uid}/orgs`);
   const org = orgs[0];
-  const orgId = org?.id;
-
-  const comps = useCollection<CompDoc>(orgId ? `orgs/${orgId}/competitions` : '__no_org__');
-  const targetComp = targetCompetition(comps);
-
-  const statBase = orgId && targetComp ? compBasePath(orgId, targetComp.id) : null;
-  const registrations = useCount(statBase ? `${statBase}/registrations` : null);
-  const sessionsGraded = useCount(statBase ? `${statBase}/sessions` : null, 'finalizedAt');
-  const judgesCount = useCount(statBase ? `${statBase}/judges` : null);
-  const structure = useDocData<StructureConfig>(statBase ? `${statBase}/config/structure` : 'config/__none__');
-  const categoriesCount = structure.data?.categories?.length ?? null;
-
-  const [creating, setCreating] = useState(false);
   const firstName = firstNameOf(user);
+
+  if (!org) {
+    return (
+      <>
+        <Heading>
+          Good {timeOfDay()}, {firstName}
+        </Heading>
+        <div className="mt-8 text-sm text-zinc-500">This account doesn't belong to an organization yet.</div>
+      </>
+    );
+  }
+
+  return <OrgHomePage orgId={org.id} firstName={firstName} />;
+}
+
+function OrgHomePage({ orgId, firstName }: { orgId: string; firstName: string }) {
+  const comps = useCollection<CompDoc>(`orgs/${orgId}/competitions`);
+  const targetComp = targetCompetition(comps);
+  const [creating, setCreating] = useState(false);
 
   return (
     <>
@@ -106,30 +120,55 @@ export function HomePage() {
         </Subheading>
       </div>
       <div className="mt-4 grid gap-8 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat title="Registrations" value={registrations == null ? '—' : String(registrations)} />
-        <Stat title="Sessions graded" value={sessionsGraded == null ? '—' : String(sessionsGraded)} />
-        <Stat title="Judges" value={judgesCount == null ? '—' : String(judgesCount)} />
-        <Stat title="Categories" value={categoriesCount == null ? '—' : String(categoriesCount)} />
+        {targetComp ? (
+          <CompetitionStats orgId={orgId} compId={targetComp.id} />
+        ) : (
+          <>
+            <Stat title="Registrations" value="—" />
+            <Stat title="Sessions graded" value="—" />
+            <Stat title="Judges" value="—" />
+            <Stat title="Categories" value="—" />
+          </>
+        )}
       </div>
 
       <div className="mt-14 flex flex-wrap items-end justify-between gap-4">
         <Subheading>Competitions</Subheading>
-        {orgId && <Button onClick={() => setCreating(true)}>New competition</Button>}
+        <Button onClick={() => setCreating(true)}>New competition</Button>
       </div>
       <div className="mt-4">
-        {orgId && comps.length > 0 && (
+        {comps.length > 0 ? (
           <ul>
             {comps.map((c, index) => (
               <CompetitionRow key={c.id} orgId={orgId} comp={c} isFirst={index === 0} />
             ))}
           </ul>
-        )}
-        {orgId && comps.length === 0 && (
+        ) : (
           <div className="text-sm text-zinc-500">No competitions yet — create one to get started.</div>
         )}
       </div>
 
-      {creating && orgId && <NewCompetitionDialog orgId={orgId} onClose={() => setCreating(false)} />}
+      {creating && <NewCompetitionDialog orgId={orgId} onClose={() => setCreating(false)} />}
+    </>
+  );
+}
+
+/* Only mounted once a target competition is known — its counts/doc paths are
+ * always real, never a placeholder built from a missing id. */
+function CompetitionStats({ orgId, compId }: { orgId: string; compId: string }) {
+  const base = compBasePath(orgId, compId);
+  const registrations = useCount(`${base}/registrations`);
+  const sessionsGraded = useCount(`${base}/sessions`, 'finalizedAt');
+  const judgesCount = useCount(`${base}/judges`);
+  const structure = useDocData<StructureConfig>(`${base}/config/structure`);
+  const categoriesCount = structure.data?.categories?.length ?? null;
+
+  return (
+    <>
+      <Stat title="Registrations" value={registrations == null ? '—' : String(registrations)} />
+      <Stat title="Sessions graded" value={sessionsGraded == null ? '—' : String(sessionsGraded)} />
+      <Stat title="Judges" value={judgesCount == null ? '—' : String(judgesCount)} />
+      <Stat title="Categories" value={categoriesCount == null ? '—' : String(categoriesCount)} />
     </>
   );
 }

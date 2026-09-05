@@ -11,16 +11,19 @@ interface OrgMirror {
 }
 
 /** Org-level portal entry point: binds the signed-in user's first org, then
- * routes between Home / Organization / Account / competition shells. */
+ * routes between Home / Organization / Account / competition shells.
+ *
+ * PortalRoot only ever mounts once App.tsx has confirmed a signed-in `user`
+ * (see the /portal branch of Routed()), so `user!` is safe here — same
+ * convention as OrgDashboard.tsx. The sidebar renders unconditionally (with
+ * or without an org) so a no-org account never loses its Sign out. */
 export function PortalRoot() {
   const { user } = useAuth();
-  const orgs = useCollection<OrgMirror>(user ? `users/${user.uid}/orgs` : '__no_user__');
+  const orgs = useCollection<OrgMirror>(`users/${user!.uid}/orgs`);
   const org = orgs[0];
   const route = parsePortalRoute(window.location.pathname);
 
-  const sidebar = org ? <OrgSidebar orgId={org.id} orgName={org.name} /> : null;
-
-  return <PortalShell sidebar={sidebar}>{renderRoute(route)}</PortalShell>;
+  return <PortalShell sidebar={<OrgSidebar orgName={org?.name ?? null} />}>{renderRoute(route)}</PortalShell>;
 }
 
 function renderRoute(route: PortalRoute) {

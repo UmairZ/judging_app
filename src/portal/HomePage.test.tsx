@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
+import type { DbBackend } from '../data/backend';
 
 // PortalRoot (via HomePage -> ../data/db and ../firebase/app) initializes a real
 // Firebase app at import time, which needs env config this test environment
@@ -13,6 +14,29 @@ vi.mock('../auth/AuthContext', () => ({
 
 const { InMemoryBackend, DbProvider } = await import('../data/backend');
 const { PortalRoot } = await import('./PortalRoot');
+
+/** Wraps a backend, recording every path passed to subscribeDoc/subscribeCollection/
+ * count — used to prove no hook ever requests a sentinel/reserved-looking path. */
+function spyBackend(inner: InstanceType<typeof InMemoryBackend>) {
+  const paths: string[] = [];
+  const wrapped: DbBackend = {
+    kind: inner.kind,
+    subscribeDoc: (path, cb) => {
+      paths.push(path);
+      return inner.subscribeDoc(path, cb);
+    },
+    subscribeCollection: (path, cb) => {
+      paths.push(path);
+      return inner.subscribeCollection(path, cb);
+    },
+    write: (path, data, merge) => inner.write(path, data, merge),
+    count: (path, presentField) => {
+      paths.push(path);
+      return inner.count(path, presentField);
+    },
+  };
+  return { wrapped, paths };
+}
 
 afterEach(cleanup);
 
@@ -100,5 +124,49 @@ describe('org home (PortalRoot + HomePage)', () => {
     // Registrations stat must reflect 'newer' (7), never 'older' (2).
     expect(await screen.findByText('7')).toBeTruthy();
     expect(screen.queryByText('2')).toBeNull();
+  });
+
+  describe('no-org account (e.g. a judge with no users/{uid}/orgs docs)', () => {
+    it('still renders the sidebar with Sign out, plus a clear empty state — no New-competition button', async () => {
+      // No users/u1/orgs docs seeded at all.
+      const backend = new InMemoryBackend();
+      render(
+        <DbProvider backend={backend}>
+          <PortalRoot />
+        </DbProvider>,
+      );
+
+      // Sidebar still renders: product-name header (no org name) and Sign out.
+      expect(await screen.findByText('Ubayy')).toBeTruthy();
+      expect(screen.getByText('Sign out')).toBeTruthy();
+      expect(screen.getByText('Home')).toBeTruthy();
+      expect(screen.getByText('Organization')).toBeTruthy();
+      expect(screen.getByText('Account')).toBeTruthy();
+
+      // Main content: clear empty state, no org-scoped actions.
+      expect(screen.getByText("This account doesn't belong to an organization yet.")).toBeTruthy();
+      expect(screen.queryByText('New competition')).toBeNull();
+    });
+
+    it('never subscribes to a sentinel/reserved Firestore path', async () => {
+      // No users/u1/orgs docs seeded — the exact no-org shape live Firestore hit.
+      const { wrapped, paths } = spyBackend(new InMemoryBackend());
+      render(
+        <DbProvider backend={wrapped}>
+          <PortalRoot />
+        </DbProvider>,
+      );
+
+      // Let effects settle before inspecting what was subscribed.
+      expect(await screen.findByText('Ubayy')).toBeTruthy();
+
+      expect(paths.length).toBeGreaterThan(0);
+      // Firestore rejects any collection/document id shaped like `__foo__` as
+      // reserved — assert no subscription ever built a path containing one,
+      // not just the specific '__no_org__' string this bug shipped with.
+      for (const path of paths) {
+        expect(path).not.toMatch(/__[^/]*__/);
+      }
+    });
   });
 });
