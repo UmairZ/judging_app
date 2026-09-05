@@ -8,7 +8,7 @@ import SignInScreen from './onboarding/SignInScreen';
 import Home02 from './marketing/Home02';
 import DemoPage from './marketing/DemoPage';
 import About02 from './marketing/About02';
-import PortalPage from './portal/PortalPage';
+import { PortalShell } from './portal/PortalShell';
 import OrgDashboard from './onboarding/OrgDashboard';
 import JoinScreen from './onboarding/JoinScreen';
 import JudgeApp from './judge/JudgeApp';
@@ -18,12 +18,16 @@ import { C, serif } from './ui/theme';
 
 function Routed() {
   const { user, loading } = useAuth();
+  // Portal auth gating — Phase C work-in-progress.
+  if (window.location.pathname.startsWith('/portal')) {
+    if (loading) return <Splash />;
+    if (!user) return <SignInScreen />;
+    return <PortalShell sidebar={null}>portal</PortalShell>;
+  }
   const route = useMemo(() => parseRoute(window.location.pathname), []);
   // Public demo page — resolved before tenant routing ('/demo' would otherwise parse as an org id).
   if (window.location.pathname === '/demo') return <DemoPage />;
   if (window.location.pathname === '/about') return <About02 />;
-  // Catalyst portal preview (stock demo shell) — Phase C work-in-progress.
-  if (window.location.pathname === '/portal') return <PortalPage />;
   if (loading) return <Splash />;
   if (route.kind === 'join') return <JoinScreen orgId={route.orgId} compId={route.compId} code={route.code} />;
   if (!user) return route.kind === 'root' ? <Home02 /> : <SignInScreen />;
