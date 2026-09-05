@@ -8,7 +8,7 @@ import SignInScreen from './onboarding/SignInScreen';
 import Home02 from './marketing/Home02';
 import DemoPage from './marketing/DemoPage';
 import About02 from './marketing/About02';
-import { PortalShell } from './portal/PortalShell';
+import { PortalRoot } from './portal/PortalRoot';
 import OrgDashboard from './onboarding/OrgDashboard';
 import JoinScreen from './onboarding/JoinScreen';
 import JudgeApp from './judge/JudgeApp';
@@ -22,7 +22,7 @@ function Routed() {
   if (window.location.pathname.startsWith('/portal')) {
     if (loading) return <Splash />;
     if (!user) return <SignInScreen />;
-    return <PortalShell sidebar={null}>portal</PortalShell>;
+    return <PortalRoot />;
   }
   const route = useMemo(() => parseRoute(window.location.pathname), []);
   // Public demo page — resolved before tenant routing ('/demo' would otherwise parse as an org id).

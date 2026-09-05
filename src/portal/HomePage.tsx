@@ -1,0 +1,275 @@
+import { useState } from 'react';
+import { EllipsisVerticalIcon } from '@heroicons/react/16/solid';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { app } from '../firebase/app';
+import { useAuth } from '../auth/AuthContext';
+import { useCollection, useCount, useDocData, writeDoc, type WithId } from '../data/db';
+import type { StructureConfig } from '../domain/structure';
+import { slugifyOrgId, validateIds } from '../onboarding/logic';
+import { compBasePath } from '../tenant/paths';
+import { setStatus, statusColor, timeOfDay, type CompStatus } from './lifecycle';
+import { compPath } from './routes';
+import { Badge } from './vendor/badge';
+import { Button } from './vendor/button';
+import { Dialog, DialogActions, DialogBody, DialogTitle } from './vendor/dialog';
+import { Divider } from './vendor/divider';
+import { Dropdown, DropdownButton, DropdownItem, DropdownMenu } from './vendor/dropdown';
+import { Heading, Subheading } from './vendor/heading';
+import { Input } from './vendor/input';
+import { Link } from './vendor/link';
+
+interface OrgMirror {
+  role: string;
+  name: string;
+}
+
+interface CompDoc {
+  name: string;
+  status: CompStatus;
+}
+
+const STATUS_LABEL: Record<CompStatus, string> = {
+  setup: 'Setup',
+  live: 'Live',
+  archived: 'Archived',
+};
+
+function firstNameOf(user: { displayName?: string | null; email?: string | null } | null): string {
+  const source = user?.displayName || user?.email || '';
+  return source.split('@')[0].split(' ')[0] || 'there';
+}
+
+/* Copy of ./stat.tsx WITHOUT the change-badge line — spec: no delta badges. */
+function Stat({ title, value }: { title: string; value: string }) {
+  return (
+    <div>
+      <Divider />
+      <div className="mt-6 text-lg/6 font-medium sm:text-sm/6">{title}</div>
+      <div className="mt-3 text-3xl/8 font-semibold sm:text-2xl/8">{value}</div>
+    </div>
+  );
+}
+
+export function HomePage() {
+  const { user } = useAuth();
+  const orgs = useCollection<OrgMirror>(user ? `users/${user.uid}/orgs` : '__no_user__');
+  const org = orgs[0];
+  const orgId = org?.id;
+
+  const comps = useCollection<CompDoc>(orgId ? `orgs/${orgId}/competitions` : '__no_org__');
+  const targetComp = comps.find((c) => c.status === 'live') ?? comps[comps.length - 1];
+
+  const statBase = orgId && targetComp ? compBasePath(orgId, targetComp.id) : null;
+  const registrations = useCount(statBase ? `${statBase}/registrations` : null);
+  const sessionsGraded = useCount(statBase ? `${statBase}/sessions` : null, 'finalizedAt');
+  const judgesCount = useCount(statBase ? `${statBase}/judges` : null);
+  const structure = useDocData<StructureConfig>(statBase ? `${statBase}/config/structure` : 'config/__none__');
+  const categoriesCount = structure.data?.categories?.length ?? null;
+
+  const [creating, setCreating] = useState(false);
+  const firstName = firstNameOf(user);
+
+  return (
+    <>
+      <Heading>
+        Good {timeOfDay()}, {firstName}
+      </Heading>
+
+      <div className="mt-8 flex items-end justify-between">
+        <Subheading>
+          {targetComp
+            ? `${targetComp.status === 'live' ? 'Live now' : 'Latest'} — ${targetComp.name}`
+            : 'No competitions yet'}
+        </Subheading>
+      </div>
+      <div className="mt-4 grid gap-8 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat title="Registrations" value={registrations == null ? '—' : String(registrations)} />
+        <Stat title="Sessions graded" value={sessionsGraded == null ? '—' : String(sessionsGraded)} />
+        <Stat title="Judges" value={judgesCount == null ? '—' : String(judgesCount)} />
+        <Stat title="Categories" value={categoriesCount == null ? '—' : String(categoriesCount)} />
+      </div>
+
+      <div className="mt-14 flex flex-wrap items-end justify-between gap-4">
+        <Subheading>Competitions</Subheading>
+        {orgId && <Button onClick={() => setCreating(true)}>New competition</Button>}
+      </div>
+      <div className="mt-4">
+        {orgId && comps.length > 0 && (
+          <ul>
+            {comps.map((c, index) => (
+              <CompetitionRow key={c.id} orgId={orgId} comp={c} isFirst={index === 0} />
+            ))}
+          </ul>
+        )}
+        {orgId && comps.length === 0 && (
+          <div className="text-sm text-zinc-500">No competitions yet — create one to get started.</div>
+        )}
+      </div>
+
+      {creating && orgId && <NewCompetitionDialog orgId={orgId} onClose={() => setCreating(false)} />}
+    </>
+  );
+}
+
+function CompetitionRow({ orgId, comp, isFirst }: { orgId: string; comp: WithId<CompDoc>; isFirst: boolean }) {
+  const base = compBasePath(orgId, comp.id);
+  const contestants = useCount(`${base}/registrations`);
+  const judges = useCount(`${base}/judges`);
+  const [renaming, setRenaming] = useState(false);
+
+  const nextStatus: CompStatus = comp.status === 'live' ? 'archived' : 'live';
+  const nextLabel = comp.status === 'live' ? 'Archive' : 'Set live';
+
+  return (
+    <li>
+      <Divider soft={!isFirst} />
+      <div className="flex items-center justify-between">
+        <div className="flex gap-6 py-6">
+          <div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-zinc-100 font-semibold text-zinc-600 shadow-sm dark:bg-zinc-800 dark:text-zinc-300">
+            {comp.id}
+          </div>
+          <div className="space-y-1.5">
+            <div className="text-base/6 font-semibold">
+              <Link href={compPath(comp.id, 'overview')}>{comp.name}</Link>
+            </div>
+            <div className="text-xs/6 text-zinc-600">
+              {contestants == null ? '—' : contestants} contestants · {judges == null ? '—' : judges} judges
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <Badge className="max-sm:hidden" color={statusColor(comp.status)}>
+            {STATUS_LABEL[comp.status] ?? comp.status}
+          </Badge>
+          <Dropdown>
+            <DropdownButton plain aria-label="More options">
+              <EllipsisVerticalIcon />
+            </DropdownButton>
+            <DropdownMenu anchor="bottom end">
+              <DropdownItem
+                onClick={() => {
+                  window.location.href = compPath(comp.id, 'overview');
+                }}
+              >
+                Open
+              </DropdownItem>
+              <DropdownItem onClick={() => setRenaming(true)}>Rename</DropdownItem>
+              <DropdownItem onClick={() => void setStatus(writeDoc, orgId, comp.id, nextStatus)}>
+                {nextLabel}
+              </DropdownItem>
+            </DropdownMenu>
+          </Dropdown>
+        </div>
+      </div>
+      {renaming && (
+        <RenameDialog orgId={orgId} compId={comp.id} initialName={comp.name} onClose={() => setRenaming(false)} />
+      )}
+    </li>
+  );
+}
+
+function RenameDialog({
+  orgId,
+  compId,
+  initialName,
+  onClose,
+}: {
+  orgId: string;
+  compId: string;
+  initialName: string;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    if (!name.trim()) return;
+    setBusy(true);
+    await writeDoc(compBasePath(orgId, compId), { name: name.trim() });
+    setBusy(false);
+    onClose();
+  };
+
+  return (
+    <Dialog open onClose={onClose}>
+      <DialogTitle>Rename competition</DialogTitle>
+      <DialogBody>
+        <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+      </DialogBody>
+      <DialogActions>
+        <Button plain onClick={onClose}>
+          Cancel
+        </Button>
+        <Button onClick={() => void save()} disabled={busy}>
+          {busy ? 'Saving…' : 'Save'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function NewCompetitionDialog({ orgId, onClose }: { orgId: string; onClose: () => void }) {
+  const [name, setName] = useState('');
+  const [compId, setCompId] = useState('');
+  const [idTouched, setIdTouched] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  // Handler logic copied verbatim from OrgDashboard.tsx's CreateCompForm
+  // (validateIds, slugifyOrgId, the createCompetition callable, error shaping) —
+  // only the destination after success changes, to the portal's own comp route.
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateIds(compId) || !name.trim()) {
+      setError('Give the competition a name and a URL id (letters, numbers, - or _).');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const fns = getFunctions(app, 'us-central1');
+      await httpsCallable(fns, 'createCompetition')({ orgId, compId, name: name.trim() });
+      window.location.href = compPath(compId, 'overview');
+    } catch (err) {
+      setError((err as { message?: string })?.message ?? 'Could not create the competition.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open onClose={onClose}>
+      <form onSubmit={(e) => void submit(e)}>
+        <DialogTitle>New competition</DialogTitle>
+        <DialogBody>
+          <Input
+            placeholder="Competition name (e.g. 2027 Ramadan Contest)"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (!idTouched) setCompId(slugifyOrgId(e.target.value));
+            }}
+            autoFocus
+          />
+          <Input
+            className="mt-4"
+            placeholder="URL id (e.g. 2027)"
+            value={compId}
+            onChange={(e) => {
+              setIdTouched(true);
+              setCompId(e.target.value);
+            }}
+          />
+          {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
+        </DialogBody>
+        <DialogActions>
+          <Button plain type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={busy}>
+            {busy ? 'Creating…' : 'Create & open'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+}
