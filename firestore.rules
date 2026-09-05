@@ -90,5 +90,22 @@ service cloud.firestore {
       allow read: if isSignedIn() && request.auth.uid == uid;
       allow write: if false;
     }
+
+    // Public landing-page signup: anyone (including logged-out visitors) may create a
+    // well-formed entry. No one — not even org staff — reads, updates, or deletes via
+    // the client; the createOrg callable consults the allowlist via the Admin SDK.
+    match /waitlist/{entry} {
+      allow create: if request.resource.data.keys().hasOnly(['email', 'name', 'org', 'createdAt', 'source'])
+        && request.resource.data.email is string
+        && request.resource.data.email.matches('.+@.+\\..+')
+        && request.resource.data.source == 'landing';
+      allow read, update, delete: if false;
+    }
+
+    // Operator-managed invite list (console-only writes). Invisible and immutable to
+    // every client; only the createOrg callable reads it, via the Admin SDK.
+    match /allowlist/{email} {
+      allow read, write: if false;
+    }
   }
 }

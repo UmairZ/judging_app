@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useDocData, writeDoc, now, useSyncState } from '../data/db';
+import { useDocData, now, useSyncState } from '../data/db';
+import { useDb } from '../data/backend';
 import { useTenant } from '../tenant/TenantContext';
 import type { SessionDoc } from '../data/types';
 import { C, serif, pct } from '../ui/theme';
@@ -16,15 +17,15 @@ import {
 } from '../scoring';
 
 /* ---- the five deduction keys, grouped as in the design ---- */
-type KeyDef = { type: DeductionEventType; label: string; tag: string; tagColor: string; tagBg: string; desc: string };
+type KeyDef = { type: DeductionEventType; label: string; desc: string };
 const HIFZ_KEYS: KeyDef[] = [
-  { type: 'self_corrected', label: 'Self-corrected', tag: '−0', tagColor: C.sub, tagBg: '#F0ECE0', desc: 'Slipped but caught and fixed it themselves — no penalty, tracked only.' },
-  { type: 'prompted_fixed', label: 'Prompted', tag: '−1', tagColor: C.brassDark, tagBg: C.pill, desc: 'Needed a hint to recall the next word, then continued.' },
-  { type: 'prompted_failed', label: 'Prompted-failed', tag: '−2', tagColor: C.fail, tagBg: C.failBg, desc: 'Hint given, but still could not continue the passage.' },
+  { type: 'self_corrected', label: 'Self-corrected', desc: 'Slipped but caught and fixed it themselves — no penalty, tracked only.' },
+  { type: 'prompted_fixed', label: 'Prompted', desc: 'Needed a hint to recall the next word, then continued.' },
+  { type: 'prompted_failed', label: 'Prompted-failed', desc: 'Hint given, but still could not continue the passage.' },
 ];
 const TAJWEED_KEYS: KeyDef[] = [
-  { type: 'tajweed_major', label: 'Tajweed major', tag: '−1', tagColor: C.brassDark, tagBg: C.pill, desc: 'A clear tajweed rule was broken (e.g. a missed elongation or rule of nūn).' },
-  { type: 'tajweed_minor', label: 'Tajweed minor', tag: '−0.5', tagColor: C.sub, tagBg: '#F0ECE0', desc: 'A slight imperfection in articulation or pronunciation.' },
+  { type: 'tajweed_major', label: 'Tajweed major', desc: 'A clear tajweed rule was broken (e.g. a missed elongation or rule of nūn).' },
+  { type: 'tajweed_minor', label: 'Tajweed minor', desc: 'A slight imperfection in articulation or pronunciation.' },
 ];
 
 
@@ -37,6 +38,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const sessionId = `${enrollmentId}__${judgeId}`;
   const { data: sessionDoc, loading } = useDocData<SessionDoc>(tp(`sessions/${sessionId}`));
   const sync = useSyncState(tp(`sessions/${sessionId}`));
+  const { write } = useDb();
   // How many panel judges have started this contestant — passed in by the parent, which
   // already subscribes to the sessions collection (no extra listener here).
   const startedCount = meta.startedCount;
@@ -71,7 +73,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   // Single write path — lazy creation: the doc only appears once the judge grades.
   const persist = (extra: Record<string, unknown> = {}) => {
     const payloadQs = tieBreak ? [...primaryRef.current, ...questions] : questions;
-    void writeDoc(tp(`sessions/${sessionId}`), {
+    void write(tp(`sessions/${sessionId}`), {
       enrollmentId, judgeId, questions: payloadQs, notes,
       round: 'main',
       // startedAt is written once: only while the live doc doesn't carry it yet.
@@ -154,7 +156,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const reopen = () => {
     setLocked(false);
     dirty.current = true; // subsequent edits will persist again
-    void writeDoc(tp(`sessions/${sessionId}`), { enrollmentId, judgeId, finalizedAt: null }, true);
+    void write(tp(`sessions/${sessionId}`), { enrollmentId, judgeId, finalizedAt: null }, true);
   };
   const submitTieBreak = () => {
     if (!canFinish) { setActive(firstUnratedVoice); setVoiceNudge(true); return; }
@@ -398,7 +400,6 @@ function StepperCard({ def, count, onInc, onDec }: { def: KeyDef; count: number;
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <span style={{ fontSize: 18, fontWeight: 600, color: C.ink, whiteSpace: 'nowrap' }}>{def.label}</span>
-          <span style={{ fontSize: 11.5, fontWeight: 700, color: def.tagColor, background: def.tagBg, padding: '2px 9px', borderRadius: 999, whiteSpace: 'nowrap', flex: 'none' }}>{def.tag}</span>
         </div>
         <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{def.desc}</div>
       </div>

@@ -9,6 +9,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/app';
+import { useBackend } from './backend';
 
 export type WithId<T> = T & { id: string };
 
@@ -29,17 +30,15 @@ export function useCollection<T>(colName: string): WithId<T>[] {
 
 /** Live subscription to a single document (e.g. `config/scoring`). */
 export function useDocData<T>(path: string): { data: WithId<T> | null; loading: boolean } {
+  const backend = useBackend();
   const [state, setState] = useState<{ data: WithId<T> | null; loading: boolean }>({ data: null, loading: true });
   useEffect(() => {
-    return onSnapshot(
-      doc(db, path),
-      (snap) => {
-        setState({ data: snap.exists() ? ({ id: snap.id, ...(snap.data() as T) }) : null, loading: false });
-      },
-      // A listener error (e.g. permission-denied) must not wedge screens that gate on `loading`.
-      () => setState({ data: null, loading: false }),
-    );
-  }, [path]);
+    // The Firestore backend folds listener errors (e.g. permission-denied) into cb(null) —
+    // either way this must not wedge screens that gate on `loading`.
+    return backend.subscribeDoc(path, (d) => {
+      setState({ data: d as WithId<T> | null, loading: false });
+    });
+  }, [backend, path]);
   return state;
 }
 
@@ -50,6 +49,7 @@ export function useDocData<T>(path: string): { data: WithId<T> | null; loading: 
  *  - 'saved'   — online and everything is committed to the server
  */
 export function useSyncState(path: string): 'saved' | 'saving' | 'offline' {
+  const backend = useBackend();
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [pending, setPending] = useState(false);
   useEffect(() => {
@@ -60,10 +60,12 @@ export function useSyncState(path: string): 'saved' | 'saving' | 'offline' {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
   useEffect(() => {
+    if (backend.kind === 'demo') return;
     return onSnapshot(doc(db, path), { includeMetadataChanges: true }, (snap) => {
       setPending(snap.metadata.hasPendingWrites);
     });
-  }, [path]);
+  }, [backend, path]);
+  if (backend.kind === 'demo') return 'saved';
   if (!online) return 'offline';
   return pending ? 'saving' : 'saved';
 }

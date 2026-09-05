@@ -6,7 +6,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, serverTimestamp, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 
@@ -229,5 +229,55 @@ describe('users mirror — read own only', () => {
 
   it("a user cannot list another user's org mirror", async () => {
     await assertFails(getDocs(collection(as('staff2'), 'users/staff1/orgs')));
+  });
+});
+
+describe('waitlist — public create-only', () => {
+  it('allows a logged-out visitor to create a well-formed entry', async () => {
+    await assertSucceeds(addDoc(collection(anon(), 'waitlist'), { email: 'a@b.co', createdAt: serverTimestamp(), source: 'landing' }));
+  });
+
+  it('allows the optional name/org fields', async () => {
+    await assertSucceeds(
+      addDoc(collection(anon(), 'waitlist'), { email: 'a@b.co', name: 'A. Person', org: 'Some Org', createdAt: serverTimestamp(), source: 'landing' }),
+    );
+  });
+
+  it('rejects extra fields', async () => {
+    await assertFails(
+      addDoc(collection(anon(), 'waitlist'), { email: 'a@b.co', createdAt: serverTimestamp(), source: 'landing', admin: true }),
+    );
+  });
+
+  it('rejects a malformed or missing email', async () => {
+    await assertFails(addDoc(collection(anon(), 'waitlist'), { email: 'nope', createdAt: serverTimestamp(), source: 'landing' }));
+    await assertFails(addDoc(collection(anon(), 'waitlist'), { createdAt: serverTimestamp(), source: 'landing' }));
+  });
+
+  it('rejects a source other than landing', async () => {
+    await assertFails(addDoc(collection(anon(), 'waitlist'), { email: 'a@b.co', createdAt: serverTimestamp(), source: 'other' }));
+  });
+
+  it('nobody can read, update, or delete waitlist entries — not even org staff', async () => {
+    await assertFails(getDocs(collection(anon(), 'waitlist')));
+    await assertFails(getDocs(collection(as('staff1'), 'waitlist')));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'waitlist/w1'), { email: 'a@b.co', createdAt: null, source: 'landing' });
+    });
+    await assertFails(getDoc(doc(anon(), 'waitlist/w1')));
+    await assertFails(updateDoc(doc(as('staff1'), 'waitlist/w1'), { source: 'landing2' }));
+    await assertFails(deleteDoc(doc(as('staff1'), 'waitlist/w1')));
+  });
+});
+
+describe('allowlist — invisible and immutable to every client', () => {
+  it('nobody can read it, list it, or write to it', async () => {
+    await assertFails(getDocs(collection(anon(), 'allowlist')));
+    await assertFails(getDocs(collection(as('staff1'), 'allowlist')));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'allowlist/x@y.z'), { invitedAt: null });
+    });
+    await assertFails(getDoc(doc(as('staff1'), 'allowlist/x@y.z')));
+    await assertFails(setDoc(doc(as('somebody'), 'allowlist/x@y.z'), { ok: true }));
   });
 });
