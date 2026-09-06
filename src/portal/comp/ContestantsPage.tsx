@@ -1,7 +1,9 @@
-import { Fragment, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useCollection, useDocData, writeDoc, removeDoc, now } from '../../data/db';
 import { useTenant } from '../../tenant/TenantContext';
-import type { RegistrationDoc, ContestantDoc } from '../../data/types';
+import { storage } from '../../firebase/app';
+import type { RegistrationDoc, ContestantDoc, EnrollmentDoc } from '../../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, defaultDivisionForCategory, type StructureConfig, type Category } from '../../domain/structure';
 import { enrollmentId } from '../../domain/ids';
 import { generateWebhookToken } from '../../onboarding/logic';
@@ -13,6 +15,7 @@ import {
   type ResolvedCategory,
   type CategoryDivisionPair,
 } from '../../intake/promotion';
+import { Avatar } from '../vendor/avatar';
 import { Badge } from '../vendor/badge';
 import { Button } from '../vendor/button';
 import { Dialog, DialogActions, DialogDescription, DialogTitle } from '../vendor/dialog';
@@ -21,20 +24,41 @@ import { Heading, Subheading } from '../vendor/heading';
 import { Input } from '../vendor/input';
 import { Navbar, NavbarItem, NavbarSection } from '../vendor/navbar';
 import { Select } from '../vendor/select';
+import { Switch } from '../vendor/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../vendor/table';
 import { Text } from '../vendor/text';
+
+/** First+last initial, uppercased — matches src/ui/theme.ts's `initials()` without
+ * importing theme.ts (portal files may not import the C helpers or theme.ts). */
+function initials(name: string): string {
+  return name.split(' ').map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+}
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 interface DrawerState {
-  regId: string | null; // null = Quick-add (manual)
+  // Always a real registration id: the drawer only ever opens from a
+  // Promote click on a specific row (see openDrawer below). The "Quick-add
+  // a brand-new contestant" capability this used to also support (regId ==
+  // null) is reconciled into src/admin/Contestants.tsx's fuller version —
+  // see handleNewContestant + the roster edit panel further down this file.
+  regId: string;
   fullName: string;
   gender: 'male' | 'female' | null;
   resolved: ResolvedCategory[];
   // per-category chosen division
   divisions: Record<string, string>;
+}
+
+/** Roster edit-panel form state (from src/admin/Contestants.tsx). */
+interface EditState {
+  fullName: string;
+  gender: 'male' | 'female' | null;
+  dateOfBirth: string;
+  active: boolean;
+  photoUrl: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,7 +102,7 @@ function PromoteDrawer({ state, structure, onClose, onChange, onSubmit }: Drawer
     onChange({ ...state, resolved: newResolved, divisions: newDivisions });
   };
 
-  const drawerLabel = state.regId == null ? 'Quick-add contestant' : `Promote — ${fullName || 'New Contestant'}`;
+  const drawerLabel = `Promote — ${fullName || 'New Contestant'}`;
 
   const canSubmit = fullName.trim().length > 0 && resolved.every((r) => !r.unmapped || r.categoryId);
 
@@ -161,40 +185,6 @@ function PromoteDrawer({ state, structure, onClose, onChange, onSubmit }: Drawer
           );
         })}
 
-        {state.regId == null && (
-          <Field className="mt-6">
-            <Label>Add category</Label>
-            <Select
-              value=""
-              onChange={(e) => {
-                const newCatId = e.target.value;
-                if (!newCatId) return;
-                const newCat = structure.categories.find((c) => c.id === newCatId);
-                if (!newCat) return;
-                const d = defaultDivisionForCategory(newCat, gender);
-                const newDiv = d ?? (newCat.divisions[0] ?? '');
-                const newResolved: ResolvedCategory[] = [
-                  ...resolved,
-                  { categoryId: newCatId, label: newCat.label, rawLabel: newCat.label, unmapped: false },
-                ];
-                onChange({
-                  ...state,
-                  resolved: newResolved,
-                  divisions: { ...divisions, [newCatId]: newDiv },
-                });
-              }}
-            >
-              <option value="">+ Add category…</option>
-              {structure.categories
-                .filter((c) => !resolved.some((r) => r.categoryId === c.id))
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-            </Select>
-          </Field>
-        )}
       </Fieldset>
 
       <div className="mt-6 flex justify-end gap-3">
@@ -332,8 +322,8 @@ export function ContestantsPage() {
     try {
       const cid = crypto.randomUUID();
 
-      // Determine source: if regId is set look up the registration
-      const reg = regId ? registrations.find((r) => r.id === regId) : null;
+      // Look up the source registration (regId is always real — see DrawerState).
+      const reg = registrations.find((r) => r.id === regId);
 
       // Build pairs: only categories that are properly resolved
       const pairs: CategoryDivisionPair[] = resolved
@@ -346,7 +336,7 @@ export function ContestantsPage() {
         fullName: name,
         gender: gender ?? null,
         photoUrl: null,
-        registrationId: regId ?? null,
+        registrationId: regId,
         fields: reg?.parsedFields ?? {},
         active: true,
       });
@@ -367,7 +357,7 @@ export function ContestantsPage() {
       // to the registration doc. "Promoted" status is computed from contestants collection.
 
       setDrawer(null);
-      setFlash(regId ? `Promoted ${name} → see Contestants ✓` : `Created ${name} → see Contestants ✓`);
+      setFlash(`Promoted ${name} → see Contestants ✓`);
       setTimeout(() => setFlash(null), 4000);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Write failed');
@@ -482,6 +472,181 @@ export function ContestantsPage() {
         : 0;
     return millis(a.createdAt) - millis(b.createdAt);
   });
+
+  // -------------------------------------------------------------------------
+  // Roster management — ported verbatim from src/admin/Contestants.tsx
+  // (the true source for contestant roster editing; see Round 2 ruling).
+  //
+  // Reconciliation with the promote flow above (both files touched the same
+  // ground):
+  //  - `contestants` and `structure` are each subscribed ONCE, above — both
+  //    source files read the identical tp('contestants') / tp('config/structure')
+  //    collections, so there is no second subscription here. `sortedContestants`
+  //    is Contestants.tsx's own derived (name-sorted) view of that same data —
+  //    it used the bare name `contestants` for this in the source file, but
+  //    that name is already taken here by the unsorted collection (used above
+  //    for `promotedRegIds`), hence the rename.
+  //  - `catLabel` is identical in both source files (same structure lookup) —
+  //    kept as the one copy already defined above.
+  //  - Contestants.tsx's own `fileInputRef` (photo upload) is renamed
+  //    `photoInputRef` here — `fileInputRef` above is already the Registrations
+  //    screen's CSV-import input.
+  //  - The "add a brand-new contestant" capability existed twice: as this
+  //    file's now-unreachable PromoteDrawer quick-add branch (regId == null,
+  //    never wired to a button — see DrawerState's comment above) and as
+  //    Contestants.tsx's real, wired `handleNewContestant`. Per the ruling,
+  //    Contestants.tsx's version is the one kept; the dead branch was removed.
+  // -------------------------------------------------------------------------
+
+  const sortedContestants = [...contestants].sort((a, b) => a.fullName.localeCompare(b.fullName));
+  const enrollments = useCollection<EnrollmentDoc>(tp('enrollments'));
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [edit, setEdit] = useState<EditState | null>(null);
+  const [photoNote, setPhotoNote] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [addingCat, setAddingCat] = useState(false);
+  const [newCat, setNewCat] = useState('');
+  const [newDiv, setNewDiv] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const selected = sortedContestants.find((c) => c.id === selectedId) ?? null;
+
+  // Enrollment count per contestant, computed once instead of an O(C·E) filter per row.
+  const enrCountById = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of enrollments) m.set(e.contestantId, (m.get(e.contestantId) ?? 0) + 1);
+    return m;
+  }, [enrollments]);
+
+  // seed edit state whenever selection changes
+  useEffect(() => {
+    if (!selected) {
+      setEdit(null);
+      return;
+    }
+    setEdit({
+      fullName: selected.fullName,
+      gender: selected.gender,
+      dateOfBirth: typeof selected.fields?.dateOfBirth === 'string' ? selected.fields.dateOfBirth : '',
+      active: selected.active,
+      photoUrl: selected.photoUrl,
+    });
+    setPhotoNote(null);
+    setAddingCat(false);
+    setNewCat('');
+    setNewDiv('');
+  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const myEnrollments = selectedId
+    ? enrollments.filter((e) => e.contestantId === selectedId)
+    : [];
+
+  const enrolledCatIds = new Set(myEnrollments.map((e) => e.category));
+
+  const divLabel = (id: string) => structure.divisions.find((d) => d.id === id)?.label ?? id;
+
+  // ── photo upload ──────────────────────────────────────────────────────────
+
+  async function handlePhotoFile(file: File) {
+    if (!selectedId || !edit) return;
+    setUploading(true);
+    setPhotoNote(null);
+    try {
+      const path = tp(`contestants/${selectedId}/photo`);
+      const sRef = storageRef(storage, path);
+      await uploadBytes(sRef, file);
+      const url = await getDownloadURL(sRef);
+      setEdit((prev) => prev ? { ...prev, photoUrl: url } : prev);
+    } catch {
+      setPhotoNote('Photo upload failed — check the file is an image under 5 MB.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // ── enrollment helpers ────────────────────────────────────────────────────
+
+  function handleRemoveEnrollment(cat: string) {
+    if (!selectedId) return;
+    const enrId = enrollmentId(selectedId, cat);
+    // Sessions under this enrollment are left in place: firestore.rules forbids session
+    // deletion (grading history stays immutable), and they become unreachable once the
+    // enrollment is gone since every reader joins sessions via enrollment.
+    removeDoc(tp('enrollments/' + enrId));
+  }
+
+  function handleAddEnrollment() {
+    if (!selectedId || !newCat || !newDiv) return;
+    writeDoc(tp('enrollments/' + enrollmentId(selectedId, newCat)), {
+      contestantId: selectedId,
+      category: newCat,
+      division: newDiv,
+      round: 'main',
+    });
+    setAddingCat(false);
+    setNewCat('');
+    setNewDiv('');
+  }
+
+  // pick division when category changes in the add form
+  function handleNewCatChange(catId: string) {
+    setNewCat(catId);
+    const cat = structure.categories.find((c) => c.id === catId);
+    if (cat) {
+      const def = defaultDivisionForCategory(cat, edit?.gender);
+      setNewDiv(def ?? cat.divisions[0] ?? '');
+    } else {
+      setNewDiv('');
+    }
+  }
+
+  // ── save ──────────────────────────────────────────────────────────────────
+
+  async function handleSave() {
+    if (!selectedId || !edit || !selected) return;
+    setSaving(true);
+    try {
+      await writeDoc(
+        tp('contestants/' + selectedId),
+        {
+          fullName: edit.fullName,
+          gender: edit.gender,
+          photoUrl: edit.photoUrl,
+          active: edit.active,
+          fields: { ...selected.fields, dateOfBirth: edit.dateOfBirth },
+        },
+        true,
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── add contestant (manual, was Registrations' Quick-add) ─────────────────
+  async function handleNewContestant() {
+    const cid = crypto.randomUUID();
+    await writeDoc(tp('contestants/' + cid), { fullName: 'New contestant', gender: null, photoUrl: null, registrationId: null, fields: {}, active: true });
+    setSelectedId(cid); // opens the edit panel to fill in name + enrollments
+  }
+
+  // ── remove contestant ─────────────────────────────────────────────────────
+  // window.confirm → Dialog (confirmRemoveOpen); the cascade below is unchanged.
+
+  async function handleRemove() {
+    if (!selectedId) return;
+    // cascade: enrollments → contestant. Their sessions are left in place: firestore.rules
+    // forbids session deletion (grading history stays immutable), and they become
+    // unreachable once the enrollment is gone since every reader joins via enrollment.
+    const myEnrollments = enrollments.filter((e) => e.contestantId === selectedId);
+    await Promise.all([
+      ...myEnrollments.map((e) => removeDoc(tp('enrollments/' + e.id))),
+      removeDoc(tp('contestants/' + selectedId)),
+    ]);
+    setSelectedId(null);
+  }
 
   return (
     <>
@@ -699,6 +864,259 @@ export function ContestantsPage() {
             </Table>
 
             {busy && <Text>Saving…</Text>}
+
+            <div className="border-t border-zinc-950/10 pt-8 dark:border-white/10">
+              <Subheading>Contestant roster</Subheading>
+              <Text className="mt-1">
+                Edit an existing contestant&apos;s details, photo, active status, and category enrollments.
+              </Text>
+
+              <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start">
+                {/* left: contestant list */}
+                <div className="w-full shrink-0 lg:w-72">
+                  <div className="flex items-center justify-between gap-3">
+                    <Text>{sortedContestants.length} total</Text>
+                    <Button onClick={() => void handleNewContestant()}>+ New</Button>
+                  </div>
+                  <div className="mt-3 divide-y divide-zinc-950/5 overflow-hidden rounded-lg border border-zinc-950/10 dark:divide-white/5 dark:border-white/10">
+                    {sortedContestants.length === 0 && (
+                      <div className="p-4">
+                        <Text>No contestants yet.</Text>
+                      </div>
+                    )}
+                    {sortedContestants.map((c) => {
+                      const enrCount = enrCountById.get(c.id) ?? 0;
+                      const isSelected = c.id === selectedId;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setSelectedId(c.id)}
+                          className={
+                            'flex w-full items-center gap-3 px-4 py-3 text-left ' +
+                            (isSelected ? 'bg-zinc-950/5 dark:bg-white/10' : 'hover:bg-zinc-950/2.5 dark:hover:bg-white/5')
+                          }
+                        >
+                          <Avatar
+                            src={c.photoUrl}
+                            initials={c.photoUrl ? undefined : initials(c.fullName || '?')}
+                            className="size-9"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-zinc-950 dark:text-white">
+                              {c.fullName}
+                            </span>
+                            <span className="block text-xs text-zinc-500">
+                              {enrCount} enrollment{enrCount !== 1 ? 's' : ''}
+                            </span>
+                          </span>
+                          <Badge color={c.active ? 'lime' : 'zinc'}>{c.active ? 'Active' : 'Inactive'}</Badge>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* right: edit panel */}
+                <div className="min-w-0 flex-1">
+                  {!selectedId || !edit ? (
+                    <Text>Select a contestant to edit.</Text>
+                  ) : (
+                    <div className="rounded-lg border border-zinc-950/10 p-5 dark:border-white/10">
+                      <div className="flex items-center gap-3">
+                        <Subheading>{edit.fullName || 'Contestant'}</Subheading>
+                        <span className="ml-auto flex items-center gap-2">
+                          <Text>Active</Text>
+                          <Switch
+                            checked={edit.active}
+                            onChange={(active) => setEdit((prev) => (prev ? { ...prev, active } : prev))}
+                          />
+                        </span>
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap gap-6">
+                        {/* photo column */}
+                        <div className="w-28 shrink-0 text-center">
+                          <Avatar
+                            src={edit.photoUrl}
+                            initials={edit.photoUrl ? undefined : initials(edit.fullName || '?')}
+                            className="size-28"
+                          />
+                          <Button
+                            outline
+                            className="mt-2 w-full"
+                            onClick={() => photoInputRef.current?.click()}
+                            disabled={uploading}
+                          >
+                            {uploading ? 'Uploading…' : 'Replace photo'}
+                          </Button>
+                          <input
+                            ref={photoInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) void handlePhotoFile(file);
+                              e.target.value = '';
+                            }}
+                          />
+                          {photoNote && (
+                            <Text className="mt-1.5 text-xs text-red-600 dark:text-red-500">{photoNote}</Text>
+                          )}
+                        </div>
+
+                        {/* fields column */}
+                        <div className="min-w-[240px] flex-1">
+                          <Fieldset>
+                            <div className="grid gap-4 sm:grid-cols-3">
+                              <Field className="sm:col-span-2">
+                                <Label>Full name</Label>
+                                <Input
+                                  value={edit.fullName}
+                                  onChange={(e) => setEdit((prev) => (prev ? { ...prev, fullName: e.target.value } : prev))}
+                                />
+                              </Field>
+                              <Field>
+                                <Label>Gender</Label>
+                                <div className="mt-2 flex gap-1.5">
+                                  {(['male', 'female', null] as const).map((g) => {
+                                    const label = g === null ? 'None' : g === 'male' ? 'Male' : 'Female';
+                                    const on = edit.gender === g;
+                                    return on ? (
+                                      <Button
+                                        key={String(g)}
+                                        onClick={() => setEdit((prev) => (prev ? { ...prev, gender: g } : prev))}
+                                      >
+                                        {label}
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        key={String(g)}
+                                        outline
+                                        onClick={() => setEdit((prev) => (prev ? { ...prev, gender: g } : prev))}
+                                      >
+                                        {label}
+                                      </Button>
+                                    );
+                                  })}
+                                </div>
+                              </Field>
+                            </div>
+
+                            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                              <Field>
+                                <Label>Date of birth</Label>
+                                <Input
+                                  type="date"
+                                  value={edit.dateOfBirth}
+                                  onChange={(e) => setEdit((prev) => (prev ? { ...prev, dateOfBirth: e.target.value } : prev))}
+                                />
+                              </Field>
+                              {selected?.registrationId && (
+                                <Field>
+                                  <Label>From registration</Label>
+                                  <Text className="mt-1 rounded-lg border border-zinc-950/10 bg-zinc-950/2.5 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                                    {selected.registrationId}
+                                  </Text>
+                                </Field>
+                              )}
+                            </div>
+
+                            <Field className="mt-6">
+                              <Label>Category enrollments</Label>
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                {myEnrollments.map((e) => (
+                                  <span
+                                    key={e.category}
+                                    className="inline-flex items-center gap-2 rounded-md border border-zinc-950/10 bg-white px-3 py-1.5 text-sm font-medium text-zinc-950 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                                  >
+                                    {catLabel(e.category)} · {divLabel(e.division)}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveEnrollment(e.category)}
+                                      className="text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400"
+                                      title="Remove enrollment"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+
+                                {!addingCat ? (
+                                  <Button outline onClick={() => setAddingCat(true)}>
+                                    + Add category
+                                  </Button>
+                                ) : (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <div className="w-40">
+                                      <Select value={newCat} onChange={(e) => handleNewCatChange(e.target.value)}>
+                                        <option value="">— category —</option>
+                                        {structure.categories
+                                          .filter((c) => !enrolledCatIds.has(c.id))
+                                          .map((c) => (
+                                            <option key={c.id} value={c.id}>
+                                              {c.label}
+                                            </option>
+                                          ))}
+                                      </Select>
+                                    </div>
+                                    {newCat && (
+                                      <div className="w-40">
+                                        <Select value={newDiv} onChange={(e) => setNewDiv(e.target.value)}>
+                                          <option value="">— division —</option>
+                                          {(structure.categories.find((c) => c.id === newCat)?.divisions ?? []).map(
+                                            (d) => (
+                                              <option key={d} value={d}>
+                                                {divLabel(d)}
+                                              </option>
+                                            ),
+                                          )}
+                                        </Select>
+                                      </div>
+                                    )}
+                                    <Button onClick={handleAddEnrollment} disabled={!newCat || !newDiv}>
+                                      Add
+                                    </Button>
+                                    <Button
+                                      plain
+                                      onClick={() => {
+                                        setAddingCat(false);
+                                        setNewCat('');
+                                        setNewDiv('');
+                                      }}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </Field>
+                          </Fieldset>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-zinc-950/10 pt-4 dark:border-white/10">
+                        <Text className="text-red-600 dark:text-red-500">
+                          Removing a contestant leaves the immutable master intact — re-adding is trivial.
+                        </Text>
+                        <Button color="red" onClick={() => setConfirmRemoveOpen(true)}>
+                          Remove
+                        </Button>
+                        <div className="ml-auto flex items-center gap-3">
+                          <Button plain onClick={() => setSelectedId(null)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={() => void handleSave()} disabled={saving}>
+                            {saving ? 'Saving…' : 'Save changes'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -717,6 +1135,27 @@ export function ContestantsPage() {
             }}
           >
             Rotate token
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={confirmRemoveOpen} onClose={setConfirmRemoveOpen}>
+        <DialogTitle>Remove this contestant?</DialogTitle>
+        <DialogDescription>
+          This also deletes their enrollments and any scores. The registrations master stays intact.
+        </DialogDescription>
+        <DialogActions>
+          <Button plain onClick={() => setConfirmRemoveOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            color="red"
+            onClick={() => {
+              setConfirmRemoveOpen(false);
+              void handleRemove();
+            }}
+          >
+            Remove
           </Button>
         </DialogActions>
       </Dialog>

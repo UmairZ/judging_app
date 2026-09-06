@@ -71,11 +71,22 @@ describe('ContestantsPage', () => {
     expect(screen.getByText('Zeffy')).toBeTruthy();
     expect(screen.getByText('Manual')).toBeTruthy();
 
-    // Switch to the roster (promotion workflow) view.
+    // Switch to the roster view (promote-registrations table + the full
+    // contestant-roster management panel ported from src/admin/Contestants.tsx).
     fireEvent.click(screen.getByRole('button', { name: 'Contestants' }));
-    expect(await screen.findByText('Aisha Siddiqua')).toBeTruthy();
+
+    // "Aisha Siddiqua" now legitimately renders twice — once as a row in the
+    // promote-registrations table (already Promoted), once as her own entry
+    // in the contestant-roster list below it.
+    expect(await screen.findAllByText('Aisha Siddiqua')).toHaveLength(2);
     expect(screen.getByText('Yusuf Rahman')).toBeTruthy();
     expect(screen.getByText('Promoted')).toBeTruthy();
     expect(screen.getByText('Pending')).toBeTruthy();
+
+    // Contestant roster panel: one roster row (the seeded contestant doc,
+    // read from tp('contestants') same as the promote table) + one roster
+    // action control ("+ New", from Contestants.tsx's handleNewContestant).
+    expect(screen.getByText('1 total')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '+ New' })).toBeTruthy();
   });
 });
