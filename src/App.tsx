@@ -9,7 +9,7 @@ import Home02 from './marketing/Home02';
 import DemoPage from './marketing/DemoPage';
 import About02 from './marketing/About02';
 import { PortalRoot } from './portal/PortalRoot';
-import { MockPanelsCards, MockPanelsGrid } from './portal/mock-panels';
+import { MockPanelsCards, MockPanelsGrid, MockPanelsHybrid } from './portal/mock-panels';
 import { MockScoring } from './portal/mock-scoring';
 import { compPath } from './portal/routes';
 import { Heading } from './portal/vendor/heading';
@@ -33,6 +33,7 @@ function Routed() {
   const jpmock = mockParams.get('jpmock');
   if (jpmock === 'a') return <MockPanelsCards />;
   if (jpmock === 'b') return <MockPanelsGrid />;
+  if (jpmock === 'c') return <MockPanelsHybrid />;
   if (mockParams.get('scmock') === '1') return <MockScoring />;
   if (path === '/portal' || path.startsWith('/portal/')) {
     if (loading) return <Splash />;

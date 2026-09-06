@@ -266,3 +266,86 @@ export function MockPanelsGrid() {
     </Shell>
   );
 }
+
+/* Variant C (operator hybrid) — Judges roster and Panel membership side by side
+   up top; the panels × slots assignment matrix below. Matrix panel rows act as
+   the membership selector. */
+export function MockPanelsHybrid() {
+  const selected = PANELS[0];
+  return (
+    <Shell>
+      <Heading>Judges &amp; panels</Heading>
+      <Text className="mt-2">The roster — group them into panels below, and pick what each panel scores.</Text>
+
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div>
+          <Subheading>Judges</Subheading>
+          <div className="mt-3 divide-y divide-zinc-950/5 rounded-xl border border-zinc-950/10 bg-white px-4">
+            {JUDGES.map((name) => (
+              <div key={name} className="flex items-center justify-between py-2.5">
+                <span className="text-sm/6 font-medium">{name}</span>
+                <Switch checked disabled />
+              </div>
+            ))}
+          </div>
+          <Button outline className="mt-3 !py-1 text-sm"><PlusIcon /> Add judge</Button>
+        </div>
+        <div>
+          <div className="flex items-center gap-3">
+            <Subheading>Panel membership</Subheading>
+            <Badge color={selected.badge}>{selected.name}</Badge>
+          </div>
+          <div className={'mt-3 rounded-xl border border-zinc-950/10 border-l-4 bg-white p-5 ' + selected.bar}>
+            <Text className="text-sm">Tap a judge to add or remove them — select a panel in the table below.</Text>
+            <div className="mt-3">
+              <JudgePills panel={selected} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Divider className="my-8" />
+
+      <Subheading>Panels × slots</Subheading>
+      <Text className="mt-1">One row per panel — tap a cell to give that panel the slot; tap the panel name to edit its membership above.</Text>
+      <Table className="mt-4 [--gutter:--spacing(6)]">
+        <TableHead>
+          <TableRow>
+            <TableHeader>Panel</TableHeader>
+            {SLOTS.map((s) => (
+              <TableHeader key={slotLabel(s)}>
+                <span className="block leading-tight">{s.category}</span>
+                <span className="block text-xs/5 font-normal text-zinc-500">{s.division}</span>
+              </TableHeader>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {PANELS.map((panel, i) => (
+            <TableRow key={panel.name} className={i === 0 ? 'bg-zinc-950/[.03]' : ''}>
+              <TableCell>
+                <Badge color={panel.badge} className="cursor-pointer">{panel.name}</Badge>
+                <span className="mt-1 block text-xs/5 text-zinc-500">
+                  {panel.judges.length} {panel.judges.length === 1 ? 'judge' : 'judges'}
+                </span>
+              </TableCell>
+              {SLOTS.map((s) => {
+                const assigned = panel.slots.includes(slotLabel(s));
+                return (
+                  <TableCell key={slotLabel(s)}>
+                    {assigned ? (
+                      <Badge color={panel.badge} className="cursor-pointer !px-2.5" title="Tap to unassign">✓</Badge>
+                    ) : (
+                      <span className="cursor-pointer text-zinc-300" title="Tap to assign">—</span>
+                    )}
+                  </TableCell>
+                );
+              })}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <Button outline className="mt-4"><PlusIcon /> Add panel</Button>
+    </Shell>
+  );
+}
