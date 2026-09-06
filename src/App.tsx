@@ -20,8 +20,10 @@ import { C, serif } from './ui/theme';
 
 function Routed() {
   const { user, loading } = useAuth();
-  // Portal auth gating — Phase C work-in-progress.
-  if (window.location.pathname.startsWith('/portal')) {
+  // Portal auth gating — Phase C work-in-progress. Exact '/portal' or a
+  // '/portal/...' subpath only — a bare startsWith would also claim '/portalfoo'.
+  const path = window.location.pathname;
+  if (path === '/portal' || path.startsWith('/portal/')) {
     if (loading) return <Splash />;
     if (!user) return <SignInScreen />;
     return <PortalRoot />;

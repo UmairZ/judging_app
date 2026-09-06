@@ -32,7 +32,9 @@ const COMP_SECTIONS: CompSection[] = [
  * Returns null for unrecognized paths.
  */
 export function parsePortalRoute(pathname: string): PortalRoute {
-  if (!pathname.startsWith('/portal')) {
+  // Exact '/portal' or a '/portal/...' subpath only — a bare startsWith
+  // would also claim paths like '/portalfoo' (mirrors App.tsx's gate).
+  if (pathname !== '/portal' && !pathname.startsWith('/portal/')) {
     return null;
   }
 

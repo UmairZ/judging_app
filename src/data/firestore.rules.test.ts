@@ -209,6 +209,10 @@ describe('competitions listing', () => {
   });
 
   describe('lifecycle updates — status and name only', () => {
+    // writeDoc (src/data/db.ts) stamps every write with updatedAt/updatedBy
+    // (the caller's own uid) — the rule requires exactly that stamp.
+    const stamp = (uid: string) => ({ updatedAt: serverTimestamp(), updatedBy: uid });
+
     beforeEach(async () => {
       await env.withSecurityRulesDisabled(async (ctx) => {
         await setDoc(doc(ctx.firestore(), P1), { name: 'Comp One', status: 'setup', createdAt: 'seed' });
@@ -216,24 +220,28 @@ describe('competitions listing', () => {
     });
 
     it('staff can rename the competition', async () => {
-      await assertSucceeds(updateDoc(doc(as('staff1'), P1), { name: 'Renamed' }));
+      await assertSucceeds(updateDoc(doc(as('staff1'), P1), { name: 'Renamed', ...stamp('staff1') }));
     });
 
     it('staff can change the competition status', async () => {
-      await assertSucceeds(updateDoc(doc(as('staff1'), P1), { status: 'archived' }));
+      await assertSucceeds(updateDoc(doc(as('staff1'), P1), { status: 'archived', ...stamp('staff1') }));
     });
 
     it('a judge cannot update status or name', async () => {
-      await assertFails(updateDoc(doc(as('uJudgeA'), P1), { status: 'archived' }));
-      await assertFails(updateDoc(doc(as('uJudgeA'), P1), { name: 'Hacked' }));
+      await assertFails(updateDoc(doc(as('uJudgeA'), P1), { status: 'archived', ...stamp('uJudgeA') }));
+      await assertFails(updateDoc(doc(as('uJudgeA'), P1), { name: 'Hacked', ...stamp('uJudgeA') }));
     });
 
     it('staff cannot touch any other field, even alongside a valid one', async () => {
-      await assertFails(updateDoc(doc(as('staff1'), P1), { status: 'archived', createdAt: 'rewritten' }));
+      await assertFails(updateDoc(doc(as('staff1'), P1), { status: 'archived', createdAt: 'rewritten', ...stamp('staff1') }));
     });
 
     it('staff cannot set a bogus status value', async () => {
-      await assertFails(updateDoc(doc(as('staff1'), P1), { status: 'deleted' }));
+      await assertFails(updateDoc(doc(as('staff1'), P1), { status: 'deleted', ...stamp('staff1') }));
+    });
+
+    it("staff cannot spoof updatedBy with another user's uid", async () => {
+      await assertFails(updateDoc(doc(as('staff1'), P1), { name: 'Renamed', updatedAt: serverTimestamp(), updatedBy: 'somebodyElse' }));
     });
   });
 });
@@ -251,6 +259,51 @@ describe('join codes — staff-managed, secret from judges', () => {
     await assertFails(getDoc(doc(as('uJudgeA'), `${P1}/joinCodes/JUDGE234`)));
     await assertFails(getDoc(doc(as('staff2'), `${P1}/joinCodes/JUDGE234`)));
     await assertFails(setDoc(doc(as('uJudgeA'), `${P1}/joinCodes/HACKED22`), { role: 'judge', judgeId: 'jA', redeemedBy: null }));
+  });
+});
+
+describe('org rename — portal surface (org doc + own mirror, name only)', () => {
+  // writeDoc stamps every write with updatedAt/updatedBy (caller's own uid).
+  const stamp = (uid: string) => ({ updatedAt: serverTimestamp(), updatedBy: uid });
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'orgs/org1'), { name: 'Org One', plan: 'free', createdAt: 'seed' });
+    });
+  });
+
+  it('org staff can rename their org', async () => {
+    await assertSucceeds(updateDoc(doc(as('staff1'), 'orgs/org1'), { name: 'Renamed Org', ...stamp('staff1') }));
+  });
+
+  it('non-staff (a judge, foreign staff) cannot rename the org', async () => {
+    await assertFails(updateDoc(doc(as('uJudgeA'), 'orgs/org1'), { name: 'Hacked', ...stamp('uJudgeA') }));
+    await assertFails(updateDoc(doc(as('staff2'), 'orgs/org1'), { name: 'Hacked', ...stamp('staff2') }));
+  });
+
+  it('staff cannot touch any other org field, even alongside a valid rename', async () => {
+    await assertFails(updateDoc(doc(as('staff1'), 'orgs/org1'), { name: 'Renamed Org', plan: 'enterprise', ...stamp('staff1') }));
+  });
+
+  it("staff cannot spoof updatedBy with another user's uid on the org doc", async () => {
+    await assertFails(updateDoc(doc(as('staff1'), 'orgs/org1'), { name: 'Renamed Org', updatedAt: serverTimestamp(), updatedBy: 'somebodyElse' }));
+  });
+
+  it('a user can rename their own org mirror', async () => {
+    await assertSucceeds(updateDoc(doc(as('staff1'), 'users/staff1/orgs/org1'), { name: 'Renamed Org', ...stamp('staff1') }));
+  });
+
+  it("nobody can rename someone else's mirror", async () => {
+    await assertFails(updateDoc(doc(as('staff2'), 'users/staff1/orgs/org1'), { name: 'Hacked', ...stamp('staff2') }));
+  });
+
+  it('a user cannot change the role on their own mirror, even alongside a valid rename', async () => {
+    await assertFails(updateDoc(doc(as('staff1'), 'users/staff1/orgs/org1'), { role: 'superowner', ...stamp('staff1') }));
+    await assertFails(updateDoc(doc(as('staff1'), 'users/staff1/orgs/org1'), { name: 'Renamed Org', role: 'superowner', ...stamp('staff1') }));
+  });
+
+  it("a user cannot spoof updatedBy with another user's uid on their mirror", async () => {
+    await assertFails(updateDoc(doc(as('staff1'), 'users/staff1/orgs/org1'), { name: 'Renamed Org', updatedAt: serverTimestamp(), updatedBy: 'somebodyElse' }));
   });
 });
 

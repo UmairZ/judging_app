@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useCollection, writeDoc } from '../data/db';
 import { renameOrg } from './orgRename';
@@ -17,10 +17,21 @@ export function OrgSettingsPage() {
   const { user } = useAuth();
   const orgs = useCollection<OrgMirror>(`users/${user!.uid}/orgs`);
   const org = orgs[0];
-  const [name, setName] = useState(org?.name ?? '');
+  const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+
+  // Seed the input ONCE from the resolved org mirror — the subscription resolves
+  // after first render, so a useState initializer would seed '' forever. Never
+  // re-seed, or live snapshots would clobber in-progress edits (same pattern as
+  // CategoriesPage/ScoringPage's `seeded` ref).
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current || !org) return;
+    setName(org.name);
+    seeded.current = true;
+  }, [org]);
 
   if (!org) {
     return (

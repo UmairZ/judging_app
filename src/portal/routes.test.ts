@@ -29,4 +29,9 @@ describe('parsePortalRoute', () => {
   it('returns null for non-portal routes', () => {
     expect(parsePortalRoute('/about')).toBeNull();
   });
+
+  it('returns null for a non-portal path that merely starts with "/portal"', () => {
+    expect(parsePortalRoute('/portalfoo')).toBeNull();
+    expect(parsePortalRoute('/portalfoo/c/2026')).toBeNull();
+  });
 });

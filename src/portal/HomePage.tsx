@@ -138,7 +138,8 @@ function OrgHomePage({ orgId, firstName }: { orgId: string; firstName: string })
 
 function CompetitionRow({ orgId, comp, isFirst }: { orgId: string; comp: WithId<CompDoc>; isFirst: boolean }) {
   const base = compBasePath(orgId, comp.id);
-  const contestants = useCount(`${base}/registrations`);
+  // The roster reads the `contestants` collection — count what the label says.
+  const contestants = useCount(`${base}/contestants`);
   const judges = useCount(`${base}/judges`);
   const [renaming, setRenaming] = useState(false);
 

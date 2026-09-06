@@ -20,7 +20,7 @@ import { Text } from '../vendor/text';
 export function CategoriesPage() {
   // ── Firestore data ──────────────────────────────────────────────────────
   const { tp } = useTenant();
-  const { data: structureData } = useDocData<StructureConfig>(tp('config/structure'));
+  const { data: structureData, loading } = useDocData<StructureConfig>(tp('config/structure'));
 
   // ── Structure local edit state ──────────────────────────────────────────
   const [edited, setEdited] = useState<StructureConfig>(DEFAULT_STRUCTURE_CONFIG);
@@ -127,6 +127,13 @@ export function CategoriesPage() {
         resulting slots.
       </Text>
 
+      {/* Same gate as ScoringPage: the whole form (incl. Save) waits for the
+          config load, so a Save click during the fetch window can never write
+          DEFAULT_STRUCTURE_CONFIG over the live doc (merge: false). */}
+      {loading && <Text className="mt-8">Loading structure…</Text>}
+
+      {!loading && (
+        <>
       <div className="mt-8">
         <Subheading>Divisions</Subheading>
         <Fieldset className="mt-4">
@@ -221,6 +228,8 @@ export function CategoriesPage() {
         </Text>
         <Button onClick={() => void saveStructure()}>{structureSaved ? '✓ Saved' : 'Save Structure'}</Button>
       </div>
+        </>
+      )}
     </>
   );
 }
