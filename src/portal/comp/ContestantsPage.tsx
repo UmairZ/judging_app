@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDownIcon } from '@heroicons/react/16/solid';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useCollection, useDocData, writeDoc, removeDoc, now } from '../../data/db';
 import { useTenant } from '../../tenant/TenantContext';
@@ -18,7 +19,8 @@ import {
 import { Avatar } from '../vendor/avatar';
 import { Badge } from '../vendor/badge';
 import { Button } from '../vendor/button';
-import { Dialog, DialogActions, DialogDescription, DialogTitle } from '../vendor/dialog';
+import { Dialog, DialogActions, DialogBody, DialogDescription, DialogTitle } from '../vendor/dialog';
+import { Dropdown, DropdownButton, DropdownDivider, DropdownItem, DropdownMenu } from '../vendor/dropdown';
 import { Field, Fieldset, Label } from '../vendor/fieldset';
 import { Heading, Subheading } from '../vendor/heading';
 import { Input } from '../vendor/input';
@@ -241,6 +243,10 @@ export function ContestantsPage() {
   const zeffyValue = zeffyTitle ?? zeffyCfg.data?.eventTitle ?? '';
   const zeffyDirty = zeffyTitle !== null && zeffyTitle.trim() !== (zeffyCfg.data?.eventTitle ?? '').trim();
   const saveZeffy = async () => { await writeDoc(tp('config/zeffy'), { eventTitle: zeffyValue.trim() }); setZeffySaved(true); };
+
+  // Zeffy integration dialog (org-specific plumbing — tucked behind the Import
+  // menu rather than living in the tab's top-level flow).
+  const [zeffyDialogOpen, setZeffyDialogOpen] = useState(false);
 
   const zeffyToken = zeffyCfg.data?.token ?? '';
   const webhookUrl = zeffyToken ? `${window.location.origin}/zeffy/${orgId}/${compId}?token=${zeffyToken}` : '';
@@ -660,66 +666,24 @@ export function ContestantsPage() {
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleCsvFile(f); e.target.value = ''; }}
               />
               <div className="ml-auto flex gap-3">
-                <Button outline onClick={() => fileInputRef.current?.click()} disabled={busy}>
-                  Import CSV
-                </Button>
+                {/* Import menu — the future home of the Phase E import/mapping wizard
+                    (per-source entries land here alongside CSV and Zeffy). */}
+                <Dropdown>
+                  <DropdownButton outline disabled={busy}>
+                    Import
+                    <ChevronDownIcon />
+                  </DropdownButton>
+                  <DropdownMenu anchor="bottom end">
+                    <DropdownItem onClick={() => fileInputRef.current?.click()}>Import CSV…</DropdownItem>
+                    <DropdownDivider />
+                    <DropdownItem onClick={() => setZeffyDialogOpen(true)}>Zeffy integration…</DropdownItem>
+                  </DropdownMenu>
+                </Dropdown>
                 <Button outline onClick={() => void handleBulkPromote()} disabled={busy}>
                   Promote all ready
                 </Button>
               </div>
             </div>
-
-            <Fieldset>
-              <Field>
-                <Label>Zeffy event filter</Label>
-                <Text>
-                  Zeffy sends every form to one webhook — only submissions whose event title matches this are
-                  accepted. Must equal the event&apos;s exact name in Zeffy.
-                </Text>
-                <div className="mt-3 flex flex-wrap gap-3">
-                  <Input
-                    className="min-w-0 flex-1"
-                    value={zeffyValue}
-                    onChange={(e) => { setZeffyTitle(e.target.value); setZeffySaved(false); }}
-                    placeholder="e.g. 2026 Ibn Katheer Quran Competition"
-                  />
-                  <Button onClick={() => void saveZeffy()} disabled={!zeffyDirty}>
-                    {zeffySaved && !zeffyDirty ? 'Saved' : 'Save'}
-                  </Button>
-                </div>
-              </Field>
-            </Fieldset>
-
-            <Fieldset>
-              <Field>
-                <Label>Zeffy webhook</Label>
-                <Text>
-                  Paste this URL into Zeffy&apos;s webhook settings. The token is this competition&apos;s secret —
-                  rotate it if it leaks.
-                </Text>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  {zeffyToken ? (
-                    <>
-                      <code className="min-w-0 flex-1 truncate rounded-lg border border-zinc-950/10 bg-zinc-950/2.5 px-3 py-2 text-xs text-zinc-950 dark:border-white/10 dark:bg-white/5 dark:text-white">
-                        {webhookUrl}
-                      </code>
-                      <Button onClick={() => void copyUrl()}>{copied ? 'Copied' : 'Copy URL'}</Button>
-                      <Button outline onClick={rotateToken} disabled={rotating}>
-                        {rotating ? 'Rotating…' : 'Rotate token'}
-                      </Button>
-                    </>
-                  ) : zeffyCfg.loading ? (
-                    <Text>Loading…</Text>
-                  ) : (
-                    // Only offered once the doc has resolved — otherwise a click during the load
-                    // window would silently overwrite an existing token without the confirm prompt.
-                    <Button onClick={rotateToken} disabled={rotating}>
-                      {rotating ? 'Generating…' : 'Generate webhook token'}
-                    </Button>
-                  )}
-                </div>
-              </Field>
-            </Fieldset>
 
             {flash && <Text className="font-medium text-green-600 dark:text-green-400">{flash}</Text>}
             {importReport && <Text className="font-medium text-green-600 dark:text-green-400">{importReport}</Text>}
@@ -1060,6 +1024,73 @@ export function ContestantsPage() {
           </div>
         )}
       </div>
+
+      {/* Zeffy integration — org-specific plumbing, reached via the Import menu.
+          The two sections below moved here verbatim from the tab's top-level flow.
+          The rotate confirm below is a separate Dialog with its own open state:
+          when it opens from in here the two stack (the confirm on top), and
+          closing it returns to this dialog. */}
+      <Dialog open={zeffyDialogOpen} onClose={setZeffyDialogOpen} size="2xl">
+        <DialogTitle>Zeffy integration</DialogTitle>
+        <DialogBody className="space-y-8">
+          <Fieldset>
+            <Field>
+              <Label>Zeffy event filter</Label>
+              <Text>
+                Zeffy sends every form to one webhook — only submissions whose event title matches this are
+                accepted. Must equal the event&apos;s exact name in Zeffy.
+              </Text>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <Input
+                  className="min-w-0 flex-1"
+                  value={zeffyValue}
+                  onChange={(e) => { setZeffyTitle(e.target.value); setZeffySaved(false); }}
+                  placeholder="e.g. 2026 Ibn Katheer Quran Competition"
+                />
+                <Button onClick={() => void saveZeffy()} disabled={!zeffyDirty}>
+                  {zeffySaved && !zeffyDirty ? 'Saved' : 'Save'}
+                </Button>
+              </div>
+            </Field>
+          </Fieldset>
+
+          <Fieldset>
+            <Field>
+              <Label>Zeffy webhook</Label>
+              <Text>
+                Paste this URL into Zeffy&apos;s webhook settings. The token is this competition&apos;s secret —
+                rotate it if it leaks.
+              </Text>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                {zeffyToken ? (
+                  <>
+                    <code className="min-w-0 flex-1 truncate rounded-lg border border-zinc-950/10 bg-zinc-950/2.5 px-3 py-2 text-xs text-zinc-950 dark:border-white/10 dark:bg-white/5 dark:text-white">
+                      {webhookUrl}
+                    </code>
+                    <Button onClick={() => void copyUrl()}>{copied ? 'Copied' : 'Copy URL'}</Button>
+                    <Button outline onClick={rotateToken} disabled={rotating}>
+                      {rotating ? 'Rotating…' : 'Rotate token'}
+                    </Button>
+                  </>
+                ) : zeffyCfg.loading ? (
+                  <Text>Loading…</Text>
+                ) : (
+                  // Only offered once the doc has resolved — otherwise a click during the load
+                  // window would silently overwrite an existing token without the confirm prompt.
+                  <Button onClick={rotateToken} disabled={rotating}>
+                    {rotating ? 'Generating…' : 'Generate webhook token'}
+                  </Button>
+                )}
+              </div>
+            </Field>
+          </Fieldset>
+        </DialogBody>
+        <DialogActions>
+          <Button plain onClick={() => setZeffyDialogOpen(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={confirmRotateOpen} onClose={setConfirmRotateOpen}>
         <DialogTitle>Rotate the webhook token?</DialogTitle>
