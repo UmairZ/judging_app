@@ -3,7 +3,7 @@ import { useCollection, useDocData, writeDoc, removeDoc } from '../../data/db';
 import { useTenant } from '../../tenant/TenantContext';
 import type { JudgeDoc, PanelDoc, AssignmentDoc } from '../../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, generateSlots, slotId, type StructureConfig } from '../../domain/structure';
-import { Badge, BadgeButton } from '../vendor/badge';
+import { BadgeButton } from '../vendor/badge';
 import { Button } from '../vendor/button';
 import { Dialog, DialogActions, DialogDescription, DialogTitle } from '../vendor/dialog';
 import { Divider } from '../vendor/divider';
@@ -12,21 +12,21 @@ import { Heading, Subheading } from '../vendor/heading';
 import { Input } from '../vendor/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../vendor/table';
 import { Text } from '../vendor/text';
+import { PencilIcon, XMarkIcon } from '@heroicons/react/16/solid';
 
-// Distinct per-panel color, cycling through Catalyst's shared Badge/Button palette —
-// chrome-only stand-in for the source's panelColor() hex-array cycle.
-const PANEL_COLORS = ['blue', 'amber', 'fuchsia', 'emerald', 'rose'] as const;
+// Curated per-panel identity palette (design principle 4): amber first as the
+// brand-adjacent gold, then sky/violet/rose — all visually distinct from the
+// action-green and destructive-red so identity can never read as an action.
+const PANEL_COLORS = ['amber', 'sky', 'violet', 'rose'] as const;
 
 // Member-pill classes per panel color — the mock's `memberPill` pattern
 // (filled rounded-lg pill in the panel's color scheme), plus dark-mode
 // counterparts to match the rest of the Catalyst chrome.
 const PANEL_PILLS: Record<(typeof PANEL_COLORS)[number], string> = {
-  blue: 'border-blue-500 bg-blue-50 text-blue-950 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300',
   amber: 'border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-300',
-  fuchsia:
-    'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-950 dark:border-fuchsia-400 dark:bg-fuchsia-400/10 dark:text-fuchsia-300',
-  emerald:
-    'border-emerald-500 bg-emerald-50 text-emerald-950 dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-300',
+  sky: 'border-sky-500 bg-sky-50 text-sky-950 dark:border-sky-400 dark:bg-sky-400/10 dark:text-sky-300',
+  violet:
+    'border-violet-500 bg-violet-50 text-violet-950 dark:border-violet-400 dark:bg-violet-400/10 dark:text-violet-300',
   rose: 'border-rose-500 bg-rose-50 text-rose-950 dark:border-rose-400 dark:bg-rose-400/10 dark:text-rose-300',
 };
 
@@ -37,6 +37,11 @@ const PANEL_PILLS: Record<(typeof PANEL_COLORS)[number], string> = {
  * below is ported verbatim from that file: same hooks, same handler names,
  * same tp() paths. `window.confirm` sites become Dialog confirms with the
  * same gating semantics.
+ *
+ * 2026-09-06 design-principles pass (chrome only): panels first, judges as a
+ * horizontal pill roster below; persisted names render as text with
+ * click-to-edit (principle 6); row deletion is a small red × (principles 2 & 7);
+ * the meaningless active-dot is gone (principle 12 — `active` drives nothing).
  */
 export function JudgesPage() {
   // ── Firestore data ──────────────────────────────────────────────────────
@@ -83,6 +88,19 @@ export function JudgesPage() {
     });
   };
 
+  // Click-to-edit chrome (principle 6): names render as TEXT until the pencil
+  // is clicked; Enter/blur commit through the unchanged handlers above, Escape
+  // drops the draft without committing.
+  const [editingJudgeId, setEditingJudgeId] = useState<string | null>(null);
+  const cancelJudgeRename = (id: string) => {
+    setJudgeDrafts((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setEditingJudgeId(null);
+  };
+
   // window.confirm → Dialog (confirmRemoveJudgeId); the cascade below (pull the
   // judge from any panel first, then remove the doc) is unchanged from the
   // source's removeJudge.
@@ -117,6 +135,17 @@ export function JudgesPage() {
       delete next[id];
       return next;
     });
+  };
+
+  // Click-to-edit chrome for panel names — same shape as the judge one.
+  const [editingPanelId, setEditingPanelId] = useState<string | null>(null);
+  const cancelPanelRename = (id: string) => {
+    setPanelDrafts((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setEditingPanelId(null);
   };
 
   // window.confirm → Dialog (confirmDeletePanelId); the cascade below (clear this
@@ -157,54 +186,10 @@ export function JudgesPage() {
     <>
       <Heading>Judges &amp; panels</Heading>
       <Text className="mt-2">
-        The roster — group them into panels below, and pick each panel&apos;s slots.
+        Group judges into panels and tap the slots each panel scores — the judge roster lives below.
       </Text>
 
       <div className="mt-8">
-        <Subheading>Judges</Subheading>
-        {/* Compact roster (operator: the tabular full-width version ate the page) —
-            one tight row per judge: constrained name input, active dot, plain remove. */}
-        <div className="mt-3 max-w-xl divide-y divide-zinc-950/5 rounded-xl border border-zinc-950/10 bg-white px-4 dark:divide-white/5 dark:border-white/10 dark:bg-zinc-900">
-          {judges.length === 0 && <Text className="py-2.5">No judges yet.</Text>}
-          {judges.map((j) => (
-            <div key={j.id} className="flex items-center gap-3 py-1.5">
-              <Input
-                className="max-w-60 [&_input]:py-1"
-                value={judgeInputValue(j)}
-                onChange={(e) => setJudgeDraft(j.id, e.target.value)}
-                onBlur={() => commitJudgeRename(j.id)}
-              />
-              {/* Read-only indicator — the source only ever displays `active` here. */}
-              <span
-                className={'ml-auto size-2 shrink-0 rounded-full ' + (j.active ? 'bg-lime-500' : 'bg-zinc-300')}
-                title={j.active ? 'Active' : 'Inactive'}
-              />
-              <Button plain className="!py-0.5 text-sm text-red-600" onClick={() => setConfirmRemoveJudgeId(j.id)}>
-                Remove
-              </Button>
-            </div>
-          ))}
-          <div className="flex items-center gap-3 py-1.5">
-            <Input
-              className="max-w-60 [&_input]:py-1"
-              placeholder="Add judge…"
-              aria-label="Add judge"
-              value={newJudgeName}
-              onChange={(e) => setNewJudgeName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void addJudge();
-              }}
-            />
-            <Button outline className="!py-0.5 text-sm" onClick={() => void addJudge()}>
-              + Add
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <Divider className="my-8" />
-
-      <div>
         <Subheading>Panels &amp; assignment</Subheading>
         <Text className="mt-1">
           Each row is a panel — name it, pick its judges, and tap the slots it scores.
@@ -224,7 +209,11 @@ export function JudgesPage() {
                     <span className="block text-xs/5 font-normal text-zinc-500">{divLabel(slot.division)}</span>
                   </TableHeader>
                 ))}
-                <TableHeader className="text-right">Action</TableHeader>
+                {/* Slim unlabeled column: row deletion is a small × at the row's
+                    far right, not an "Action" column (principle 7). */}
+                <TableHeader className="w-0">
+                  <span className="sr-only">Delete</span>
+                </TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -242,20 +231,43 @@ export function JudgesPage() {
                   <Fragment key={panel.id}>
                     <TableRow>
                       <TableCell>
-                        {/* One name element: the rename input, with the panel's color as a
-                            leading dot — avoids showing the name twice (badge + input). */}
-                        <div className="flex items-center gap-2">
-                          <Badge color={color} className="!px-1.5" aria-hidden>
-                            ●
-                          </Badge>
+                        {/* Persisted name renders as TEXT + pencil; the pencil swaps in
+                            the rename input (same draft/commit handlers). No color dot —
+                            the panel's color appears only where functional: the judges
+                            chip and its ✓ assignment cells (principle 1). */}
+                        {editingPanelId === panel.id ? (
                           <Input
                             aria-label="Panel name"
+                            autoFocus
                             className="max-w-44"
                             value={panelInputValue(panel)}
                             onChange={(e) => setPanelDraft(panel.id, e.target.value)}
-                            onBlur={() => commitPanelRename(panel.id)}
+                            onBlur={() => {
+                              commitPanelRename(panel.id);
+                              setEditingPanelId(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                commitPanelRename(panel.id);
+                                setEditingPanelId(null);
+                              } else if (e.key === 'Escape') {
+                                cancelPanelRename(panel.id);
+                              }
+                            }}
                           />
-                        </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span>{panel.name}</span>
+                            <button
+                              type="button"
+                              aria-label={`Rename ${panel.name}`}
+                              className="cursor-pointer text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                              onClick={() => setEditingPanelId(panel.id)}
+                            >
+                              <PencilIcon className="size-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <BadgeButton color={color} onClick={() => setOpenDropdown(dropdownOpen ? null : panel.id)}>
@@ -286,9 +298,14 @@ export function JudgesPage() {
                         );
                       })}
                       <TableCell className="text-right">
-                        <Button outline onClick={() => setConfirmDeletePanelId(panel.id)}>
-                          Delete
-                        </Button>
+                        <button
+                          type="button"
+                          aria-label="Delete panel"
+                          className="cursor-pointer text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          onClick={() => setConfirmDeletePanelId(panel.id)}
+                        >
+                          <XMarkIcon className="size-4" />
+                        </button>
                       </TableCell>
                     </TableRow>
                     {dropdownOpen && (
@@ -296,7 +313,7 @@ export function JudgesPage() {
                         <TableCell colSpan={slots.length + 3}>
                           <Fieldset>
                             <Label>Panel judges</Label>
-                            {judges.length === 0 && <Text className="mt-2">Add judges in the roster above.</Text>}
+                            {judges.length === 0 && <Text className="mt-2">Add judges in the roster below.</Text>}
                             <div className="mt-2 flex flex-wrap gap-2">
                               {judges.map((j) => {
                                 const member = panel.judgeIds.includes(j.id);
@@ -329,9 +346,87 @@ export function JudgesPage() {
           </Table>
         )}
 
-        <Button outline className="mt-4" onClick={() => void addPanelRow()}>
+        <Button className="mt-4" onClick={() => void addPanelRow()}>
           + Add panel
         </Button>
+      </div>
+
+      <Divider className="my-8" />
+
+      <div>
+        {/* Add lives at the section header's right (principle 8): compact inline
+            input + green + Add, above the pill roster. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Subheading>Judges</Subheading>
+          <div className="flex items-center gap-2">
+            <Input
+              className="max-w-48 [&_input]:py-1"
+              placeholder="Add judge…"
+              aria-label="Add judge"
+              value={newJudgeName}
+              onChange={(e) => setNewJudgeName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void addJudge();
+              }}
+            />
+            <Button className="!py-0.5 text-sm" onClick={() => void addJudge()}>
+              + Add
+            </Button>
+          </div>
+        </div>
+        {/* Horizontal pill roster (principle 11) — names as text + pencil
+            (click-to-edit) + small red ×. No active/inactive indicator: the
+            stored flag drives no behavior (principle 12). */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-zinc-950/10 bg-white p-3 dark:border-white/10 dark:bg-zinc-900">
+          {judges.length === 0 && <Text>No judges yet.</Text>}
+          {judges.map((j) =>
+            editingJudgeId === j.id ? (
+              <Input
+                key={j.id}
+                aria-label="Judge name"
+                autoFocus
+                className="max-w-44 [&_input]:py-1"
+                value={judgeInputValue(j)}
+                onChange={(e) => setJudgeDraft(j.id, e.target.value)}
+                onBlur={() => {
+                  commitJudgeRename(j.id);
+                  setEditingJudgeId(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    commitJudgeRename(j.id);
+                    setEditingJudgeId(null);
+                  } else if (e.key === 'Escape') {
+                    cancelJudgeRename(j.id);
+                  }
+                }}
+              />
+            ) : (
+              <span
+                key={j.id}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-950/10 bg-white py-1.5 pr-2 pl-3 text-sm/6 font-medium dark:border-white/10 dark:bg-zinc-800"
+              >
+                {j.name}
+                <button
+                  type="button"
+                  aria-label={`Rename ${j.name}`}
+                  className="cursor-pointer text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                  onClick={() => setEditingJudgeId(j.id)}
+                >
+                  <PencilIcon className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${j.name}`}
+                  className="cursor-pointer text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                  onClick={() => setConfirmRemoveJudgeId(j.id)}
+                >
+                  <XMarkIcon className="size-4" />
+                </button>
+              </span>
+            ),
+          )}
+        </div>
       </div>
 
       <Dialog open={confirmRemoveJudgeId !== null} onClose={() => setConfirmRemoveJudgeId(null)}>

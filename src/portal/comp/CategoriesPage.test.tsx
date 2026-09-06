@@ -203,6 +203,21 @@ describe('CategoriesPage', () => {
     expect(payload.categories.find((c) => c.id === '1')?.divisions).toEqual(['brothers', 'sisters', combined?.id]);
   });
 
+  it('drops the "N categories" meta-line, and the bottom "Remove category" button removes the selected category', async () => {
+    renderPage(seededBackend());
+    await screen.findByDisplayValue("1 Juz'");
+
+    // Filler meta-text is gone (design principle 10).
+    expect(screen.queryByText(/\d+ categor/)).toBeNull();
+
+    // Destructive action lives at the detail's bottom; clicking it drops the
+    // selected (first) category from the edited structure.
+    fireEvent.click(screen.getByRole('button', { name: 'Remove category' }));
+    const payload = await saveAndGetPayload();
+    expect(payload.categories.map((c) => c.id)).toEqual(['5']);
+    expect(payload.divisions).toHaveLength(2); // pool untouched
+  });
+
   it('removing a division from one category leaves the other category and the pool untouched', async () => {
     renderPage(seededBackend());
     await screen.findByDisplayValue("1 Juz'");

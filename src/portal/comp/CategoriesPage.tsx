@@ -163,19 +163,18 @@ export function CategoriesPage() {
 
       {!loading && (
         <>
-          <div className="mt-8 flex flex-wrap gap-8">
-            {/* ── Master: category list ─────────────────────────────────── */}
-            <div className="w-64 shrink-0">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm/6 text-zinc-500 dark:text-zinc-400">
-                  {edited.categories.length} categor{edited.categories.length === 1 ? 'y' : 'ies'}
-                </span>
-                <Button className="!px-2.5 !py-1 text-sm" onClick={addCategory}>
-                  <PlusIcon /> New
-                </Button>
-              </div>
-              {edited.categories.length > 0 && (
-                <div className="overflow-hidden rounded-xl border border-zinc-950/10 bg-white dark:border-white/10 dark:bg-zinc-900">
+          {/* ── ONE box: slim header bar, then list ⅓ | detail, top-aligned
+              (design principles 8 & 9 — master-detail is a single container). */}
+          <div className="mt-8 overflow-hidden rounded-xl border border-zinc-950/10 bg-white dark:border-white/10 dark:bg-zinc-900">
+            <div className="flex items-center justify-between border-b border-zinc-950/10 py-2 pr-3 pl-4 dark:border-white/10">
+              <span className="text-sm/6 font-medium">Categories</span>
+              <Button className="!px-2.5 !py-1 text-sm" onClick={addCategory}>
+                <PlusIcon /> New
+              </Button>
+            </div>
+            <div className="flex">
+              {/* ── Master: category list ───────────────────────────────── */}
+              <div className="w-1/3 max-w-64 shrink-0 border-r border-zinc-950/10 dark:border-white/10">
                   {edited.categories.map((c, i) => (
                     <button
                       key={c.id}
@@ -193,21 +192,14 @@ export function CategoriesPage() {
                       </div>
                     </button>
                   ))}
-                </div>
-              )}
-            </div>
+              </div>
 
-            {/* ── Detail: selected category ─────────────────────────────── */}
-            <div className="min-w-0 flex-1 rounded-xl border border-zinc-950/10 bg-white p-6 dark:border-white/10 dark:bg-zinc-900">
+              {/* ── Detail: selected category ───────────────────────────── */}
+              <div className="min-w-0 flex-1 p-6">
               {!selectedCat && <Text>Select a category</Text>}
               {selectedCat && (
                 <>
-                  <div className="flex items-start justify-between gap-4">
-                    <Subheading>{selectedCat.label || 'Untitled category'}</Subheading>
-                    <Button plain className="text-red-600" onClick={() => removeCategory(selectedCat.id)}>
-                      Remove category
-                    </Button>
-                  </div>
+                  <Subheading>{selectedCat.label || 'Untitled category'}</Subheading>
                   <Fieldset className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Field>
                       <Label>Category name</Label>
@@ -328,8 +320,19 @@ export function CategoriesPage() {
                       </div>
                     );
                   })()}
+                  <Divider soft className="my-5" />
+                  {/* Destructive section-level action: red, outlined, at the BOTTOM
+                      of the detail context (design principles 2, 5 & 8). */}
+                  <Button
+                    outline
+                    className="!border-red-600/30 !text-red-600 dark:!border-red-400/40 dark:!text-red-400"
+                    onClick={() => removeCategory(selectedCat.id)}
+                  >
+                    Remove category
+                  </Button>
                 </>
               )}
+              </div>
             </div>
           </div>
 
