@@ -257,18 +257,20 @@ export function JudgesPage() {
                   <Fragment key={panel.id}>
                     <TableRow>
                       <TableCell>
-                        <Badge color={color}>{panelInputValue(panel)}</Badge>
-                        <span className="mt-1 block text-xs/5 text-zinc-500">
-                          {panel.judgeIds.length} {panel.judgeIds.length === 1 ? 'judge' : 'judges'}
-                        </span>
-                        {/* Inline rename affordance — same handlers, restyled compact. */}
-                        <Input
-                          aria-label="Panel name"
-                          className="mt-2 max-w-44"
-                          value={panelInputValue(panel)}
-                          onChange={(e) => setPanelDraft(panel.id, e.target.value)}
-                          onBlur={() => commitPanelRename(panel.id)}
-                        />
+                        {/* One name element: the rename input, with the panel's color as a
+                            leading dot — avoids showing the name twice (badge + input). */}
+                        <div className="flex items-center gap-2">
+                          <Badge color={color} className="!px-1.5" aria-hidden>
+                            ●
+                          </Badge>
+                          <Input
+                            aria-label="Panel name"
+                            className="max-w-44"
+                            value={panelInputValue(panel)}
+                            onChange={(e) => setPanelDraft(panel.id, e.target.value)}
+                            onBlur={() => commitPanelRename(panel.id)}
+                          />
+                        </div>
                       </TableCell>
                       <TableCell>
                         <BadgeButton color={color} onClick={() => setOpenDropdown(dropdownOpen ? null : panel.id)}>
