@@ -4,7 +4,7 @@ import { useTenant } from '../../tenant/TenantContext';
 import { DEFAULT_STRUCTURE_CONFIG, generateSlots, type StructureConfig } from '../../domain/structure';
 import { Button } from '../vendor/button';
 import { Divider } from '../vendor/divider';
-import { Field, Fieldset, Label } from '../vendor/fieldset';
+import { Description, Field, Fieldset, Label } from '../vendor/fieldset';
 import { Heading, Subheading } from '../vendor/heading';
 import { Input } from '../vendor/input';
 import { Select } from '../vendor/select';
@@ -218,12 +218,19 @@ export function CategoriesPage() {
                       />
                     </Field>
                     <Field>
-                      <Label>Description (Zeffy label)</Label>
+                      <Label>Registration match label</Label>
+                      {/* Stored under the historical `zeffyLabels` key, but matching is
+                          source-agnostic: CSV imports and webhooks resolve categories
+                          the same way (see src/intake/promotion.ts resolveCategories). */}
                       <Input
                         value={selectedCat.zeffyLabels?.[0] ?? ''}
                         onChange={(e) => setCatDesc(selectedCat.id, e.target.value)}
-                        placeholder="Description (Zeffy label)"
+                        placeholder="e.g. 1 Juz (Ages 13 and Under)"
                       />
+                      <Description>
+                        Incoming registrations — CSV import, Zeffy, or any form export — whose
+                        category text exactly matches this (or the category name) land here.
+                      </Description>
                     </Field>
                     <Field>
                       <Label>Min questions</Label>
