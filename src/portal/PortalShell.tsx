@@ -7,8 +7,15 @@ export function PortalShell({
   sidebar,
   children,
 }: React.PropsWithChildren<{ sidebar: React.ReactNode }>) {
+  // THROWAWAY styling experiment switch (?style=1|2|3) — operator steering only;
+  // the chosen variant graduates into theme.css defaults and this param goes away.
+  const styleVariant = new URLSearchParams(window.location.search).get('style') ?? undefined;
   return (
-    <div data-portal className="min-h-screen bg-zinc-100 font-sans text-zinc-950 antialiased">
+    <div
+      data-portal
+      data-style={styleVariant}
+      className="min-h-screen bg-zinc-100 font-sans text-zinc-950 antialiased"
+    >
       <SidebarLayout navbar={<Navbar />} sidebar={<div className="portal-sb contents">{sidebar}</div>}>
         {children}
       </SidebarLayout>

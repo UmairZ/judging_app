@@ -19,3 +19,26 @@
 [data-portal] .portal-sb nav span.relative > span.absolute { background: #DCB75E; }
 [data-portal] .portal-sb nav a:hover, [data-portal] .portal-sb nav button:hover { background: rgba(255,255,255,0.06); }
 [data-portal] .portal-sb nav .text-zinc-500, [data-portal] .portal-sb nav .text-zinc-400 { color: #9DBDB4; }
+
+/* ---- THROWAWAY styling experiments (?style=1|2|3) — operator steering.
+   The chosen variant becomes the default and these blocks collapse into it. ---- */
+
+/* Variant 1 — "Extend": the sidebar green becomes the page background; the
+   content card floats on it. (Targets SidebarLayout's root, which re-declares
+   its own bg utilities; unlayered CSS wins over @layer utilities.) */
+[data-portal][data-style='1'],
+[data-portal][data-style='1'] > div { background: #16413B; }
+
+/* Variant 2 — Extend + parchment: content card wears the competition-day cream
+   instead of clinical white. */
+[data-portal][data-style='2'],
+[data-portal][data-style='2'] > div { background: #16413B; }
+[data-portal][data-style='2'] main > div { background: #FBF8F1; }
+
+/* Variant 3 — Extend + parchment + Spectral headings: the judge-world serif on
+   portal headings (deliberate crossing of the type line — decide by eye). */
+[data-portal][data-style='3'],
+[data-portal][data-style='3'] > div { background: #16413B; }
+[data-portal][data-style='3'] main > div { background: #FBF8F1; }
+[data-portal][data-style='3'] main h1,
+[data-portal][data-style='3'] main h2 { font-family: 'Spectral', serif; }
