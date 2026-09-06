@@ -23,4 +23,32 @@ describe('PortalShell', () => {
     const portalElement = screen.getByText(testChild).closest('[data-portal]');
     expect(portalElement).toBeTruthy();
   });
+
+  it('sidebar node sits inside .portal-sb', () => {
+    const testSidebar = <div data-testid="sidebar-content">Sidebar</div>;
+
+    render(
+      <PortalShell sidebar={testSidebar}>
+        Content
+      </PortalShell>
+    );
+
+    const sidebarNode = screen.getByTestId('sidebar-content');
+    const portalSbAncestor = sidebarNode.closest('.portal-sb');
+    expect(portalSbAncestor).toBeTruthy();
+  });
+
+  it('navbar in children does not sit inside .portal-sb', () => {
+    const testSidebar = <div>Sidebar</div>;
+
+    render(
+      <PortalShell sidebar={testSidebar}>
+        <nav data-testid="content-nav">Content Navigation</nav>
+      </PortalShell>
+    );
+
+    const contentNav = screen.getByTestId('content-nav');
+    const portalSbAncestor = contentNav.closest('.portal-sb');
+    expect(portalSbAncestor).toBeNull();
+  });
 });
