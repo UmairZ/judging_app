@@ -7,6 +7,7 @@ import { useCollection, useCount, writeDoc, type WithId } from '../data/db';
 import { slugifyOrgId, validateIds } from '../onboarding/logic';
 import { compBasePath } from '../tenant/paths';
 import { CompetitionStats, Stat } from './comp-stats';
+import { navigate } from './nav';
 import { setStatus, statusColor, STATUS_LABEL, timeOfDay, type CompStatus } from './lifecycle';
 import { compPath } from './routes';
 import { Badge } from './vendor/badge';
@@ -174,7 +175,7 @@ function CompetitionRow({ orgId, comp, isFirst }: { orgId: string; comp: WithId<
             <DropdownMenu anchor="bottom end">
               <DropdownItem
                 onClick={() => {
-                  window.location.href = compPath(comp.id, 'overview');
+                  navigate(compPath(comp.id, 'overview'));
                 }}
               >
                 Open
@@ -255,7 +256,7 @@ function NewCompetitionDialog({ orgId, onClose }: { orgId: string; onClose: () =
     try {
       const fns = getFunctions(app, 'us-central1');
       await httpsCallable(fns, 'createCompetition')({ orgId, compId, name: name.trim() });
-      window.location.href = compPath(compId, 'overview');
+      navigate(compPath(compId, 'overview'));
     } catch (err) {
       setError((err as { message?: string })?.message ?? 'Could not create the competition.');
       setBusy(false);

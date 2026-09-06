@@ -1,5 +1,6 @@
 import { HomeIcon, UserCircleIcon, UserGroupIcon } from '@heroicons/react/20/solid';
 import { AccountFooter } from './AccountFooter';
+import { usePortalPath } from './nav';
 import {
   Sidebar,
   SidebarBody,
@@ -14,7 +15,9 @@ import {
  * judge account) — the sidebar (and critically its Sign out) still renders,
  * just with the product name standing in for an org. */
 export function OrgSidebar({ orgName }: { orgName: string | null }) {
-  const pathname = window.location.pathname;
+  // Reactive path (same source PortalRoot routes from) so the current-item
+  // highlight tracks client-side navigations, not just full loads.
+  const pathname = usePortalPath();
   const headerLabel = orgName ?? 'Ubayy';
   const initial = headerLabel.charAt(0).toUpperCase();
 

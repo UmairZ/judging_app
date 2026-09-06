@@ -20,6 +20,9 @@ import { C, serif } from './ui/theme';
 
 function Routed() {
   const { user, loading } = useAuth();
+  // All hooks run unconditionally, before any conditional return — the /portal
+  // branch below must never sit between hook calls (Rules of Hooks).
+  const route = useMemo(() => parseRoute(window.location.pathname), []);
   // Portal auth gating — Phase C work-in-progress. Exact '/portal' or a
   // '/portal/...' subpath only — a bare startsWith would also claim '/portalfoo'.
   const path = window.location.pathname;
@@ -28,7 +31,6 @@ function Routed() {
     if (!user) return <SignInScreen />;
     return <PortalRoot />;
   }
-  const route = useMemo(() => parseRoute(window.location.pathname), []);
   // Public demo page — resolved before tenant routing ('/demo' would otherwise parse as an org id).
   if (window.location.pathname === '/demo') return <DemoPage />;
   if (window.location.pathname === '/about') return <About02 />;
