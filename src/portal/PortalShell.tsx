@@ -8,7 +8,7 @@ export function PortalShell({
   children,
 }: React.PropsWithChildren<{ sidebar: React.ReactNode }>) {
   return (
-    <div data-portal className="min-h-screen bg-zinc-100 font-sans text-zinc-950 antialiased">
+    <div data-portal className="min-h-screen font-sans text-zinc-950 antialiased">
       <SidebarLayout navbar={<Navbar />} sidebar={<div className="portal-sb contents">{sidebar}</div>}>
         {children}
       </SidebarLayout>

@@ -19,3 +19,15 @@
 [data-portal] .portal-sb nav span.relative > span.absolute { background: #DCB75E; }
 [data-portal] .portal-sb nav a:hover, [data-portal] .portal-sb nav button:hover { background: rgba(255,255,255,0.06); }
 [data-portal] .portal-sb nav .text-zinc-500, [data-portal] .portal-sb nav .text-zinc-400 { color: #9DBDB4; }
+
+/* ---- Portal surfaces (operator-chosen "extend + parchment", 2026-09-06) ----
+   The sidebar green is the page background — the content card floats on it —
+   and the card wears the competition-day cream instead of clinical white.
+   (Targets SidebarLayout's root, which re-declares its own bg utilities;
+   unlayered CSS wins over @layer utilities.) */
+[data-portal],
+[data-portal] > div { background: #16413B; }
+[data-portal] main > div { background: #FBF8F1; }
+/* Mobile header sits on the green page background — keep its icon/text legible. */
+[data-portal] > div > header svg { fill: #DCEAE6; }
+[data-portal] > div > header { color: #DCEAE6; }
