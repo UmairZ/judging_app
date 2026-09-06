@@ -3,7 +3,7 @@ import { useCollection, useDocData, writeDoc, removeDoc } from '../../data/db';
 import { useTenant } from '../../tenant/TenantContext';
 import type { JudgeDoc, PanelDoc, AssignmentDoc } from '../../data/types';
 import { DEFAULT_STRUCTURE_CONFIG, generateSlots, slotId, type StructureConfig } from '../../domain/structure';
-import { Badge } from '../vendor/badge';
+import { Badge, BadgeButton } from '../vendor/badge';
 import { Button } from '../vendor/button';
 import { Dialog, DialogActions, DialogDescription, DialogTitle } from '../vendor/dialog';
 import { Divider } from '../vendor/divider';
@@ -17,6 +17,19 @@ import { Text } from '../vendor/text';
 // Distinct per-panel color, cycling through Catalyst's shared Badge/Button palette —
 // chrome-only stand-in for the source's panelColor() hex-array cycle.
 const PANEL_COLORS = ['blue', 'amber', 'fuchsia', 'emerald', 'rose'] as const;
+
+// Member-pill classes per panel color — the mock's `memberPill` pattern
+// (filled rounded-lg pill in the panel's color scheme), plus dark-mode
+// counterparts to match the rest of the Catalyst chrome.
+const PANEL_PILLS: Record<(typeof PANEL_COLORS)[number], string> = {
+  blue: 'border-blue-500 bg-blue-50 text-blue-950 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300',
+  amber: 'border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-300',
+  fuchsia:
+    'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-950 dark:border-fuchsia-400 dark:bg-fuchsia-400/10 dark:text-fuchsia-300',
+  emerald:
+    'border-emerald-500 bg-emerald-50 text-emerald-950 dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-300',
+  rose: 'border-rose-500 bg-rose-50 text-rose-950 dark:border-rose-400 dark:bg-rose-400/10 dark:text-rose-300',
+};
 
 /**
  * Judges & panels: the roster + panel-assignment half of
@@ -222,7 +235,8 @@ export function JudgesPage() {
                 <TableHeader>Judges</TableHeader>
                 {slots.map((slot) => (
                   <TableHeader key={slotId(slot)}>
-                    {catLabel(slot.category)} · {divLabel(slot.division)}
+                    <span className="block leading-tight">{catLabel(slot.category)}</span>
+                    <span className="block text-xs/5 font-normal text-zinc-500">{divLabel(slot.division)}</span>
                   </TableHeader>
                 ))}
                 <TableHeader className="text-right">Action</TableHeader>
@@ -243,18 +257,23 @@ export function JudgesPage() {
                   <Fragment key={panel.id}>
                     <TableRow>
                       <TableCell>
+                        <Badge color={color}>{panelInputValue(panel)}</Badge>
+                        <span className="mt-1 block text-xs/5 text-zinc-500">
+                          {panel.judgeIds.length} {panel.judgeIds.length === 1 ? 'judge' : 'judges'}
+                        </span>
+                        {/* Inline rename affordance — same handlers, restyled compact. */}
                         <Input
+                          aria-label="Panel name"
+                          className="mt-2 max-w-44"
                           value={panelInputValue(panel)}
                           onChange={(e) => setPanelDraft(panel.id, e.target.value)}
                           onBlur={() => commitPanelRename(panel.id)}
                         />
                       </TableCell>
                       <TableCell>
-                        <Button outline onClick={() => setOpenDropdown(dropdownOpen ? null : panel.id)}>
-                          <Badge color={color}>
-                            {panel.judgeIds.length} {panel.judgeIds.length === 1 ? 'judge' : 'judges'}
-                          </Badge>
-                        </Button>
+                        <BadgeButton color={color} onClick={() => setOpenDropdown(dropdownOpen ? null : panel.id)}>
+                          {panel.judgeIds.length} {panel.judgeIds.length === 1 ? 'judge' : 'judges'}
+                        </BadgeButton>
                       </TableCell>
                       {slots.map((slot) => {
                         const asgn = assignments.find((a) => a.category === slot.category && a.division === slot.division);
@@ -263,17 +282,18 @@ export function JudgesPage() {
                         return (
                           <TableCell key={slotId(slot)}>
                             {isAssigned ? (
-                              <Button color={color} onClick={() => void assignSlot(slot, panel.id)} title="Click to unassign">
+                              <BadgeButton color={color} onClick={() => void assignSlot(slot, panel.id)} title="Click to unassign">
                                 ✓
-                              </Button>
+                              </BadgeButton>
                             ) : (
-                              <Button
-                                outline
+                              <button
+                                type="button"
+                                className="cursor-pointer text-zinc-300 dark:text-zinc-600"
                                 onClick={() => void assignSlot(slot, panel.id)}
                                 title={otherPanelName ? `Reassign from ${otherPanelName}` : 'Assign this panel'}
                               >
-                                {otherPanelName ?? '—'}
-                              </Button>
+                                —
+                              </button>
                             )}
                           </TableCell>
                         );
@@ -290,13 +310,26 @@ export function JudgesPage() {
                           <Fieldset>
                             <Label>Panel judges</Label>
                             {judges.length === 0 && <Text className="mt-2">Add judges in the roster above.</Text>}
-                            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
-                              {judges.map((j) => (
-                                <span key={j.id} className="flex items-center gap-2">
-                                  <Switch checked={panel.judgeIds.includes(j.id)} onChange={() => void togglePanelJudge(panel, j.id)} />
-                                  <Text>{j.name}</Text>
-                                </span>
-                              ))}
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {judges.map((j) => {
+                                const member = panel.judgeIds.includes(j.id);
+                                return (
+                                  <button
+                                    key={j.id}
+                                    type="button"
+                                    onClick={() => void togglePanelJudge(panel, j.id)}
+                                    className={
+                                      'inline-flex cursor-pointer items-center rounded-lg border px-3 py-1.5 text-sm/6 font-medium ' +
+                                      (member
+                                        ? PANEL_PILLS[color]
+                                        : 'border-dashed border-zinc-950/15 bg-transparent text-zinc-400 dark:border-white/15 dark:text-zinc-500')
+                                    }
+                                    title={member ? 'Tap to remove from panel' : 'Tap to add to panel'}
+                                  >
+                                    {j.name}
+                                  </button>
+                                );
+                              })}
                             </div>
                           </Fieldset>
                         </TableCell>

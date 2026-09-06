@@ -9,7 +9,6 @@ import Home02 from './marketing/Home02';
 import DemoPage from './marketing/DemoPage';
 import About02 from './marketing/About02';
 import { PortalRoot } from './portal/PortalRoot';
-import { MockPanelsCards, MockPanelsGrid, MockPanelsHybrid } from './portal/mock-panels';
 import { MockScoring } from './portal/mock-scoring';
 import { compPath } from './portal/routes';
 import { Heading } from './portal/vendor/heading';
@@ -28,12 +27,8 @@ function Routed() {
   // Portal auth gating — Phase C work-in-progress. Exact '/portal' or a
   // '/portal/...' subpath only — a bare startsWith would also claim '/portalfoo'.
   const path = window.location.pathname;
-  // THROWAWAY steering mockups (?jpmock=a|b, ?scmock=1) — public, deleted after the pick.
+  // THROWAWAY steering mockup (?scmock=1) — public, deleted after the pick.
   const mockParams = new URLSearchParams(window.location.search);
-  const jpmock = mockParams.get('jpmock');
-  if (jpmock === 'a') return <MockPanelsCards />;
-  if (jpmock === 'b') return <MockPanelsGrid />;
-  if (jpmock === 'c') return <MockPanelsHybrid />;
   if (mockParams.get('scmock') === '1') return <MockScoring />;
   if (path === '/portal' || path.startsWith('/portal/')) {
     if (loading) return <Splash />;

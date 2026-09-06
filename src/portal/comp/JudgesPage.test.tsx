@@ -54,4 +54,20 @@ describe('JudgesPage', () => {
 
     expect(await screen.findByText('Remove this judge?')).toBeTruthy();
   });
+
+  it('renders a ✓ badge for an assigned slot cell and a faint — for unassigned ones', async () => {
+    const backend = seededBackend();
+    // Default structure config yields 6 slots; assign one to the seeded panel.
+    backend.seed('orgs/ik/competitions/2026/assignments/1_brothers', { category: '1', division: 'brothers', panelId: 'p1' });
+    render(
+      <DbProvider backend={backend}>
+        <TenantProvider orgId="ik" compId="2026">
+          <JudgesPage />
+        </TenantProvider>
+      </DbProvider>,
+    );
+
+    expect(await screen.findByText('✓')).toBeTruthy();
+    expect(screen.getAllByText('—')).toHaveLength(5);
+  });
 });
