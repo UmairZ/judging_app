@@ -3,11 +3,11 @@ import { EllipsisVerticalIcon } from '@heroicons/react/16/solid';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from '../firebase/app';
 import { useAuth } from '../auth/AuthContext';
-import { useCollection, useCount, useDocData, writeDoc, type WithId } from '../data/db';
-import type { StructureConfig } from '../domain/structure';
+import { useCollection, useCount, writeDoc, type WithId } from '../data/db';
 import { slugifyOrgId, validateIds } from '../onboarding/logic';
 import { compBasePath } from '../tenant/paths';
-import { setStatus, statusColor, timeOfDay, type CompStatus } from './lifecycle';
+import { CompetitionStats, Stat } from './comp-stats';
+import { setStatus, statusColor, STATUS_LABEL, timeOfDay, type CompStatus } from './lifecycle';
 import { compPath } from './routes';
 import { Badge } from './vendor/badge';
 import { Button } from './vendor/button';
@@ -28,12 +28,6 @@ interface CompDoc {
   status: CompStatus;
   createdAt?: unknown;
 }
-
-const STATUS_LABEL: Record<CompStatus, string> = {
-  setup: 'Setup',
-  live: 'Live',
-  archived: 'Archived',
-};
 
 function firstNameOf(user: { displayName?: string | null; email?: string | null } | null): string {
   const source = user?.displayName || user?.email || '';
@@ -60,17 +54,6 @@ function targetCompetition<T extends { status: CompStatus; createdAt?: unknown }
   const live = comps.find((c) => c.status === 'live');
   if (live) return live;
   return [...comps].sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))[0];
-}
-
-/* Copy of ./stat.tsx WITHOUT the change-badge line — spec: no delta badges. */
-function Stat({ title, value }: { title: string; value: string }) {
-  return (
-    <div>
-      <Divider />
-      <div className="mt-6 text-lg/6 font-medium sm:text-sm/6">{title}</div>
-      <div className="mt-3 text-3xl/8 font-semibold sm:text-2xl/8">{value}</div>
-    </div>
-  );
 }
 
 /**
@@ -149,26 +132,6 @@ function OrgHomePage({ orgId, firstName }: { orgId: string; firstName: string })
       </div>
 
       {creating && <NewCompetitionDialog orgId={orgId} onClose={() => setCreating(false)} />}
-    </>
-  );
-}
-
-/* Only mounted once a target competition is known — its counts/doc paths are
- * always real, never a placeholder built from a missing id. */
-function CompetitionStats({ orgId, compId }: { orgId: string; compId: string }) {
-  const base = compBasePath(orgId, compId);
-  const registrations = useCount(`${base}/registrations`);
-  const sessionsGraded = useCount(`${base}/sessions`, 'finalizedAt');
-  const judgesCount = useCount(`${base}/judges`);
-  const structure = useDocData<StructureConfig>(`${base}/config/structure`);
-  const categoriesCount = structure.data?.categories?.length ?? null;
-
-  return (
-    <>
-      <Stat title="Registrations" value={registrations == null ? '—' : String(registrations)} />
-      <Stat title="Sessions graded" value={sessionsGraded == null ? '—' : String(sessionsGraded)} />
-      <Stat title="Judges" value={judgesCount == null ? '—' : String(judgesCount)} />
-      <Stat title="Categories" value={categoriesCount == null ? '—' : String(categoriesCount)} />
     </>
   );
 }

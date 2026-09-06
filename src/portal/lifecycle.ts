@@ -22,6 +22,13 @@ export function statusColor(status: string): 'blue' | 'lime' | 'zinc' {
   return 'zinc';
 }
 
+/** Human label for a competition's lifecycle status badge. */
+export const STATUS_LABEL: Record<CompStatus, string> = {
+  setup: 'Setup',
+  live: 'Live',
+  archived: 'Archived',
+};
+
 /** Greeting bucket for the current (or given) time. */
 export function timeOfDay(date: Date = new Date()): 'morning' | 'afternoon' | 'evening' {
   const hour = date.getHours();
