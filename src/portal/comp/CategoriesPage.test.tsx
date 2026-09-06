@@ -130,24 +130,53 @@ describe('CategoriesPage', () => {
     expect(screen.getByRole('button', { name: 'New' })).toBeTruthy();
   });
 
-  it('ignores a blank/whitespace "Add division" — neither the category nor the pool changes', async () => {
+  it('selecting an existing pool division in the reuse Select references it — no pool growth', async () => {
     renderPage(seededBackend());
     await screen.findByDisplayValue("1 Juz'");
+
+    // 5 Ajza' references only brothers; the pool already holds Sisters, so the
+    // reuse Select offers it.
+    fireEvent.click(screen.getByRole('button', { name: /5 Ajza'/ }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Add a division' }), { target: { value: 'sisters' } });
+
+    // Every pool division is now referenced — the Select gives way to the name input.
+    expect(screen.queryByRole('combobox', { name: 'Add a division' })).toBeNull();
+    expect(screen.getByPlaceholderText('Division name')).toBeTruthy();
+
+    const payload = await saveAndGetPayload();
+    expect(payload.divisions).toHaveLength(2); // referenced, not duplicated
+    expect(payload.categories.find((c) => c.id === '5')?.divisions).toEqual(['brothers', 'sisters']);
+  });
+
+  it('"New division…" reveals the name input, and a blank/whitespace add still changes nothing', async () => {
+    renderPage(seededBackend());
+    await screen.findByDisplayValue("1 Juz'");
+
+    // 5 Ajza' has an unreferenced pool division, so the Select shows first —
+    // the name input only appears through the "New division…" fallback.
+    fireEvent.click(screen.getByRole('button', { name: /5 Ajza'/ }));
+    expect(screen.queryByPlaceholderText('Division name')).toBeNull();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Add a division' }), { target: { value: '__new-division__' } });
 
     fireEvent.change(screen.getByPlaceholderText('Division name'), { target: { value: '   ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add division' }));
 
     const payload = await saveAndGetPayload();
     expect(payload.divisions).toHaveLength(2);
-    expect(payload.categories.find((c) => c.id === '1')?.divisions).toEqual(['brothers', 'sisters']);
+    expect(payload.categories.find((c) => c.id === '5')?.divisions).toEqual(['brothers']);
+
+    // Cancel hides the input again and brings the Select back.
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByPlaceholderText('Division name')).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Add a division' })).toBeTruthy();
   });
 
-  it('adding "  Sisters  " (trimmed, existing pool label) references the EXISTING pool id — no duplicate entry', async () => {
+  it('typing an EXISTING pool label in the create fallback references it — no duplicate entry (safety path)', async () => {
     renderPage(seededBackend());
     await screen.findByDisplayValue("1 Juz'");
 
-    // 5 Ajza' references only brothers; the pool already holds Sisters.
     fireEvent.click(screen.getByRole('button', { name: /5 Ajza'/ }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Add a division' }), { target: { value: '__new-division__' } });
     fireEvent.change(screen.getByPlaceholderText('Division name'), { target: { value: '  Sisters  ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add division' }));
 
@@ -156,10 +185,14 @@ describe('CategoriesPage', () => {
     expect(payload.categories.find((c) => c.id === '5')?.divisions).toEqual(['brothers', 'sisters']);
   });
 
-  it('adding a new unique name grows the pool by one and references the new entry', async () => {
+  it('with no unreferenced pool divisions the name input shows directly, and a new unique name grows the pool + references it', async () => {
     renderPage(seededBackend());
     await screen.findByDisplayValue("1 Juz'");
 
+    // 1 Juz' already references every pool division — nothing to reuse, so the
+    // Select is skipped and the name input renders directly (no Cancel either).
+    expect(screen.queryByRole('combobox', { name: 'Add a division' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
     fireEvent.change(screen.getByPlaceholderText('Division name'), { target: { value: 'Combined' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add division' }));
 
