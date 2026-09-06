@@ -10,6 +10,9 @@ export const NAVIGATE_EVENT = 'portal:navigate';
  * (the old-AdminApp instant-tab feel).
  */
 export function navigate(path: string): void {
+  // Re-clicking the already-current item must not stack a duplicate history
+  // entry (Back would appear inert).
+  if (path === window.location.pathname) return;
   window.history.pushState({}, '', path);
   window.dispatchEvent(new Event(NAVIGATE_EVENT));
 }

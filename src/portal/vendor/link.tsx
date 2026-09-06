@@ -38,6 +38,7 @@ export const Link = forwardRef(function Link(
       !event.shiftKey &&
       !event.altKey && // modified clicks (open-in-new-tab etc.) stay native
       !props.target && // target=_blank etc. stays native
+      props.download === undefined && // download links stay native
       !event.defaultPrevented
     ) {
       event.preventDefault()

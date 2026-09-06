@@ -26,6 +26,20 @@ describe('navigate', () => {
 
     window.removeEventListener(NAVIGATE_EVENT, listener);
   });
+
+  it('is a no-op when the target path is already current — no duplicate history entry', () => {
+    const pushSpy = vi.spyOn(window.history, 'pushState');
+    const listener = vi.fn();
+    window.addEventListener(NAVIGATE_EVENT, listener);
+
+    navigate('/portal'); // beforeEach put us at /portal already
+
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(listener).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe('/portal');
+
+    window.removeEventListener(NAVIGATE_EVENT, listener);
+  });
 });
 
 describe('usePortalPath', () => {
