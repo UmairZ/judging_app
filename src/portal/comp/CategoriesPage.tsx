@@ -9,7 +9,7 @@ import { Heading, Subheading } from '../vendor/heading';
 import { Input } from '../vendor/input';
 import { Select } from '../vendor/select';
 import { Text } from '../vendor/text';
-import { PlusIcon } from '@heroicons/react/16/solid';
+import { PlusIcon, XMarkIcon } from '@heroicons/react/16/solid';
 
 /**
  * Categories & Divisions — category-first master-detail (the operator-approved
@@ -237,14 +237,24 @@ export function CategoriesPage() {
                   </Fieldset>
                   <Divider soft className="my-5" />
                   <Subheading className="!text-sm">Divisions</Subheading>
-                  <div className="mt-2 divide-y divide-zinc-950/5 dark:divide-white/5">
+                  {/* Horizontal pill row (button-radius, not fully round) — picks from
+                      the dropdown append here; × removes from this category only. */}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     {selectedCat.divisions.map((divId) => (
-                      <div key={divId} className="flex items-center justify-between py-2.5">
-                        <span className="text-sm/6 font-medium">{divLabel(divId)}</span>
-                        <Button plain className="!py-0.5 text-sm text-red-600" onClick={() => removeDivisionRef(selectedCat.id, divId)}>
-                          Remove
-                        </Button>
-                      </div>
+                      <span
+                        key={divId}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-950/10 bg-white py-1.5 pr-2 pl-3 text-sm/6 font-medium dark:border-white/10 dark:bg-zinc-800"
+                      >
+                        {divLabel(divId)}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${divLabel(divId)}`}
+                          className="cursor-pointer text-zinc-400 hover:text-red-600"
+                          onClick={() => removeDivisionRef(selectedCat.id, divId)}
+                        >
+                          <XMarkIcon className="size-4" />
+                        </button>
+                      </span>
                     ))}
                   </div>
                   {(() => {

@@ -207,10 +207,9 @@ describe('CategoriesPage', () => {
     renderPage(seededBackend());
     await screen.findByDisplayValue("1 Juz'");
 
-    // Division rows follow the category's reference order (brothers, sisters),
-    // so the first "Remove" row button is Brothers. ("Remove category" has a
-    // distinct accessible name and is not matched.)
-    fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0]);
+    // Divisions render as pills with per-division ×-buttons carrying an
+    // accessible "Remove {label}" name.
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Brothers' }));
 
     const payload = await saveAndGetPayload();
     expect(payload.categories.find((c) => c.id === '1')?.divisions).toEqual(['sisters']);
