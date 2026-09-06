@@ -6,6 +6,7 @@ import { CategoriesPage } from './comp/CategoriesPage';
 import { CompShell } from './comp/CompShell';
 import { ContestantsPage } from './comp/ContestantsPage';
 import { JudgesPage } from './comp/JudgesPage';
+import { LeaderboardPage } from './comp/LeaderboardPage';
 import { OverviewPage } from './comp/OverviewPage';
 import { ScoringPage } from './comp/ScoringPage';
 import { HomePage } from './HomePage';
@@ -51,6 +52,8 @@ export function PortalRoot() {
             <JudgesPage />
           ) : route.section === 'scoring' ? (
             <ScoringPage />
+          ) : route.section === 'leaderboard' ? (
+            <LeaderboardPage />
           ) : (
             <ComingSoon section={route.section} />
           )}
