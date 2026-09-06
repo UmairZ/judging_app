@@ -7,10 +7,9 @@ import { Badge, BadgeButton } from '../vendor/badge';
 import { Button } from '../vendor/button';
 import { Dialog, DialogActions, DialogDescription, DialogTitle } from '../vendor/dialog';
 import { Divider } from '../vendor/divider';
-import { Field, Fieldset, Label } from '../vendor/fieldset';
+import { Fieldset, Label } from '../vendor/fieldset';
 import { Heading, Subheading } from '../vendor/heading';
 import { Input } from '../vendor/input';
-import { Switch } from '../vendor/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../vendor/table';
 import { Text } from '../vendor/text';
 
@@ -163,58 +162,44 @@ export function JudgesPage() {
 
       <div className="mt-8">
         <Subheading>Judges</Subheading>
-        <Table className="mt-4 [--gutter:--spacing(6)]">
-          <TableHead>
-            <TableRow>
-              <TableHeader>Name</TableHeader>
-              <TableHeader>Active</TableHeader>
-              <TableHeader className="text-right">Action</TableHeader>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {judges.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={3}>
-                  <Text>No judges yet.</Text>
-                </TableCell>
-              </TableRow>
-            )}
-            {judges.map((j) => (
-              <TableRow key={j.id}>
-                <TableCell>
-                  <Input value={judgeInputValue(j)} onChange={(e) => setJudgeDraft(j.id, e.target.value)} onBlur={() => commitJudgeRename(j.id)} />
-                </TableCell>
-                <TableCell>
-                  {/* Read-only indicator — the source only ever displays `active` (a
-                      colored dot) in this file; it has no toggle handler here. */}
-                  <Switch checked={j.active} disabled />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button outline onClick={() => setConfirmRemoveJudgeId(j.id)}>
-                    Remove
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-
-        <Fieldset className="mt-4">
-          <Field className="flex items-end gap-3">
-            <div className="min-w-0 flex-1">
-              <Label>Add judge</Label>
+        {/* Compact roster (operator: the tabular full-width version ate the page) —
+            one tight row per judge: constrained name input, active dot, plain remove. */}
+        <div className="mt-3 max-w-xl divide-y divide-zinc-950/5 rounded-xl border border-zinc-950/10 bg-white px-4 dark:divide-white/5 dark:border-white/10 dark:bg-zinc-900">
+          {judges.length === 0 && <Text className="py-2.5">No judges yet.</Text>}
+          {judges.map((j) => (
+            <div key={j.id} className="flex items-center gap-3 py-1.5">
               <Input
-                placeholder="Judge name"
-                value={newJudgeName}
-                onChange={(e) => setNewJudgeName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void addJudge();
-                }}
+                className="max-w-60 [&_input]:py-1"
+                value={judgeInputValue(j)}
+                onChange={(e) => setJudgeDraft(j.id, e.target.value)}
+                onBlur={() => commitJudgeRename(j.id)}
               />
+              {/* Read-only indicator — the source only ever displays `active` here. */}
+              <span
+                className={'ml-auto size-2 shrink-0 rounded-full ' + (j.active ? 'bg-lime-500' : 'bg-zinc-300')}
+                title={j.active ? 'Active' : 'Inactive'}
+              />
+              <Button plain className="!py-0.5 text-sm text-red-600" onClick={() => setConfirmRemoveJudgeId(j.id)}>
+                Remove
+              </Button>
             </div>
-            <Button onClick={() => void addJudge()}>+ Add</Button>
-          </Field>
-        </Fieldset>
+          ))}
+          <div className="flex items-center gap-3 py-1.5">
+            <Input
+              className="max-w-60 [&_input]:py-1"
+              placeholder="Add judge…"
+              aria-label="Add judge"
+              value={newJudgeName}
+              onChange={(e) => setNewJudgeName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void addJudge();
+              }}
+            />
+            <Button outline className="!py-0.5 text-sm" onClick={() => void addJudge()}>
+              + Add
+            </Button>
+          </div>
+        </div>
       </div>
 
       <Divider className="my-8" />
