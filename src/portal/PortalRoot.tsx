@@ -26,7 +26,7 @@ interface OrgMirror {
  *
  * PortalRoot only ever mounts once App.tsx has confirmed a signed-in `user`
  * (see the /portal branch of Routed()), so `user!` is safe here — same
- * convention as OrgDashboard.tsx. The sidebar renders unconditionally (with
+ * convention as the legacy dashboard. The sidebar renders unconditionally (with
  * or without an org) so a no-org account never loses its Sign out. */
 export function PortalRoot() {
   const { user } = useAuth();

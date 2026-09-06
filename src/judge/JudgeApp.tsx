@@ -137,7 +137,7 @@ function AdminReentry({ onClose, signInEmail }: { onClose: () => void; signInEma
     setBusy(true);
     setError('');
     try {
-      await signInEmail(email, password); // success → auth switches, App re-routes to AdminApp
+      await signInEmail(email, password); // success → auth switches, App re-routes to the organizer's admin surface
     } catch {
       setError('Sign-in failed — check the admin email and password.');
       setBusy(false);

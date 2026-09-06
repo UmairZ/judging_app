@@ -55,7 +55,7 @@ interface Editing {
 }
 
 /**
- * Leaderboard: chrome-only port of src/admin/Leaderboard.tsx. All data logic
+ * Leaderboard: chrome-only port of the retired admin Leaderboard screen. All data logic
  * below is ported verbatim from that file: same hooks, same handler names,
  * same tp() paths, same scoring imports (enrollmentSummary/
  * compareForLeaderboard/sessionScore/tieBreakMean). The scoring ENGINE and
@@ -63,7 +63,7 @@ interface Editing {
  * exactly as the source does.
  *
  * "Projector mode" here is the source's ACTUAL mechanism, verified against
- * `src/admin/AdminApp.tsx` (which only mounts <Leaderboard/> as a tab — no
+ * the retired admin chrome (which only mounted the Leaderboard tab — no
  * route/window.open exists there) and `src/admin/Projector.tsx`: a local
  * `projecting` boolean that renders a full-screen <Projector/> overlay in
  * place, with Esc to exit. There is no `?projector=1` URL anywhere in this

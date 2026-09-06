@@ -207,6 +207,35 @@ describe('competitions listing', () => {
     await assertSucceeds(getDoc(doc(as('uJudgeA'), P1)));
     await assertFails(getDoc(doc(as('staff2'), P1)));
   });
+
+  describe('lifecycle updates — status and name only', () => {
+    beforeEach(async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), P1), { name: 'Comp One', status: 'setup', createdAt: 'seed' });
+      });
+    });
+
+    it('staff can rename the competition', async () => {
+      await assertSucceeds(updateDoc(doc(as('staff1'), P1), { name: 'Renamed' }));
+    });
+
+    it('staff can change the competition status', async () => {
+      await assertSucceeds(updateDoc(doc(as('staff1'), P1), { status: 'archived' }));
+    });
+
+    it('a judge cannot update status or name', async () => {
+      await assertFails(updateDoc(doc(as('uJudgeA'), P1), { status: 'archived' }));
+      await assertFails(updateDoc(doc(as('uJudgeA'), P1), { name: 'Hacked' }));
+    });
+
+    it('staff cannot touch any other field, even alongside a valid one', async () => {
+      await assertFails(updateDoc(doc(as('staff1'), P1), { status: 'archived', createdAt: 'rewritten' }));
+    });
+
+    it('staff cannot set a bogus status value', async () => {
+      await assertFails(updateDoc(doc(as('staff1'), P1), { status: 'deleted' }));
+    });
+  });
 });
 
 describe('join codes — staff-managed, secret from judges', () => {

@@ -37,7 +37,18 @@ service cloud.firestore {
       match /competitions/{compId} {
         allow get: if canReadComp(orgId, compId);
         allow list: if isOrgStaff(orgId); // dashboard lists an org's competitions
-        allow write: if false; // Phase 2: create-competition flow
+
+        // Portal lifecycle controls (HomePage's status toggle, OrgSettingsPage's
+        // rename) write this doc directly via writeDoc, which stamps every write
+        // with updatedAt/updatedBy. Staff may change only those four fields, and
+        // only to a valid status; every other field (createdAt, etc.) is
+        // immutable via the client.
+        allow update: if isOrgStaff(orgId)
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'status', 'updatedAt', 'updatedBy'])
+                      && request.resource.data.status in ['setup', 'live', 'archived']
+                      && request.resource.data.name is string
+                      && request.resource.data.name.size() > 0;
+        allow create, delete: if false; // Phase 2: create-competition flow; no client deletes
 
         match /members/{uid} {
           allow read: if isSignedIn() && (request.auth.uid == uid || isOrgStaff(orgId));

@@ -62,7 +62,7 @@ function targetCompetition<T extends { status: CompStatus; createdAt?: unknown }
  * from a missing orgId, so no Firestore path can contain a sentinel/reserved
  * segment (Firestore rejects any collection/doc id shaped like `__foo__`).
  * `user!` is safe: HomePage only renders once App.tsx has confirmed a
- * signed-in user (see PortalRoot.tsx), matching OrgDashboard.tsx's convention.
+ * signed-in user (see PortalRoot.tsx), matching the legacy dashboard's convention.
  */
 export function HomePage() {
   const { user } = useAuth();
@@ -240,7 +240,7 @@ function NewCompetitionDialog({ orgId, onClose }: { orgId: string; onClose: () =
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Handler logic copied verbatim from OrgDashboard.tsx's CreateCompForm
+  // Handler logic copied verbatim from the legacy dashboard's CreateCompForm
   // (validateIds, slugifyOrgId, the createCompetition callable, error shaping) —
   // only the destination after success changes, to the portal's own comp route.
   const submit = async (e: React.FormEvent) => {
