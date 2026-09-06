@@ -1,0 +1,21 @@
+/* Portal identity — COLOR ONLY over unmodified Catalyst vendor components. */
+/* Recolor ONLY default (dark/zinc) solid buttons. Specificity can't scope this:
+   Tailwind v4 emits its utilities inside `@layer utilities` while this sheet is
+   unlayered, and unlayered author CSS beats layered CSS regardless of
+   specificity — so even a zero-specificity `:where()` rule here would still
+   override an explicit `color="red"` button's vendor var utilities. And the
+   default color sets its vars through the exact same utility shape as explicit
+   colors, so there is no specificity gap to slot into inside the layer either.
+   Instead, match the one class unique to Catalyst's dark/zinc default
+   (`dark:[--btn-bg:var(--color-zinc-600)]`, vendor/button.tsx styles.colors) so
+   buttons with an explicit color prop keep their vendor color untouched. */
+[data-portal] main button[class*="dark:[--btn-bg:var(--color-zinc-600)]"] { --btn-bg: #206560; --btn-border: #185049; --btn-hover-overlay: rgba(255,255,255,0.08); }
+/* Dialogs portal outside [data-portal] and render stock Catalyst — accepted. */
+[data-portal] .portal-sb nav { background: #16413B; }
+[data-portal] .portal-sb nav a, [data-portal] .portal-sb nav button, [data-portal] .portal-sb nav span { color: #DCEAE6; }
+[data-portal] .portal-sb nav svg { fill: #8FB5AA; }
+[data-portal] .portal-sb nav a[data-current], [data-portal] .portal-sb nav button[data-current] { color: #DCB75E; }
+[data-portal] .portal-sb nav a[data-current] svg { fill: #DCB75E; }
+[data-portal] .portal-sb nav span.relative > span.absolute { background: #DCB75E; }
+[data-portal] .portal-sb nav a:hover, [data-portal] .portal-sb nav button:hover { background: rgba(255,255,255,0.06); }
+[data-portal] .portal-sb nav .text-zinc-500, [data-portal] .portal-sb nav .text-zinc-400 { color: #9DBDB4; }

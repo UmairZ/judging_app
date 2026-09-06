@@ -27,7 +27,16 @@ service cloud.firestore {
     match /orgs/{orgId} {
       // Org docs are staff-only; creation flows land in Phase 2 (onboarding).
       allow read: if isOrgStaff(orgId);
-      allow write: if false;
+      // Portal org rename (OrgSettingsPage -> renameOrg via writeDoc, which
+      // stamps every write with updatedAt/updatedBy). Staff may change only the
+      // name; every other field (plan, createdAt, ...) is immutable via the
+      // client, and updatedBy must be the caller's own uid.
+      allow update: if isOrgStaff(orgId)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt', 'updatedBy'])
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && request.resource.data.updatedBy == request.auth.uid;
+      allow create, delete: if false; // Phase 2: onboarding creates orgs; no client deletes
 
       match /members/{uid} {
         allow read: if isSignedIn() && (request.auth.uid == uid || isOrgStaff(orgId));
@@ -37,7 +46,19 @@ service cloud.firestore {
       match /competitions/{compId} {
         allow get: if canReadComp(orgId, compId);
         allow list: if isOrgStaff(orgId); // dashboard lists an org's competitions
-        allow write: if false; // Phase 2: create-competition flow
+
+        // Portal lifecycle controls (HomePage's status toggle, OrgSettingsPage's
+        // rename) write this doc directly via writeDoc, which stamps every write
+        // with updatedAt/updatedBy. Staff may change only those four fields, and
+        // only to a valid status; every other field (createdAt, etc.) is
+        // immutable via the client, and updatedBy must be the caller's own uid.
+        allow update: if isOrgStaff(orgId)
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'status', 'updatedAt', 'updatedBy'])
+                      && request.resource.data.status in ['setup', 'live', 'archived']
+                      && request.resource.data.name is string
+                      && request.resource.data.name.size() > 0
+                      && request.resource.data.updatedBy == request.auth.uid;
+        allow create, delete: if false; // Phase 2: create-competition flow; no client deletes
 
         match /members/{uid} {
           allow read: if isSignedIn() && (request.auth.uid == uid || isOrgStaff(orgId));
@@ -86,9 +107,18 @@ service cloud.firestore {
     }
 
     // Dashboard mirror maintained by callables; a user sees only their own org list.
+    // Portal org rename (OrgSettingsPage -> renameOrg) also updates this mirror's
+    // name so the sidebar stays in sync: the owner may change only
+    // name/updatedAt/updatedBy on their own mirror — `role` stays unwritable —
+    // and updatedBy must be their own uid.
     match /users/{uid}/orgs/{orgId} {
       allow read: if isSignedIn() && request.auth.uid == uid;
-      allow write: if false;
+      allow update: if isSignedIn() && request.auth.uid == uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt', 'updatedBy'])
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && request.resource.data.updatedBy == request.auth.uid;
+      allow create, delete: if false; // callables manage mirror lifecycle
     }
 
     // Public landing-page signup: anyone (including logged-out visitors) may create a

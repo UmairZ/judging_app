@@ -38,4 +38,23 @@ describe('InMemoryBackend', () => {
     await b.write('t/1', { startedAt: { __sentinel: 'serverTimestamp' } }, true);
     expect(typeof (latest as Record<string, unknown> | null)?.startedAt).toBe('number');
   });
+
+  it('subscribeCollection notifies with seeded docs and later writes', async () => {
+    const b = new InMemoryBackend();
+    b.seed('orgs/o/competitions/c1', { name: 'A' });
+    const seen: unknown[][] = [];
+    const off = b.subscribeCollection('orgs/o/competitions', (docs) => seen.push(docs));
+    expect(seen[0]).toHaveLength(1);
+    await b.write('orgs/o/competitions/c2', { name: 'B' }, true);
+    expect(seen.at(-1)).toHaveLength(2);
+    off();
+  });
+
+  it('count filters by present field', async () => {
+    const b = new InMemoryBackend();
+    b.seed('x/y/sessions/s1', { finalizedAt: 123 });
+    b.seed('x/y/sessions/s2', { finalizedAt: null });
+    expect(await b.count('x/y/sessions')).toBe(2);
+    expect(await b.count('x/y/sessions', 'finalizedAt')).toBe(1);
+  });
 });

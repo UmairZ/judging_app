@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { MembershipProvider, useMembership } from './auth/MembershipContext';
 import { TenantProvider, useTenant } from './tenant/TenantContext';
@@ -8,15 +8,26 @@ import SignInScreen from './onboarding/SignInScreen';
 import Home02 from './marketing/Home02';
 import DemoPage from './marketing/DemoPage';
 import About02 from './marketing/About02';
-import OrgDashboard from './onboarding/OrgDashboard';
+import { PortalRoot } from './portal/PortalRoot';
+import { compPath } from './portal/routes';
+import { Heading } from './portal/vendor/heading';
+import { Text } from './portal/vendor/text';
+import { Button } from './portal/vendor/button';
 import JoinScreen from './onboarding/JoinScreen';
 import JudgeApp from './judge/JudgeApp';
-import AdminApp from './admin/AdminApp';
 import Projector from './admin/Projector';
 import { C, serif } from './ui/theme';
 
 function Routed() {
   const { user, loading } = useAuth();
+  // Portal auth gating — Phase C work-in-progress. Exact '/portal' or a
+  // '/portal/...' subpath only — a bare startsWith would also claim '/portalfoo'.
+  const path = window.location.pathname;
+  if (path === '/portal' || path.startsWith('/portal/')) {
+    if (loading) return <Splash />;
+    if (!user) return <SignInScreen />;
+    return <PortalRoot />;
+  }
   const route = useMemo(() => parseRoute(window.location.pathname), []);
   // Public demo page — resolved before tenant routing ('/demo' would otherwise parse as an org id).
   if (window.location.pathname === '/demo') return <DemoPage />;
@@ -24,7 +35,8 @@ function Routed() {
   if (loading) return <Splash />;
   if (route.kind === 'join') return <JoinScreen orgId={route.orgId} compId={route.compId} code={route.code} />;
   if (!user) return route.kind === 'root' ? <Home02 /> : <SignInScreen />;
-  if (route.kind === 'root') return <OrgDashboard />;
+  // Signed-in root visits redirect to the portal — the organizer dashboard now lives there.
+  if (route.kind === 'root') return <RedirectToPortal />;
   return (
     <TenantProvider orgId={route.orgId} compId={route.compId}>
       <MembershipProvider>
@@ -32,6 +44,13 @@ function Routed() {
       </MembershipProvider>
     </TenantProvider>
   );
+}
+
+function RedirectToPortal() {
+  useEffect(() => {
+    window.location.replace('/portal');
+  }, []);
+  return <Splash />;
 }
 
 function RoleGate() {
@@ -42,10 +61,34 @@ function RoleGate() {
   // Org staff resolve to 'admin' even for a typo'd competition id — writing there
   // would create a ghost tenant. Gate on the competition doc actually existing.
   if (role === 'admin' && !comp.data) return <CompNotFound />;
-  if (role === 'admin') return <AdminApp />;
+  if (role === 'admin') return <AdminMoved compId={compId} />;
   if (role === 'judge') return <JudgeApp />;
   if (role === 'display') return <Projector />;
   return <NoAccess />;
+}
+
+/** Competition admin now lives in the portal — this replaces the legacy
+ * per-competition dashboard chrome at `/{org}/{comp}` for organizers, per
+ * Task 13's retirement of the legacy dashboards. Judge/display roles above
+ * are untouched. */
+function AdminMoved({ compId }: { compId: string }) {
+  const { signOut } = useAuth();
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 dark:bg-zinc-900">
+      <div className="max-w-md text-center">
+        <Heading>Competition admin has moved into the portal</Heading>
+        <Text className="mt-3">
+          Manage this competition from your organization portal instead of this direct link.
+        </Text>
+        <div className="mt-6 flex items-center justify-center gap-4">
+          <Button href={compPath(compId)}>Open in the portal</Button>
+          <Button plain onClick={() => void signOut()}>
+            Sign out
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function CompNotFound() {
