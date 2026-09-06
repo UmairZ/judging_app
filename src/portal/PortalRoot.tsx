@@ -11,6 +11,7 @@ import { OverviewPage } from './comp/OverviewPage';
 import { ProvisioningPage } from './comp/ProvisioningPage';
 import { ScoringPage } from './comp/ScoringPage';
 import { HomePage } from './HomePage';
+import { usePortalPath } from './nav';
 import { OrgSettingsPage } from './OrgSettingsPage';
 import { OrgSidebar } from './OrgSidebar';
 import { PortalShell } from './PortalShell';
@@ -32,7 +33,9 @@ export function PortalRoot() {
   const { user } = useAuth();
   const orgs = useCollection<OrgMirror>(`users/${user!.uid}/orgs`);
   const org = orgs[0];
-  const route = parsePortalRoute(window.location.pathname);
+  // Reactive path: navigate()/popstate re-render the route in place — no
+  // document load, so auth + Firestore subscriptions persist across sections.
+  const route = parsePortalRoute(usePortalPath());
 
   // Competition routes swap the whole shell (org sidebar -> contextual comp
   // sidebar), rather than nesting inside the org PortalShell below — mirrors
