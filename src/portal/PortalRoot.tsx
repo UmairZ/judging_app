@@ -3,6 +3,7 @@ import { useCollection } from '../data/db';
 import { TenantProvider } from '../tenant/TenantContext';
 import { AccountPage } from './AccountPage';
 import { CompShell } from './comp/CompShell';
+import { ContestantsPage } from './comp/ContestantsPage';
 import { OverviewPage } from './comp/OverviewPage';
 import { HomePage } from './HomePage';
 import { OrgSettingsPage } from './OrgSettingsPage';
@@ -37,7 +38,13 @@ export function PortalRoot() {
     return (
       <TenantProvider orgId={org.id} compId={route.compId}>
         <CompShell compId={route.compId} section={route.section}>
-          {route.section === 'overview' ? <OverviewPage /> : <ComingSoon section={route.section} />}
+          {route.section === 'overview' ? (
+            <OverviewPage />
+          ) : route.section === 'contestants' ? (
+            <ContestantsPage />
+          ) : (
+            <ComingSoon section={route.section} />
+          )}
         </CompShell>
       </TenantProvider>
     );
