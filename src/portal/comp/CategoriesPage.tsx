@@ -54,6 +54,27 @@ export function CategoriesPage() {
     }));
   }
 
+  // Free-typing buffer per division, so the input can hold transient blank/whitespace
+  // while the user is editing without ever committing that into `edited` (mirrors the
+  // source's commitRenameDiv guard: `if (!editingDivLabel.trim()) { …revert…; return; }`,
+  // which committed the TRIMMED value and otherwise left the prior label untouched).
+  const [divDrafts, setDivDrafts] = useState<Record<string, string>>({});
+  const divInputValue = (div: Division) => divDrafts[div.id] ?? div.label;
+  const setDivDraft = (divId: string, value: string) => setDivDrafts((prev) => ({ ...prev, [divId]: value }));
+  const commitDivRename = (divId: string) => {
+    const draft = divDrafts[divId];
+    if (draft !== undefined) {
+      const trimmed = draft.trim();
+      if (trimmed) renameDivision(divId, trimmed);
+      // else: blank/whitespace — revert, same as the source; `edited` is left untouched.
+    }
+    setDivDrafts((prev) => {
+      const next = { ...prev };
+      delete next[divId];
+      return next;
+    });
+  };
+
   // ── Category editing ────────────────────────────────────────────────────
   function addCategory() {
     setEdited((prev) => ({
@@ -113,7 +134,11 @@ export function CategoriesPage() {
             <Field key={div.id} className="flex items-end gap-3">
               <div className="min-w-0 flex-1">
                 <Label>Division name</Label>
-                <Input value={div.label} onChange={(e) => renameDivision(div.id, e.target.value)} />
+                <Input
+                  value={divInputValue(div)}
+                  onChange={(e) => setDivDraft(div.id, e.target.value)}
+                  onBlur={() => commitDivRename(div.id)}
+                />
               </div>
               <Button outline onClick={() => removeDivision(div.id)}>
                 Remove
