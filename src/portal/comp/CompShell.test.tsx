@@ -7,6 +7,11 @@ import { render, screen, cleanup } from '@testing-library/react';
 // InMemoryBackend never touches db/auth/app, so a bare mock keeps the import safe —
 // same pattern as HomePage.test.tsx.
 vi.mock('../../firebase/app', () => ({ app: {}, db: {}, auth: { currentUser: null } }));
+// AccountFooter (rendered by CompShell's sidebar) reads useAuth() for the
+// signed-in user + Sign out — same auth-mock pattern as HomePage.test.tsx.
+vi.mock('../../auth/AuthContext', () => ({
+  useAuth: () => ({ user: { uid: 'u1', email: 'umair@humsub.co', displayName: 'Umair' }, signOut: vi.fn() }),
+}));
 
 const { InMemoryBackend, DbProvider } = await import('../../data/backend');
 const { TenantProvider } = await import('../../tenant/TenantContext');
@@ -63,5 +68,10 @@ describe('CompShell', () => {
 
     // Children render inside the shell.
     expect(screen.getByText('page content')).toBeTruthy();
+
+    // Account footer — signed-in user + Sign out must stay reachable while
+    // inside any competition section, not just at /portal.
+    expect(screen.getByText('Sign out')).toBeTruthy();
+    expect(screen.getByText('umair@humsub.co')).toBeTruthy();
   });
 });

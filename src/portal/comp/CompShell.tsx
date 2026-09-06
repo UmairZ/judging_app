@@ -12,6 +12,7 @@ import {
 import { useDocData } from '../../data/db';
 import { useTenant } from '../../tenant/TenantContext';
 import { compBasePath } from '../../tenant/paths';
+import { AccountFooter } from '../AccountFooter';
 import { STATUS_LABEL, statusColor, type CompStatus } from '../lifecycle';
 import { compPath, type CompSection } from '../routes';
 import { PortalShell } from '../PortalShell';
@@ -88,6 +89,7 @@ export function CompShell({
         </SidebarSection>
         <SidebarSpacer />
       </SidebarBody>
+      <AccountFooter />
     </Sidebar>
   );
 

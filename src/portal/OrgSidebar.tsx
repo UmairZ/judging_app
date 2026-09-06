@@ -1,9 +1,8 @@
 import { HomeIcon, UserCircleIcon, UserGroupIcon } from '@heroicons/react/20/solid';
-import { useAuth } from '../auth/AuthContext';
+import { AccountFooter } from './AccountFooter';
 import {
   Sidebar,
   SidebarBody,
-  SidebarFooter,
   SidebarHeader,
   SidebarItem,
   SidebarLabel,
@@ -15,7 +14,6 @@ import {
  * judge account) — the sidebar (and critically its Sign out) still renders,
  * just with the product name standing in for an org. */
 export function OrgSidebar({ orgName }: { orgName: string | null }) {
-  const { user, signOut } = useAuth();
   const pathname = window.location.pathname;
   const headerLabel = orgName ?? 'Ubayy';
   const initial = headerLabel.charAt(0).toUpperCase();
@@ -49,23 +47,7 @@ export function OrgSidebar({ orgName }: { orgName: string | null }) {
         <SidebarSpacer />
       </SidebarBody>
 
-      <SidebarFooter>
-        <div className="flex items-center justify-between gap-3 px-2 py-1.5">
-          <span className="min-w-0">
-            <span className="block truncate text-sm/5 font-medium text-zinc-950 dark:text-white">
-              {user?.displayName ?? user?.email ?? 'Account'}
-            </span>
-            <span className="block truncate text-xs/5 text-zinc-500 dark:text-zinc-400">{user?.email}</span>
-          </span>
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            className="shrink-0 text-xs/5 font-medium text-zinc-500 hover:text-zinc-950 dark:hover:text-white"
-          >
-            Sign out
-          </button>
-        </div>
-      </SidebarFooter>
+      <AccountFooter />
     </Sidebar>
   );
 }
