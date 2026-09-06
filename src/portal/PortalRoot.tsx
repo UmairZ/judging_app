@@ -2,6 +2,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useCollection } from '../data/db';
 import { TenantProvider } from '../tenant/TenantContext';
 import { AccountPage } from './AccountPage';
+import { CategoriesPage } from './comp/CategoriesPage';
 import { CompShell } from './comp/CompShell';
 import { ContestantsPage } from './comp/ContestantsPage';
 import { OverviewPage } from './comp/OverviewPage';
@@ -42,6 +43,8 @@ export function PortalRoot() {
             <OverviewPage />
           ) : route.section === 'contestants' ? (
             <ContestantsPage />
+          ) : route.section === 'categories' ? (
+            <CategoriesPage />
           ) : (
             <ComingSoon section={route.section} />
           )}
