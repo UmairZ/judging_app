@@ -50,8 +50,9 @@ describe('portal client-side router (PortalRoot + vendor Link + nav)', () => {
     // preventDefault-ed and swapped the section in place instead.
     fireEvent.click(screen.getByText('Scoring'));
 
-    // (a) The new section's heading renders.
-    expect(await screen.findByText('Scoring config')).toBeTruthy();
+    // (a) The new section's heading renders (page heading matches the sidebar
+    // label now, so scope to the heading role).
+    expect(await screen.findByRole('heading', { name: 'Scoring' })).toBeTruthy();
 
     // (b) history.pushState was called and the location actually changed.
     expect(pushSpy).toHaveBeenCalledWith({}, '', '/portal/c/2026/scoring');
@@ -59,8 +60,9 @@ describe('portal client-side router (PortalRoot + vendor Link + nav)', () => {
 
     // (c) In-place swap: the same render tree now shows the new section (the
     // pathname-swap happened without a load; the old section's page is gone),
-    // and the sidebar highlight followed.
-    expect(screen.getByText('Scoring').closest('[data-current]')).toBeTruthy();
+    // and the sidebar highlight followed ('Scoring' now appears both as the
+    // sidebar label and the page heading — the sidebar one carries the mark).
+    expect(screen.getAllByText('Scoring').some((el) => el.closest('[data-current]'))).toBe(true);
   });
 
   it('leaves non-portal links native (no pushState, no in-place swap)', async () => {
