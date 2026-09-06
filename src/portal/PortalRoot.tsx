@@ -5,6 +5,7 @@ import { AccountPage } from './AccountPage';
 import { CategoriesPage } from './comp/CategoriesPage';
 import { CompShell } from './comp/CompShell';
 import { ContestantsPage } from './comp/ContestantsPage';
+import { JudgesPage } from './comp/JudgesPage';
 import { OverviewPage } from './comp/OverviewPage';
 import { HomePage } from './HomePage';
 import { OrgSettingsPage } from './OrgSettingsPage';
@@ -45,6 +46,8 @@ export function PortalRoot() {
             <ContestantsPage />
           ) : route.section === 'categories' ? (
             <CategoriesPage />
+          ) : route.section === 'judges' ? (
+            <JudgesPage />
           ) : (
             <ComingSoon section={route.section} />
           )}
