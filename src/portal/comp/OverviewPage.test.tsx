@@ -32,7 +32,7 @@ function seededBackend() {
 }
 
 describe('OverviewPage', () => {
-  it('renders the comp name/status, the judge-welcome door, live stats, and quick facts', async () => {
+  it('renders the comp name/status, live stats, and quick facts', async () => {
     const backend = seededBackend();
     render(
       <DbProvider backend={backend}>
@@ -44,10 +44,6 @@ describe('OverviewPage', () => {
 
     expect(await screen.findByText('2026 Ramadan Contest')).toBeTruthy();
     expect(screen.getByText('Live')).toBeTruthy();
-
-    const link = screen.getByText('Open judge welcome').closest('a');
-    expect(link?.getAttribute('href')).toBe('/ik/2026');
-    expect(link?.getAttribute('target')).toBe('_blank');
 
     expect(screen.getByText('Registrations')).toBeTruthy();
     expect(screen.getByText('Sessions graded')).toBeTruthy();

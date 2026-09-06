@@ -65,27 +65,26 @@ describe('ContestantsPage', () => {
     expect(screen.getByRole('button', { name: 'Registrations' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Contestants' })).toBeTruthy();
 
-    // Default (ledger) view — read-only, both registrations show up.
+    // Default (Registrations) view — the full interactive intake experience:
+    // both seeded registrations, their source column, promote status badges,
+    // and the CSV-import control.
     expect(await screen.findByText('Aisha Siddiqua')).toBeTruthy();
     expect(screen.getByText('Yusuf Rahman')).toBeTruthy();
     expect(screen.getByText('Zeffy')).toBeTruthy();
     expect(screen.getByText('Manual')).toBeTruthy();
-
-    // Switch to the roster view (promote-registrations table + the full
-    // contestant-roster management panel ported from src/admin/Contestants.tsx).
-    fireEvent.click(screen.getByRole('button', { name: 'Contestants' }));
-
-    // "Aisha Siddiqua" now legitimately renders twice — once as a row in the
-    // promote-registrations table (already Promoted), once as her own entry
-    // in the contestant-roster list below it.
-    expect(await screen.findAllByText('Aisha Siddiqua')).toHaveLength(2);
-    expect(screen.getByText('Yusuf Rahman')).toBeTruthy();
     expect(screen.getByText('Promoted')).toBeTruthy();
     expect(screen.getByText('Pending')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Import CSV' })).toBeTruthy();
 
-    // Contestant roster panel: one roster row (the seeded contestant doc,
-    // read from tp('contestants') same as the promote table) + one roster
-    // action control ("+ New", from Contestants.tsx's handleNewContestant).
+    // Switch to the roster view (the contestant-roster master-detail panel
+    // ported from src/admin/Contestants.tsx — and nothing else).
+    fireEvent.click(screen.getByRole('button', { name: 'Contestants' }));
+
+    // Contestant roster panel: one roster row (the seeded contestant doc) +
+    // one roster action control ("+ New", from handleNewContestant). The
+    // registrations machinery is gone from this tab.
+    expect(await screen.findByText('Aisha Siddiqua')).toBeTruthy();
+    expect(screen.queryByText('Yusuf Rahman')).toBeNull();
     expect(screen.getByText('1 total')).toBeTruthy();
     expect(screen.getByRole('button', { name: '+ New' })).toBeTruthy();
   });
