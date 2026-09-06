@@ -9,7 +9,6 @@ import Home02 from './marketing/Home02';
 import DemoPage from './marketing/DemoPage';
 import About02 from './marketing/About02';
 import { PortalRoot } from './portal/PortalRoot';
-import { MockCatCards, MockCatMaster } from './portal/mock-categories';
 import { compPath } from './portal/routes';
 import { Heading } from './portal/vendor/heading';
 import { Text } from './portal/vendor/text';
@@ -27,10 +26,6 @@ function Routed() {
   // Portal auth gating — Phase C work-in-progress. Exact '/portal' or a
   // '/portal/...' subpath only — a bare startsWith would also claim '/portalfoo'.
   const path = window.location.pathname;
-  // THROWAWAY steering mockups (?catmock=a|b) — public, deleted after the pick.
-  const catmock = new URLSearchParams(window.location.search).get('catmock');
-  if (catmock === 'a') return <MockCatCards />;
-  if (catmock === 'b') return <MockCatMaster />;
   if (path === '/portal' || path.startsWith('/portal/')) {
     if (loading) return <Splash />;
     if (!user) return <SignInScreen />;
