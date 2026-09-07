@@ -50,4 +50,13 @@ describe('validateScoringConfig', () => {
     const bad = { ...DEFAULT_SCORING_CONFIG, voice_max: 0 };
     expect(validateScoringConfig(bad)).toContain('voice_max must be > 0');
   });
+
+  it('flags an unknown scoring model', () => {
+    const bad = { ...DEFAULT_SCORING_CONFIG, model: 'bogus-v9' };
+    expect(validateScoringConfig(bad).some((e) => e.includes('bogus-v9'))).toBe(true);
+  });
+
+  it('accepts both known models', () => {
+    expect(validateScoringConfig({ ...DEFAULT_SCORING_CONFIG, model: 'escalating-v2' })).toEqual([]);
+  });
 });

@@ -8,6 +8,7 @@ export type {
   ComponentMeans,
   EnrollmentSummary,
 } from './types';
+export { KNOWN_MODELS } from './types';
 
 export { DEFAULT_SCORING_CONFIG, weightsSum, validateScoringConfig } from './config';
 export {
@@ -21,6 +22,8 @@ export {
   voiceFraction,
   hifzAtFloor,
   questionScore,
+  hifzMistakeCount,
+  mistakeLimitReached,
 } from './question';
 export { componentMeans, sessionScore, tieBreakMean } from './session';
 export { enrollmentSummary, compareForLeaderboard } from './enrollment';

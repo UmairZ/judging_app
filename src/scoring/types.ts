@@ -62,3 +62,6 @@ export interface EnrollmentSummary {
   totalPromptedFailed: number;
   startedCount: number;
 }
+
+/** Model ids the engine implements. Unknown ids score as 'deduction-v1' (never crash mid-event). */
+export const KNOWN_MODELS = ['deduction-v1', 'escalating-v2'] as const;

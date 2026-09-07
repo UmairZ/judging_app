@@ -1,4 +1,5 @@
 import type { ScoringConfig } from './types';
+import { KNOWN_MODELS } from './types';
 
 export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
   model: 'deduction-v1',
@@ -21,5 +22,7 @@ export function validateScoringConfig(cfg: ScoringConfig): string[] {
   if (cfg.hifz_base <= 0) errors.push('hifz_base must be > 0');
   if (cfg.tajweed_base <= 0) errors.push('tajweed_base must be > 0');
   if (cfg.voice_max <= 0) errors.push('voice_max must be > 0');
+  if (!(KNOWN_MODELS as readonly string[]).includes(cfg.model))
+    errors.push(`unknown scoring system "${cfg.model}" — pick one on the Scoring page (scores fall back to standard deductions meanwhile)`);
   return errors;
 }
