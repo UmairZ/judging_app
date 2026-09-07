@@ -3,7 +3,7 @@ import type { StructureConfig } from '../domain/structure';
 import { compBasePath } from '../tenant/paths';
 import { Divider } from './vendor/divider';
 
-/* Shared between HomePage and the competition OverviewPage — a copy of
+/* Used by HomePage — a copy of
  * ./stat.tsx WITHOUT the change-badge line (spec: no delta badges here). */
 export function Stat({ title, value }: { title: string; value: string }) {
   return (

@@ -20,7 +20,6 @@ const { CompShell } = await import('./CompShell');
 afterEach(cleanup);
 
 const SECTION_LABELS = [
-  'Overview',
   'Contestants',
   'Categories & Divisions',
   'Judges & Panels',
@@ -56,7 +55,7 @@ describe('CompShell', () => {
     // Back-item to the org.
     expect(await screen.findByText('Ibn Katheer')).toBeTruthy();
 
-    // All seven section labels.
+    // All six section labels.
     for (const label of SECTION_LABELS) {
       expect(screen.getByText(label)).toBeTruthy();
     }
@@ -64,7 +63,7 @@ describe('CompShell', () => {
     // The active section (scoring) carries data-current; the others don't.
     const activeLink = screen.getByText('Scoring').closest('[data-current]');
     expect(activeLink).toBeTruthy();
-    expect(screen.getByText('Overview').closest('[data-current]')).toBeNull();
+    expect(screen.getByText('Leaderboard').closest('[data-current]')).toBeNull();
 
     // Children render inside the shell.
     expect(screen.getByText('page content')).toBeTruthy();

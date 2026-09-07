@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup } from '@testing-library/react';
 
-// Same import-safety pattern as CompShell.test.tsx / OverviewPage.test.tsx.
+// Same import-safety pattern as CompShell.test.tsx.
 vi.mock('../../firebase/app', () => ({ app: {}, db: {}, auth: { currentUser: null } }));
 
 // Headless UI's anchored DropdownMenu measures its trigger with ResizeObserver,

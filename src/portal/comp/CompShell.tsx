@@ -5,7 +5,6 @@ import {
   ClipboardDocumentListIcon,
   Cog6ToothIcon,
   DevicePhoneMobileIcon,
-  HomeIcon,
   RectangleGroupIcon,
   UsersIcon,
 } from '@heroicons/react/20/solid';
@@ -37,7 +36,6 @@ interface CompDoc {
 }
 
 const SECTIONS: { section: CompSection; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
-  { section: 'overview', label: 'Overview', icon: HomeIcon },
   { section: 'contestants', label: 'Contestants', icon: ClipboardDocumentListIcon },
   { section: 'categories', label: 'Categories & Divisions', icon: RectangleGroupIcon },
   { section: 'judges', label: 'Judges & Panels', icon: UsersIcon },

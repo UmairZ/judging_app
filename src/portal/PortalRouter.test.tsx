@@ -41,9 +41,10 @@ describe('portal client-side router (PortalRoot + vendor Link + nav)', () => {
       </DbProvider>,
     );
 
-    // Overview section renders first (comp name doubles as its heading, and
-    // also appears in the sidebar header — hence findAll).
+    // The default section (Contestants) renders first; the comp name shows in
+    // the sidebar header.
     expect((await screen.findAllByText('2026 Ramadan Contest')).length).toBeGreaterThan(0);
+    expect(await screen.findByRole('heading', { name: 'Contestants' })).toBeTruthy();
 
     // Click the Scoring section link in the comp sidebar. jsdom throws on any
     // real navigation, so this whole test doubles as proof the Link handler

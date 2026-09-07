@@ -157,7 +157,7 @@ function CompetitionRow({ orgId, comp, isFirst }: { orgId: string; comp: WithId<
           </div>
           <div className="space-y-1.5">
             <div className="text-base/6 font-semibold">
-              <Link href={compPath(comp.id, 'overview')}>{comp.name}</Link>
+              <Link href={compPath(comp.id)}>{comp.name}</Link>
             </div>
             <div className="text-xs/6 text-zinc-600">
               {contestants == null ? '—' : contestants} contestants · {judges == null ? '—' : judges} judges
@@ -175,7 +175,7 @@ function CompetitionRow({ orgId, comp, isFirst }: { orgId: string; comp: WithId<
             <DropdownMenu anchor="bottom end">
               <DropdownItem
                 onClick={() => {
-                  navigate(compPath(comp.id, 'overview'));
+                  navigate(compPath(comp.id));
                 }}
               >
                 Open
@@ -256,7 +256,7 @@ function NewCompetitionDialog({ orgId, onClose }: { orgId: string; onClose: () =
     try {
       const fns = getFunctions(app, 'us-central1');
       await httpsCallable(fns, 'createCompetition')({ orgId, compId, name: name.trim() });
-      navigate(compPath(compId, 'overview'));
+      navigate(compPath(compId));
     } catch (err) {
       setError((err as { message?: string })?.message ?? 'Could not create the competition.');
       setBusy(false);

@@ -146,7 +146,6 @@ export function ScoringPage() {
   return (
     <>
       <Heading>Scoring</Heading>
-      <Text className="mt-2">Changes take effect immediately — scores recompute everywhere automatically.</Text>
 
       {loading && <Text className="mt-8">Loading config…</Text>}
 

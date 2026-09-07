@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDocData, writeDoc } from '../../data/db';
 import { useTenant } from '../../tenant/TenantContext';
-import { DEFAULT_STRUCTURE_CONFIG, generateSlots, type StructureConfig } from '../../domain/structure';
+import { DEFAULT_STRUCTURE_CONFIG, type StructureConfig } from '../../domain/structure';
 import { Button } from '../vendor/button';
 import { Divider } from '../vendor/divider';
 import { Description, Field, Fieldset, Label } from '../vendor/fieldset';
@@ -50,8 +50,6 @@ export function CategoriesPage() {
     setEdited({ divisions: structureData.divisions, categories: structureData.categories });
     seeded.current = true;
   }, [structureData]);
-
-  const slots = generateSlots(edited);
 
   // ── Selection (master list → detail panel) ──────────────────────────────
   // null falls through to the first category, so the initial render and a
@@ -145,7 +143,6 @@ export function CategoriesPage() {
   }
 
   // ── render helpers ──────────────────────────────────────────────────────
-  const catLabel = (id: string) => edited.categories.find((c) => c.id === id)?.label ?? id;
   const divLabel = (id: string) => edited.divisions.find((d) => d.id === id)?.label ?? id;
 
   return (
@@ -188,7 +185,7 @@ export function CategoriesPage() {
                     >
                       <div className="text-sm/6 font-semibold">{c.label || 'Untitled category'}</div>
                       <div className="text-xs/5 text-zinc-500 dark:text-zinc-400">
-                        {c.divisions.length} division{c.divisions.length !== 1 ? 's' : ''} · min {c.minQuestions} Q
+                        {c.divisions.length} division{c.divisions.length !== 1 ? 's' : ''} · {c.minQuestions} question{c.minQuestions !== 1 ? 's' : ''}
                       </div>
                     </button>
                   ))}
@@ -225,7 +222,7 @@ export function CategoriesPage() {
                       </Description>
                     </Field>
                     <Field>
-                      <Label>Min questions</Label>
+                      <Label>Number of questions</Label>
                       <Input
                         type="number"
                         min={1}
@@ -338,12 +335,7 @@ export function CategoriesPage() {
 
           <Divider className="my-8" />
 
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <Text>
-              This config yields <strong className="text-zinc-950 dark:text-white">{slots.length} slot{slots.length !== 1 ? 's' : ''}</strong>
-              {slots.length > 0 && <> — {slots.map((s) => `(${catLabel(s.category)}×${divLabel(s.division)})`).join(', ')}</>}. Panels attach
-              to these.
-            </Text>
+          <div className="flex flex-wrap items-center justify-end gap-4">
             <Button onClick={() => void saveStructure()}>{structureSaved ? '✓ Saved' : 'Save Structure'}</Button>
           </div>
         </>
