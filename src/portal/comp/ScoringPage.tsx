@@ -166,17 +166,24 @@ export function ScoringPage() {
           <div>
             <Subheading>Scoring system</Subheading>
             <div role="radiogroup" aria-label="Scoring system" className="mt-4 flex flex-col gap-4 sm:flex-row">
-              {/* The only real option — maps to `model: 'deduction-v1'`. Selecting
+              {/* The default option — maps to `model: 'deduction-v1'`. Selecting
                   it changes nothing: handleSave already coalesces model to
                   'deduction-v1', so the click is a deliberate no-op. */}
-              <SystemCard selected={(edited.model ?? 'deduction-v1') === 'deduction-v1'} title="Standard deductions">
+              <SystemCard
+                selected={(edited.model ?? 'deduction-v1') === 'deduction-v1'}
+                title="Standard deductions"
+                onSelect={() => setField('model', 'deduction-v1')}
+              >
                 Each mistake costs a fixed amount. Simple and predictable — the system used by Ibn Katheer since 2025.
               </SystemCard>
-              {/* Scoring model v2 placeholder — escalating penalties, per the
-                  program spec's §D+ (docs/superpowers/specs/
-                  2026-08-18-saas-launch-program.md, DECIDED 2026-09-04,
-                  implement pre-competition). Disabled until the model ships. */}
-              <SystemCard disabled title="Escalating penalties" badge={<Badge color="zinc">Coming soon</Badge>}>
+              {/* Scoring model v2 — escalating penalties, per the program spec's
+                  §D+ (docs/superpowers/specs/2026-08-18-saas-launch-program.md,
+                  DECIDED 2026-09-04). Shipped. */}
+              <SystemCard
+                selected={edited.model === 'escalating-v2'}
+                title="Escalating penalties"
+                onSelect={() => setField('model', 'escalating-v2')}
+              >
                 Repeated mistakes in the same question cost progressively more, spreading scores across skill levels.
               </SystemCard>
             </div>
@@ -349,17 +356,35 @@ export function ScoringPage() {
               Costs come off a {edited.hifz_base}-point rail inside each component, then weighted — e.g. one Prompted
               mistake ≈ {promptedExample} off the final 100.
             </Text>
+            {edited.model === 'escalating-v2' && (
+              <Text className="mt-1 text-sm text-zinc-500">
+                Each repeated hifz mistake in the same question costs one more point than the last
+                (2nd mistake +1 extra, 3rd +2 extra…). Tajweed costs stay flat.
+              </Text>
+            )}
             <Fieldset className="mt-4">
-              <Field className="max-w-40">
-                <Label>Tajweed points per question</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={edited.tajweed_base}
-                  onChange={(e) => setField('tajweed_base', clamp(num(e.target.value, edited.tajweed_base), 1, 20))}
-                />
-              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <Label>Memorization points per question</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={edited.hifz_base}
+                    onChange={(e) => setField('hifz_base', clamp(num(e.target.value, edited.hifz_base), 1, 20))}
+                  />
+                </Field>
+                <Field>
+                  <Label>Tajweed points per question</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={edited.tajweed_base}
+                    onChange={(e) => setField('tajweed_base', clamp(num(e.target.value, edited.tajweed_base), 1, 20))}
+                  />
+                </Field>
+              </div>
             </Fieldset>
           </div>
 
@@ -368,21 +393,10 @@ export function ScoringPage() {
           <div>
             <Subheading>Disqualification trigger</Subheading>
             <Text className="mt-1">
-              When a question&apos;s memorization points hit zero, the judge is asked whether to write off the whole
-              question. This same number is the memorization rail the mistake costs above come off of.
+              When a contestant hits a category&apos;s mistake limit — that many hifz mistakes on a single
+              question — the judge is asked whether to write off the whole question. Each category sets
+              its own limit on the Categories &amp; Divisions page.
             </Text>
-            <Fieldset className="mt-4">
-              <Field className="max-w-40">
-                <Label>Memorization points per question</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={edited.hifz_base}
-                  onChange={(e) => setField('hifz_base', clamp(num(e.target.value, edited.hifz_base), 1, 20))}
-                />
-              </Field>
-            </Fieldset>
           </div>
 
           {errors.length > 0 && (
