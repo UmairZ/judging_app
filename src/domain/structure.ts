@@ -61,5 +61,7 @@ export function defaultDivisionForCategory(category: Category, gender?: 'male' |
 export const DEFAULT_MISTAKE_LIMIT = 5;
 
 export function categoryMistakeLimit(c: Category): number {
-  return c.mistakeLimit ?? DEFAULT_MISTAKE_LIMIT;
+  const v = c.mistakeLimit;
+  // Hand-edited docs must degrade safely (same principle as unknown model ids).
+  return typeof v === 'number' && Number.isFinite(v) && v >= 1 ? v : DEFAULT_MISTAKE_LIMIT;
 }

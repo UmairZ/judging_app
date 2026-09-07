@@ -51,4 +51,9 @@ describe('categoryMistakeLimit', () => {
   it('returns the explicit limit when present', () => {
     expect(categoryMistakeLimit({ ...base, mistakeLimit: 8 })).toBe(8);
   });
+  it('falls back on invalid stored limits (0, negative, NaN)', () => {
+    expect(categoryMistakeLimit({ ...base, mistakeLimit: 0 })).toBe(DEFAULT_MISTAKE_LIMIT);
+    expect(categoryMistakeLimit({ ...base, mistakeLimit: -3 })).toBe(DEFAULT_MISTAKE_LIMIT);
+    expect(categoryMistakeLimit({ ...base, mistakeLimit: Number.NaN })).toBe(DEFAULT_MISTAKE_LIMIT);
+  });
 });
