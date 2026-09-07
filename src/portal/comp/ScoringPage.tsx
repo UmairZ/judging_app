@@ -8,19 +8,20 @@ import { Divider } from '../vendor/divider';
 import { Field, Fieldset, Label } from '../vendor/fieldset';
 import { Heading, Subheading } from '../vendor/heading';
 import { Input } from '../vendor/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../vendor/table';
 import { Text } from '../vendor/text';
+import { Explainer } from '../Explainer';
 
 /**
- * Scoring config: chrome-only port of src/admin/ScoringConfig.tsx. All data
- * logic below is ported verbatim from that file: same hooks, same handler
- * names, same tp() paths, same clamp semantics. The scoring ENGINE
+ * Scoring page — plain-language rewrite of the config form (approved steering
+ * mock, 2026-09-06). All data logic is unchanged from the chrome-only port of
+ * src/admin/ScoringConfig.tsx: same hooks, same handler names, same tp()
+ * paths, same clamp semantics, same write shape. The scoring ENGINE
  * (src/scoring/*) is untouched — `validateScoringConfig`/`weightsSum`/
- * `DEFAULT_SCORING_CONFIG` are reused exactly as the source does. The
- * source's purely-decorative stacked weight bar (hPct/tPct/vPct) has no
- * chrome equivalent in this port and is dropped; the sum/validity summary
- * itself is kept via a Badge.
+ * `DEFAULT_SCORING_CONFIG` are reused exactly as before. Only the framing
+ * changed: judge-mirroring language, no engine jargon (design principle 13).
  *
- * The source gates the whole form (incl. Save) behind `loading` with a
+ * The whole form (incl. Save) is gated behind `loading` with a
  * "Loading config…" placeholder, so a Save click during the fetch window
  * can never write DEFAULT_SCORING_CONFIG over the live doc — same failure
  * class ContestantsPage.tsx guards its webhook-token generator against.
@@ -29,6 +30,72 @@ import { Text } from '../vendor/text';
 function clamp(val: number, min: number, max: number) {
   return Math.max(min, Math.min(max, val));
 }
+
+/**
+ * Scoring-system chooser card. Rendered as a styled button with role=radio
+ * semantics rather than vendor radio.tsx: the vendor Radio is a bare dot
+ * control (no children), so whole-card selection can't compose from it —
+ * the card surface itself must be the interactive radio for the click
+ * target and the ring styling to be one element.
+ */
+function SystemCard({
+  selected,
+  disabled,
+  title,
+  badge,
+  onSelect,
+  children,
+}: {
+  selected?: boolean;
+  disabled?: boolean;
+  title: string;
+  badge?: React.ReactNode;
+  onSelect?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected ?? false}
+      aria-disabled={disabled ?? false}
+      disabled={disabled}
+      onClick={disabled ? undefined : onSelect}
+      className={
+        'flex-1 rounded-xl border p-5 text-left ' +
+        (selected
+          ? 'border-zinc-950/25 bg-white ring-2 ring-zinc-950/10 dark:border-white/25 dark:bg-zinc-800 dark:ring-white/10'
+          : 'border-zinc-950/10 bg-white dark:border-white/10 dark:bg-zinc-800') +
+        (disabled ? ' cursor-not-allowed opacity-60' : ' cursor-pointer')
+      }
+    >
+      <span className="flex items-center gap-3">
+        <span
+          className={
+            'flex size-4.5 flex-none items-center justify-center rounded-full border ' +
+            (selected
+              ? 'border-zinc-900 bg-zinc-900 dark:border-white dark:bg-white'
+              : 'border-zinc-950/20 bg-white dark:border-white/20 dark:bg-zinc-800')
+          }
+        >
+          {selected && <span className="size-1.5 rounded-full bg-white dark:bg-zinc-900" />}
+        </span>
+        <span className="text-sm/6 font-semibold text-zinc-950 dark:text-white">{title}</span>
+        {badge}
+      </span>
+      <Text className="mt-2 text-sm">{children}</Text>
+    </button>
+  );
+}
+
+/** Rows mirror the judge's mistake buttons, in the order the judge sees them. */
+const MISTAKE_MEANINGS = {
+  self_corrected: 'caught and fixed it themselves',
+  prompted_fixed: 'needed a hint',
+  prompted_failed: 'hint given, still stuck',
+  tajweed_major: 'a clear recitation error',
+  tajweed_minor: 'a small slip in recitation',
+} as const;
 
 export function ScoringPage() {
   const { tp } = useTenant();
@@ -72,24 +139,61 @@ export function ScoringPage() {
     return isNaN(n) ? fallback : n;
   }
 
+  // Example line under the mistake table, computed from the live config:
+  // one Prompted mistake off the hifz rail, expressed on the final 100 scale.
+  const promptedExample = Math.round((edited.weights.hifz * edited.hifz_deductions.prompted_fixed) / edited.hifz_base);
+
   return (
     <>
-      <Heading>Scoring config</Heading>
-      <Text className="mt-2">Changes take effect immediately across all open views — scores recompute everywhere automatically.</Text>
+      <Heading>Scoring</Heading>
 
       {loading && <Text className="mt-8">Loading config…</Text>}
 
       {!loading && (
         <>
           <div className="mt-8">
-            <div className="flex items-baseline gap-3">
-              <Subheading>Component weights</Subheading>
-              <Badge color={valid ? 'green' : 'red'}>{`= ${sum}${valid ? ' ✓' : ` — ${sum < 100 ? 'under' : 'over'}`}`}</Badge>
+            <Explainer title="How scoring works">
+              <Text className="text-sm">
+                Judges tap a button for each mistake they hear. Every contestant starts at 100; each mistake takes
+                points off, weighted by how much each component counts.
+              </Text>
+              <Text className="text-sm">The scoring system below controls exactly how much each mistake costs.</Text>
+            </Explainer>
+          </div>
+
+          <Divider className="my-8" />
+
+          <div>
+            <Subheading>Scoring system</Subheading>
+            <div role="radiogroup" aria-label="Scoring system" className="mt-4 flex flex-col gap-4 sm:flex-row">
+              {/* The only real option — maps to `model: 'deduction-v1'`. Selecting
+                  it changes nothing: handleSave already coalesces model to
+                  'deduction-v1', so the click is a deliberate no-op. */}
+              <SystemCard selected={(edited.model ?? 'deduction-v1') === 'deduction-v1'} title="Standard deductions">
+                Each mistake costs a fixed amount. Simple and predictable — the system used by Ibn Katheer since 2025.
+              </SystemCard>
+              {/* Scoring model v2 placeholder — escalating penalties, per the
+                  program spec's §D+ (docs/superpowers/specs/
+                  2026-08-18-saas-launch-program.md, DECIDED 2026-09-04,
+                  implement pre-competition). Disabled until the model ships. */}
+              <SystemCard disabled title="Escalating penalties" badge={<Badge color="zinc">Coming soon</Badge>}>
+                Repeated mistakes in the same question cost progressively more, spreading scores across skill levels.
+              </SystemCard>
             </div>
+          </div>
+
+          <Divider className="my-8" />
+
+          <div>
+            <div className="flex items-baseline gap-3">
+              <Subheading>What each part is worth</Subheading>
+              <Badge color={valid && sum === 100 ? 'green' : 'red'}>{`= ${sum}${sum === 100 ? ' ✓' : ` — ${sum < 100 ? 'under' : 'over'}`}`}</Badge>
+            </div>
+            <Text className="mt-1">Out of the 100 points a contestant starts with.</Text>
             <Fieldset className="mt-4">
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field>
-                  <Label>Hifz</Label>
+                  <Label>Hifz — memorization</Label>
                   <Input
                     type="number"
                     min={0}
@@ -99,7 +203,7 @@ export function ScoringPage() {
                   />
                 </Field>
                 <Field>
-                  <Label>Tajweed</Label>
+                  <Label>Tajweed — recitation</Label>
                   <Input
                     type="number"
                     min={0}
@@ -109,7 +213,7 @@ export function ScoringPage() {
                   />
                 </Field>
                 <Field>
-                  <Label>Voice</Label>
+                  <Label>Voice &amp; delivery</Label>
                   <Input
                     type="number"
                     min={0}
@@ -120,22 +224,140 @@ export function ScoringPage() {
                 </Field>
               </div>
             </Fieldset>
+            <Fieldset className="mt-4">
+              <Field className="max-w-40">
+                <Label>Voice scale</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={edited.voice_max}
+                  onChange={(e) => setField('voice_max', clamp(num(e.target.value, edited.voice_max), 1, 20))}
+                />
+              </Field>
+              <Text className="mt-2 text-sm">Voice &amp; delivery is rated 0–{edited.voice_max} by the judge.</Text>
+            </Fieldset>
           </div>
 
           <Divider className="my-8" />
 
           <div>
-            <Subheading>Hifz base (spread + DQ trigger)</Subheading>
-            <Text className="mt-1">One knob, two jobs: lower hifz base spreads scores AND moves the auto-flag DQ trigger.</Text>
+            <Subheading>What each mistake costs</Subheading>
+            <Text className="mt-1">The same buttons the judge sees, and what each one takes off.</Text>
+            <Table className="mt-4 [--gutter:--spacing(6)]">
+              <TableHead>
+                <TableRow>
+                  <TableHeader>Judge&apos;s button</TableHeader>
+                  <TableHeader>Meaning</TableHeader>
+                  <TableHeader className="text-right">Cost</TableHeader>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="font-medium">Self-corrected</TableCell>
+                  <TableCell className="text-zinc-500">{MISTAKE_MEANINGS.self_corrected}</TableCell>
+                  {/* Fixed at 0 by the engine — not configurable, so it renders as text. */}
+                  <TableCell className="text-right">0 points</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Prompted</TableCell>
+                  <TableCell className="text-zinc-500">{MISTAKE_MEANINGS.prompted_fixed}</TableCell>
+                  <TableCell className="text-right">
+                    <Input
+                      aria-label="Prompted cost"
+                      className="ml-auto max-w-24"
+                      type="number"
+                      min={0}
+                      max={10}
+                      step={0.5}
+                      value={edited.hifz_deductions.prompted_fixed}
+                      onChange={(e) =>
+                        setField('hifz_deductions', {
+                          ...edited.hifz_deductions,
+                          prompted_fixed: clamp(num(e.target.value, edited.hifz_deductions.prompted_fixed), 0, 10),
+                        })
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Prompted-failed</TableCell>
+                  <TableCell className="text-zinc-500">{MISTAKE_MEANINGS.prompted_failed}</TableCell>
+                  <TableCell className="text-right">
+                    <Input
+                      aria-label="Prompted-failed cost"
+                      className="ml-auto max-w-24"
+                      type="number"
+                      min={0}
+                      max={10}
+                      step={0.5}
+                      value={edited.hifz_deductions.prompted_failed}
+                      onChange={(e) =>
+                        setField('hifz_deductions', {
+                          ...edited.hifz_deductions,
+                          prompted_failed: clamp(num(e.target.value, edited.hifz_deductions.prompted_failed), 0, 10),
+                        })
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Tajweed major</TableCell>
+                  <TableCell className="text-zinc-500">{MISTAKE_MEANINGS.tajweed_major}</TableCell>
+                  <TableCell className="text-right">
+                    <Input
+                      aria-label="Tajweed major cost"
+                      className="ml-auto max-w-24"
+                      type="number"
+                      min={0}
+                      max={10}
+                      step={0.5}
+                      value={edited.tajweed_deductions.major}
+                      onChange={(e) =>
+                        setField('tajweed_deductions', {
+                          ...edited.tajweed_deductions,
+                          major: clamp(num(e.target.value, edited.tajweed_deductions.major), 0, 10),
+                        })
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Tajweed minor</TableCell>
+                  <TableCell className="text-zinc-500">{MISTAKE_MEANINGS.tajweed_minor}</TableCell>
+                  <TableCell className="text-right">
+                    <Input
+                      aria-label="Tajweed minor cost"
+                      className="ml-auto max-w-24"
+                      type="number"
+                      min={0}
+                      max={10}
+                      step={0.5}
+                      value={edited.tajweed_deductions.minor}
+                      onChange={(e) =>
+                        setField('tajweed_deductions', {
+                          ...edited.tajweed_deductions,
+                          minor: clamp(num(e.target.value, edited.tajweed_deductions.minor), 0, 10),
+                        })
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            <Text className="mt-3 text-sm text-zinc-500">
+              Costs come off a {edited.hifz_base}-point rail inside each component, then weighted — e.g. one Prompted
+              mistake ≈ {promptedExample} off the final 100.
+            </Text>
             <Fieldset className="mt-4">
-              <Field>
-                <Label>hifz_base</Label>
+              <Field className="max-w-40">
+                <Label>Tajweed points per question</Label>
                 <Input
                   type="number"
                   min={1}
                   max={20}
-                  value={edited.hifz_base}
-                  onChange={(e) => setField('hifz_base', clamp(num(e.target.value, edited.hifz_base), 1, 20))}
+                  value={edited.tajweed_base}
+                  onChange={(e) => setField('tajweed_base', clamp(num(e.target.value, edited.tajweed_base), 1, 20))}
                 />
               </Field>
             </Fieldset>
@@ -144,104 +366,22 @@ export function ScoringPage() {
           <Divider className="my-8" />
 
           <div>
-            <Subheading>Component bases</Subheading>
+            <Subheading>Disqualification trigger</Subheading>
+            <Text className="mt-1">
+              When a question&apos;s memorization points hit zero, the judge is asked whether to write off the whole
+              question. This same number is the memorization rail the mistake costs above come off of.
+            </Text>
             <Fieldset className="mt-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field>
-                  <Label>tajweed_base</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={edited.tajweed_base}
-                    onChange={(e) => setField('tajweed_base', clamp(num(e.target.value, edited.tajweed_base), 1, 20))}
-                  />
-                </Field>
-                <Field>
-                  <Label>voice_max</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={edited.voice_max}
-                    onChange={(e) => setField('voice_max', clamp(num(e.target.value, edited.voice_max), 1, 20))}
-                  />
-                </Field>
-              </div>
-            </Fieldset>
-          </div>
-
-          <Divider className="my-8" />
-
-          <div>
-            <Subheading>Deductions</Subheading>
-            <Fieldset className="mt-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field>
-                  <Label>Hifz: prompted fixed</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={10}
-                    step={0.5}
-                    value={edited.hifz_deductions.prompted_fixed}
-                    onChange={(e) =>
-                      setField('hifz_deductions', {
-                        ...edited.hifz_deductions,
-                        prompted_fixed: clamp(num(e.target.value, edited.hifz_deductions.prompted_fixed), 0, 10),
-                      })
-                    }
-                  />
-                </Field>
-                <Field>
-                  <Label>Hifz: prompted failed</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={10}
-                    step={0.5}
-                    value={edited.hifz_deductions.prompted_failed}
-                    onChange={(e) =>
-                      setField('hifz_deductions', {
-                        ...edited.hifz_deductions,
-                        prompted_failed: clamp(num(e.target.value, edited.hifz_deductions.prompted_failed), 0, 10),
-                      })
-                    }
-                  />
-                </Field>
-                <Field>
-                  <Label>Tajweed: major</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={10}
-                    step={0.5}
-                    value={edited.tajweed_deductions.major}
-                    onChange={(e) =>
-                      setField('tajweed_deductions', {
-                        ...edited.tajweed_deductions,
-                        major: clamp(num(e.target.value, edited.tajweed_deductions.major), 0, 10),
-                      })
-                    }
-                  />
-                </Field>
-                <Field>
-                  <Label>Tajweed: minor</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={10}
-                    step={0.5}
-                    value={edited.tajweed_deductions.minor}
-                    onChange={(e) =>
-                      setField('tajweed_deductions', {
-                        ...edited.tajweed_deductions,
-                        minor: clamp(num(e.target.value, edited.tajweed_deductions.minor), 0, 10),
-                      })
-                    }
-                  />
-                </Field>
-              </div>
+              <Field className="max-w-40">
+                <Label>Memorization points per question</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={edited.hifz_base}
+                  onChange={(e) => setField('hifz_base', clamp(num(e.target.value, edited.hifz_base), 1, 20))}
+                />
+              </Field>
             </Fieldset>
           </div>
 
@@ -258,9 +398,9 @@ export function ScoringPage() {
           <Divider className="my-8" />
 
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <Text>Scores recompute everywhere automatically — config is read live by all views.</Text>
+            <Text>Scores recompute everywhere automatically — settings are read live by all views.</Text>
             <Button onClick={() => void handleSave()} disabled={!valid || saving}>
-              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save config'}
+              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save'}
             </Button>
           </div>
         </>

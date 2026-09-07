@@ -85,7 +85,7 @@ describe('ScoringPage', () => {
       </DbProvider>,
     );
 
-    expect(screen.getByRole('heading', { name: 'Scoring config' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Scoring' })).toBeTruthy();
     expect(await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.weights.hifz))).toBeTruthy();
   });
 
@@ -123,9 +123,9 @@ describe('ScoringPage', () => {
     // Still loading: heading renders, but the form (incl. Save, and any input) is absent —
     // a click during this window must not be possible, since it would write
     // DEFAULT_SCORING_CONFIG over the real (not-yet-loaded) config.
-    expect(screen.getByRole('heading', { name: 'Scoring config' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Scoring' })).toBeTruthy();
     expect(screen.getByText('Loading config…')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Save config/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     expect(screen.queryByDisplayValue(String(DEFAULT_SCORING_CONFIG.weights.hifz))).toBeNull();
     expect(screen.queryByDisplayValue(String(seededConfig.weights.hifz))).toBeNull();
 
@@ -134,6 +134,49 @@ describe('ScoringPage', () => {
 
     expect(await screen.findByDisplayValue(String(seededConfig.weights.hifz))).toBeTruthy();
     expect(screen.queryByText('Loading config…')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Save config' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+  });
+
+  it('renders the scoring-system chooser with "Escalating penalties" disabled and non-selectable', async () => {
+    const backend = seededBackend();
+    render(
+      <DbProvider backend={backend}>
+        <TenantProvider orgId="ik" compId="2026">
+          <ScoringPage />
+        </TenantProvider>
+      </DbProvider>,
+    );
+    await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.weights.hifz));
+
+    const standard = screen.getByRole('radio', { name: /Standard deductions/ }) as HTMLButtonElement;
+    const escalating = screen.getByRole('radio', { name: /Escalating penalties/ }) as HTMLButtonElement;
+    expect(standard.getAttribute('aria-checked')).toBe('true');
+    expect(escalating.getAttribute('aria-checked')).toBe('false');
+    expect(escalating.disabled).toBe(true);
+
+    // Clicking the disabled card must not select it (nor deselect Standard).
+    fireEvent.click(escalating);
+    expect(escalating.getAttribute('aria-checked')).toBe('false');
+    expect(standard.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('recomputes the cost caption from the live config when a weight changes', async () => {
+    const backend = seededBackend();
+    render(
+      <DbProvider backend={backend}>
+        <TenantProvider orgId="ik" compId="2026">
+          <ScoringPage />
+        </TenantProvider>
+      </DbProvider>,
+    );
+
+    // Defaults: hifz weight 70, prompted cost 1, rail 10 → round(70·1/10) = 7.
+    const hifzInput = (await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.weights.hifz))) as HTMLInputElement;
+    expect(screen.getByText(/one Prompted mistake ≈ 7 off the final 100/)).toBeTruthy();
+
+    // Change the hifz weight → the example must recompute: round(60·1/10) = 6.
+    fireEvent.change(hifzInput, { target: { value: '60' } });
+    expect(await screen.findByText(/one Prompted mistake ≈ 6 off the final 100/)).toBeTruthy();
+    expect(screen.queryByText(/one Prompted mistake ≈ 7 off the final 100/)).toBeNull();
   });
 });

@@ -42,6 +42,28 @@ function seededBackend() {
   return backend;
 }
 
+function renderPage(backend: InstanceType<typeof InMemoryBackend> | DbBackend) {
+  return render(
+    <DbProvider backend={backend as DbBackend}>
+      <TenantProvider orgId="ik" compId="2026">
+        <CategoriesPage />
+      </TenantProvider>
+    </DbProvider>,
+  );
+}
+
+/** The persisted structure payload, as captured from the last Save Structure click. */
+type SavedPayload = {
+  divisions: { id: string; label: string }[];
+  categories: { id: string; label: string; divisions: string[] }[];
+};
+
+async function saveAndGetPayload(): Promise<SavedPayload> {
+  fireEvent.click(screen.getByRole('button', { name: 'Save Structure' }));
+  await screen.findByText('✓ Saved');
+  return writeDocMock.mock.calls.at(-1)?.[1] as SavedPayload;
+}
+
 /** Copied from ScoringPage.test.tsx: wraps a real InMemoryBackend but holds
  * back the very first subscribeDoc delivery for one target path, so a test can
  * observe the `loading: true` window `useDocData` sits in before the doc
@@ -84,71 +106,130 @@ class DelayedDocBackend implements DbBackend {
 }
 
 describe('CategoriesPage', () => {
-  it('renders the heading and both seeded category rows, plus an add-category control', async () => {
-    const backend = seededBackend();
-    render(
-      <DbProvider backend={backend}>
-        <TenantProvider orgId="ik" compId="2026">
-          <CategoriesPage />
-        </TenantProvider>
-      </DbProvider>,
-    );
+  it('renders the heading, both seeded categories in the list, and selecting one shows its fields', async () => {
+    renderPage(seededBackend());
 
     expect(screen.getByRole('heading', { name: 'Categories & divisions' })).toBeTruthy();
 
+    // Both categories appear as list rows; the first is selected by default,
+    // so its editable fields (name input) are in the detail panel.
     expect(await screen.findByDisplayValue("1 Juz'")).toBeTruthy();
-    expect(screen.getByDisplayValue("5 Ajza'")).toBeTruthy();
+    expect(screen.getByRole('button', { name: /5 Ajza'/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'New' })).toBeTruthy();
 
-    expect(screen.getByRole('button', { name: '+ Add category' })).toBeTruthy();
+    // Selecting the second category swaps the detail panel to its fields.
+    fireEvent.click(screen.getByRole('button', { name: /5 Ajza'/ }));
+    expect(screen.getByDisplayValue("5 Ajza'")).toBeTruthy();
+    expect(screen.queryByDisplayValue("1 Juz'")).toBeNull();
   });
 
   it('renders fine with no config/structure doc (falls back to the default structure)', async () => {
-    const backend = new InMemoryBackend();
-    render(
-      <DbProvider backend={backend}>
-        <TenantProvider orgId="ik" compId="2026">
-          <CategoriesPage />
-        </TenantProvider>
-      </DbProvider>,
-    );
+    renderPage(new InMemoryBackend());
 
     expect(screen.getByRole('heading', { name: 'Categories & divisions' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '+ Add category' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'New' })).toBeTruthy();
   });
 
-  it('never commits a blank/whitespace division label, and commits the trimmed value otherwise', async () => {
-    const backend = seededBackend();
-    render(
-      <DbProvider backend={backend}>
-        <TenantProvider orgId="ik" compId="2026">
-          <CategoriesPage />
-        </TenantProvider>
-      </DbProvider>,
-    );
+  it('selecting an existing pool division in the reuse Select references it — no pool growth', async () => {
+    renderPage(seededBackend());
+    await screen.findByDisplayValue("1 Juz'");
 
-    const input = (await screen.findByDisplayValue('Brothers')) as HTMLInputElement;
-    const saveBtn = screen.getByRole('button', { name: 'Save Structure' });
+    // 5 Ajza' references only brothers; the pool already holds Sisters, so the
+    // reuse Select offers it.
+    fireEvent.click(screen.getByRole('button', { name: /5 Ajza'/ }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Add a division' }), { target: { value: 'sisters' } });
 
-    // Whitespace-only: blur reverts the input (edited.divisions is untouched), and a
-    // subsequent save persists the prior label unchanged.
-    fireEvent.change(input, { target: { value: '   ' } });
-    fireEvent.blur(input);
-    expect(input.value).toBe('Brothers');
+    // Every pool division is now referenced — the Select gives way to the name input.
+    expect(screen.queryByRole('combobox', { name: 'Add a division' })).toBeNull();
+    expect(screen.getByPlaceholderText('Division name')).toBeTruthy();
 
-    fireEvent.click(saveBtn);
-    await screen.findByText('✓ Saved');
-    const firstWrite = writeDocMock.mock.calls.at(-1)?.[1] as { divisions: { id: string; label: string }[] };
-    expect(firstWrite.divisions.find((d) => d.id === 'brothers')?.label).toBe('Brothers');
+    const payload = await saveAndGetPayload();
+    expect(payload.divisions).toHaveLength(2); // referenced, not duplicated
+    expect(payload.categories.find((c) => c.id === '5')?.divisions).toEqual(['brothers', 'sisters']);
+  });
 
-    // Padded text: blur commits the TRIMMED value, and save persists that.
-    fireEvent.change(input, { target: { value: '  Siblings  ' } });
-    fireEvent.blur(input);
-    expect(input.value).toBe('Siblings');
+  it('"New division…" reveals the name input, and a blank/whitespace add still changes nothing', async () => {
+    renderPage(seededBackend());
+    await screen.findByDisplayValue("1 Juz'");
 
-    fireEvent.click(saveBtn);
-    await screen.findByText('✓ Saved');
-    const secondWrite = writeDocMock.mock.calls.at(-1)?.[1] as { divisions: { id: string; label: string }[] };
-    expect(secondWrite.divisions.find((d) => d.id === 'brothers')?.label).toBe('Siblings');
+    // 5 Ajza' has an unreferenced pool division, so the Select shows first —
+    // the name input only appears through the "New division…" fallback.
+    fireEvent.click(screen.getByRole('button', { name: /5 Ajza'/ }));
+    expect(screen.queryByPlaceholderText('Division name')).toBeNull();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Add a division' }), { target: { value: '__new-division__' } });
+
+    fireEvent.change(screen.getByPlaceholderText('Division name'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add division' }));
+
+    const payload = await saveAndGetPayload();
+    expect(payload.divisions).toHaveLength(2);
+    expect(payload.categories.find((c) => c.id === '5')?.divisions).toEqual(['brothers']);
+
+    // Cancel hides the input again and brings the Select back.
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByPlaceholderText('Division name')).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Add a division' })).toBeTruthy();
+  });
+
+  it('typing an EXISTING pool label in the create fallback references it — no duplicate entry (safety path)', async () => {
+    renderPage(seededBackend());
+    await screen.findByDisplayValue("1 Juz'");
+
+    fireEvent.click(screen.getByRole('button', { name: /5 Ajza'/ }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Add a division' }), { target: { value: '__new-division__' } });
+    fireEvent.change(screen.getByPlaceholderText('Division name'), { target: { value: '  Sisters  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add division' }));
+
+    const payload = await saveAndGetPayload();
+    expect(payload.divisions).toHaveLength(2); // pool gained no duplicate
+    expect(payload.categories.find((c) => c.id === '5')?.divisions).toEqual(['brothers', 'sisters']);
+  });
+
+  it('with no unreferenced pool divisions the name input shows directly, and a new unique name grows the pool + references it', async () => {
+    renderPage(seededBackend());
+    await screen.findByDisplayValue("1 Juz'");
+
+    // 1 Juz' already references every pool division — nothing to reuse, so the
+    // Select is skipped and the name input renders directly (no Cancel either).
+    expect(screen.queryByRole('combobox', { name: 'Add a division' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText('Division name'), { target: { value: 'Combined' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add division' }));
+
+    const payload = await saveAndGetPayload();
+    expect(payload.divisions).toHaveLength(3);
+    const combined = payload.divisions.find((d) => d.label === 'Combined');
+    expect(combined).toBeTruthy();
+    expect(payload.categories.find((c) => c.id === '1')?.divisions).toEqual(['brothers', 'sisters', combined?.id]);
+  });
+
+  it('drops the "N categories" meta-line, and the bottom "Remove category" button removes the selected category', async () => {
+    renderPage(seededBackend());
+    await screen.findByDisplayValue("1 Juz'");
+
+    // Filler meta-text is gone (design principle 10).
+    expect(screen.queryByText(/\d+ categor/)).toBeNull();
+
+    // Destructive action lives at the detail's bottom; clicking it drops the
+    // selected (first) category from the edited structure.
+    fireEvent.click(screen.getByRole('button', { name: 'Remove category' }));
+    const payload = await saveAndGetPayload();
+    expect(payload.categories.map((c) => c.id)).toEqual(['5']);
+    expect(payload.divisions).toHaveLength(2); // pool untouched
+  });
+
+  it('removing a division from one category leaves the other category and the pool untouched', async () => {
+    renderPage(seededBackend());
+    await screen.findByDisplayValue("1 Juz'");
+
+    // Divisions render as pills with per-division ×-buttons carrying an
+    // accessible "Remove {label}" name.
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Brothers' }));
+
+    const payload = await saveAndGetPayload();
+    expect(payload.categories.find((c) => c.id === '1')?.divisions).toEqual(['sisters']);
+    expect(payload.categories.find((c) => c.id === '5')?.divisions).toEqual(['brothers']); // other category keeps its ref
+    expect(payload.divisions.map((d) => d.id)).toEqual(['brothers', 'sisters']); // pool entry deliberately kept
   });
 
   it('gates the form (and Save) behind the config load, and seeds from the resolved doc — never from defaults', async () => {
@@ -160,13 +241,7 @@ describe('CategoriesPage', () => {
     });
     const backend = new DelayedDocBackend(inner, path);
 
-    render(
-      <DbProvider backend={backend}>
-        <TenantProvider orgId="ik" compId="2026">
-          <CategoriesPage />
-        </TenantProvider>
-      </DbProvider>,
-    );
+    renderPage(backend);
 
     // Still loading: heading renders, but the form (incl. Save, and any input) is
     // absent — a click during this window must not be possible, since it would
@@ -175,14 +250,15 @@ describe('CategoriesPage', () => {
     expect(screen.getByRole('heading', { name: 'Categories & divisions' })).toBeTruthy();
     expect(screen.getByText('Loading structure…')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save Structure' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '+ Add category' })).toBeNull();
-    expect(screen.queryByDisplayValue('Brothers')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New' })).toBeNull();
+    expect(screen.queryByDisplayValue("1 Juz'")).toBeNull();
 
     // Doc resolves: the form appears, seeded with the SEEDED config, not the defaults.
     act(() => backend.release());
 
-    expect(await screen.findByDisplayValue('Brothers')).toBeTruthy();
+    expect(await screen.findByDisplayValue("1 Juz'")).toBeTruthy();
     expect(screen.queryByText('Loading structure…')).toBeNull();
     expect(screen.getByRole('button', { name: 'Save Structure' })).toBeTruthy();
+    expect(screen.getByText('Brothers')).toBeTruthy(); // seeded division row, not the 3-division default pool
   });
 });

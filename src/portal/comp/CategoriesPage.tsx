@@ -1,22 +1,38 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDocData, writeDoc } from '../../data/db';
 import { useTenant } from '../../tenant/TenantContext';
-import { DEFAULT_STRUCTURE_CONFIG, generateSlots, type StructureConfig, type Division, type Category } from '../../domain/structure';
+import { DEFAULT_STRUCTURE_CONFIG, type StructureConfig } from '../../domain/structure';
 import { Button } from '../vendor/button';
 import { Divider } from '../vendor/divider';
-import { Field, Fieldset, Label } from '../vendor/fieldset';
+import { Description, Field, Fieldset, Label } from '../vendor/fieldset';
 import { Heading, Subheading } from '../vendor/heading';
 import { Input } from '../vendor/input';
-import { Switch } from '../vendor/switch';
+import { Select } from '../vendor/select';
 import { Text } from '../vendor/text';
+import { PlusIcon, XMarkIcon } from '@heroicons/react/16/solid';
 
 /**
- * Categories & Divisions: the structure-config editor half of
- * src/admin/StructurePanels.tsx (`section="structure"`) — the panels/judges
- * half of that file is Task 9's ComingSoon page, not this one. All data
- * logic below is ported verbatim from that file: same hooks, same handler
- * names, same tp() paths.
+ * Categories & Divisions — category-first master-detail (the operator-approved
+ * `MockCatMaster` layout). UI-ONLY rework: the stored config keeps its global
+ * `divisions` pool + per-category division id references, and this page maps
+ * the "divisions live inside categories" presentation onto that shape:
+ *
+ * - A category's division rows are its referenced pool entries (labels
+ *   resolved through the pool).
+ * - "Add division" is reuse-first: a Select lists the pool divisions this
+ *   category doesn't reference yet (divisions are shared across categories),
+ *   and picking one references it. "New division…" (or an empty Select — no
+ *   unreferenced pool entries) falls back to a name input: an existing pool
+ *   label (exact, case-sensitive match) is referenced; a new name creates a
+ *   pool entry AND references it.
+ * - "Remove" on a division row drops the reference from THIS category only.
+ *   The pool entry stays even if now unreferenced — pruning it could touch
+ *   slot history, so unreferenced entries are deliberately kept.
  */
+/** Sentinel option value for "New division…" in the reuse Select — cannot
+ * collide with pool division ids (those are crypto.randomUUID()s or seeded slugs). */
+const NEW_DIVISION = '__new-division__';
+
 export function CategoriesPage() {
   // ── Firestore data ──────────────────────────────────────────────────────
   const { tp } = useTenant();
@@ -35,55 +51,38 @@ export function CategoriesPage() {
     seeded.current = true;
   }, [structureData]);
 
-  const slots = generateSlots(edited);
+  // ── Selection (master list → detail panel) ──────────────────────────────
+  // null falls through to the first category, so the initial render and a
+  // remove-selected both land on "first remaining" without an effect.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedCat = edited.categories.find((c) => c.id === selectedId) ?? edited.categories[0] ?? null;
 
-  // ── Division editing ────────────────────────────────────────────────────
-  function addDivision() {
-    setEdited((prev) => ({ ...prev, divisions: [...prev.divisions, { id: crypto.randomUUID(), label: 'New division' }] }));
+  // Draft for the "Add division" name input in the detail panel; cleared on
+  // add and whenever the selection changes so text never targets the wrong category.
+  const [newDivName, setNewDivName] = useState('');
+  // Whether the "New division…" fallback (name input) is revealed in place of
+  // the reuse Select; reset alongside the draft so it never carries across categories.
+  const [creatingDiv, setCreatingDiv] = useState(false);
+  function selectCategory(catId: string) {
+    setSelectedId(catId);
+    setNewDivName('');
+    setCreatingDiv(false);
   }
-  function removeDivision(divId: string) {
-    setEdited((prev) => ({
-      divisions: prev.divisions.filter((d) => d.id !== divId),
-      categories: prev.categories.map((c) => ({ ...c, divisions: c.divisions.filter((d) => d !== divId) })),
-    }));
-  }
-  function renameDivision(divId: string, label: string) {
-    setEdited((prev) => ({
-      ...prev,
-      divisions: prev.divisions.map((d) => (d.id === divId ? { ...d, label } : d)),
-    }));
-  }
-
-  // Free-typing buffer per division, so the input can hold transient blank/whitespace
-  // while the user is editing without ever committing that into `edited` (mirrors the
-  // source's commitRenameDiv guard: `if (!editingDivLabel.trim()) { …revert…; return; }`,
-  // which committed the TRIMMED value and otherwise left the prior label untouched).
-  const [divDrafts, setDivDrafts] = useState<Record<string, string>>({});
-  const divInputValue = (div: Division) => divDrafts[div.id] ?? div.label;
-  const setDivDraft = (divId: string, value: string) => setDivDrafts((prev) => ({ ...prev, [divId]: value }));
-  const commitDivRename = (divId: string) => {
-    const draft = divDrafts[divId];
-    if (draft !== undefined) {
-      const trimmed = draft.trim();
-      if (trimmed) renameDivision(divId, trimmed);
-      // else: blank/whitespace — revert, same as the source; `edited` is left untouched.
-    }
-    setDivDrafts((prev) => {
-      const next = { ...prev };
-      delete next[divId];
-      return next;
-    });
-  };
 
   // ── Category editing ────────────────────────────────────────────────────
   function addCategory() {
+    const id = crypto.randomUUID();
     setEdited((prev) => ({
       ...prev,
-      categories: [...prev.categories, { id: crypto.randomUUID(), label: '', minQuestions: 3, divisions: [], zeffyLabels: [''] }],
+      categories: [...prev.categories, { id, label: '', minQuestions: 3, divisions: [], zeffyLabels: [''] }],
     }));
+    selectCategory(id);
   }
   function removeCategory(catId: string) {
     setEdited((prev) => ({ ...prev, categories: prev.categories.filter((c) => c.id !== catId) }));
+    setSelectedId(null); // derived fallback selects the first remaining (or none-state)
+    setNewDivName('');
+    setCreatingDiv(false);
   }
   function setMinQ(catId: string, v: number) {
     setEdited((prev) => ({
@@ -98,14 +97,42 @@ export function CategoriesPage() {
     // the sub-line doubles as the Zeffy match label, so edits keep registration mapping in sync
     setEdited((prev) => ({ ...prev, categories: prev.categories.map((c) => (c.id === catId ? { ...c, zeffyLabels: [desc] } : c)) }));
   }
-  function toggleCatDivision(catId: string, divId: string) {
+
+  // ── Division editing (per category) ─────────────────────────────────────
+  // Reference an EXISTING pool division on this category — the reuse path the
+  // Select drives (same reference-append as addDivisionByName's reuse branch).
+  function addDivisionRef(catId: string, divId: string) {
     setEdited((prev) => ({
       ...prev,
-      categories: prev.categories.map((c) => {
-        if (c.id !== catId) return c;
-        const has = c.divisions.includes(divId);
-        return { ...c, divisions: has ? c.divisions.filter((d) => d !== divId) : [...c.divisions, divId] };
-      }),
+      categories: prev.categories.map((c) =>
+        c.id === catId && !c.divisions.includes(divId) ? { ...c, divisions: [...c.divisions, divId] } : c,
+      ),
+    }));
+  }
+  function addDivisionByName(catId: string) {
+    const name = newDivName.trim();
+    if (!name) return; // blank/whitespace — no-op, same spirit as the old rename guard
+    setEdited((prev) => {
+      // Exact (case-sensitive) label match reuses the pool entry; otherwise a
+      // new pool entry is created (same id generation as the old addDivision).
+      const existing = prev.divisions.find((d) => d.label === name);
+      const div = existing ?? { id: crypto.randomUUID(), label: name };
+      return {
+        divisions: existing ? prev.divisions : [...prev.divisions, div],
+        categories: prev.categories.map((c) =>
+          c.id === catId && !c.divisions.includes(div.id) ? { ...c, divisions: [...c.divisions, div.id] } : c,
+        ),
+      };
+    });
+    setNewDivName('');
+    setCreatingDiv(false); // back to the reuse-first Select (when anything is left to reuse)
+  }
+  function removeDivisionRef(catId: string, divId: string) {
+    // Reference removal only — the pool entry stays even if now unreferenced
+    // (pruning risks touching slot history).
+    setEdited((prev) => ({
+      ...prev,
+      categories: prev.categories.map((c) => (c.id === catId ? { ...c, divisions: c.divisions.filter((d) => d !== divId) } : c)),
     }));
   }
 
@@ -116,7 +143,6 @@ export function CategoriesPage() {
   }
 
   // ── render helpers ──────────────────────────────────────────────────────
-  const catLabel = (id: string) => edited.categories.find((c) => c.id === id)?.label ?? id;
   const divLabel = (id: string) => edited.divisions.find((d) => d.id === id)?.label ?? id;
 
   return (
@@ -134,100 +160,184 @@ export function CategoriesPage() {
 
       {!loading && (
         <>
-      <div className="mt-8">
-        <Subheading>Divisions</Subheading>
-        <Fieldset className="mt-4">
-          {edited.divisions.map((div: Division) => (
-            <Field key={div.id} className="flex items-end gap-3">
-              <div className="min-w-0 flex-1">
-                <Label>Division name</Label>
-                <Input
-                  value={divInputValue(div)}
-                  onChange={(e) => setDivDraft(div.id, e.target.value)}
-                  onBlur={() => commitDivRename(div.id)}
-                />
-              </div>
-              <Button outline onClick={() => removeDivision(div.id)}>
-                Remove
+          {/* ── ONE box: slim header bar, then list ⅓ | detail, top-aligned
+              (design principles 8 & 9 — master-detail is a single container). */}
+          <div className="mt-8 overflow-hidden rounded-xl border border-zinc-950/10 bg-white dark:border-white/10 dark:bg-zinc-900">
+            <div className="flex items-center justify-between border-b border-zinc-950/10 py-2 pr-3 pl-4 dark:border-white/10">
+              <span className="text-sm/6 font-medium">Categories</span>
+              <Button className="!px-2.5 !py-1 text-sm" onClick={addCategory}>
+                <PlusIcon /> New
               </Button>
-            </Field>
-          ))}
-          <Button outline onClick={addDivision}>
-            + Add division
-          </Button>
-        </Fieldset>
-      </div>
+            </div>
+            <div className="flex">
+              {/* ── Master: category list ───────────────────────────────── */}
+              <div className="w-1/3 max-w-64 shrink-0 border-r border-zinc-950/10 dark:border-white/10">
+                  {edited.categories.map((c, i) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => selectCategory(c.id)}
+                      className={
+                        'block w-full cursor-pointer px-4 py-3 text-left ' +
+                        (c.id === selectedCat?.id ? 'bg-zinc-100 dark:bg-zinc-800' : '') +
+                        (i > 0 ? ' border-t border-zinc-950/5 dark:border-white/5' : '')
+                      }
+                    >
+                      <div className="text-sm/6 font-semibold">{c.label || 'Untitled category'}</div>
+                      <div className="text-xs/5 text-zinc-500 dark:text-zinc-400">
+                        {c.divisions.length} division{c.divisions.length !== 1 ? 's' : ''} · {c.minQuestions} question{c.minQuestions !== 1 ? 's' : ''}
+                      </div>
+                    </button>
+                  ))}
+              </div>
 
-      <Divider className="my-8" />
-
-      <div>
-        <Subheading>Categories</Subheading>
-        <div className="mt-4 flex flex-col gap-6">
-          {edited.categories.map((cat: Category) => (
-            <div key={cat.id} className="rounded-lg border border-zinc-950/10 p-5 dark:border-white/10">
-              <Fieldset>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field>
-                    <Label>Category name</Label>
-                    <Input value={cat.label} onChange={(e) => setCatLabel(cat.id, e.target.value)} placeholder="Category name" />
-                  </Field>
-                  <Field>
-                    <Label>Description (Zeffy label)</Label>
-                    <Input
-                      value={cat.zeffyLabels?.[0] ?? ''}
-                      onChange={(e) => setCatDesc(cat.id, e.target.value)}
-                      placeholder="Description (Zeffy label)"
-                    />
-                  </Field>
-                </div>
-
-                <Field className="mt-6">
-                  <Label>Min questions</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={cat.minQuestions}
-                    onChange={(e) => setMinQ(cat.id, Math.max(1, Number(e.target.value) || 1))}
-                  />
-                </Field>
-
-                <Field className="mt-6">
-                  <Label>Divisions</Label>
-                  <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
-                    {edited.divisions.map((div: Division) => (
-                      <span key={div.id} className="flex items-center gap-2">
-                        <Switch checked={cat.divisions.includes(div.id)} onChange={() => toggleCatDivision(cat.id, div.id)} />
-                        <Text>{div.label}</Text>
+              {/* ── Detail: selected category ───────────────────────────── */}
+              <div className="min-w-0 flex-1 p-6">
+              {!selectedCat && <Text>Select a category</Text>}
+              {selectedCat && (
+                <>
+                  <Subheading>{selectedCat.label || 'Untitled category'}</Subheading>
+                  <Fieldset className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field>
+                      <Label>Category name</Label>
+                      <Input
+                        value={selectedCat.label}
+                        onChange={(e) => setCatLabel(selectedCat.id, e.target.value)}
+                        placeholder="Category name"
+                      />
+                    </Field>
+                    <Field>
+                      <Label>Registration match label</Label>
+                      {/* Stored under the historical `zeffyLabels` key, but matching is
+                          source-agnostic: CSV imports and webhooks resolve categories
+                          the same way (see src/intake/promotion.ts resolveCategories). */}
+                      <Input
+                        value={selectedCat.zeffyLabels?.[0] ?? ''}
+                        onChange={(e) => setCatDesc(selectedCat.id, e.target.value)}
+                        placeholder="e.g. 1 Juz (Ages 13 and Under)"
+                      />
+                      <Description>
+                        Incoming registrations — CSV import, Zeffy, or any form export — whose
+                        category text exactly matches this (or the category name) land here.
+                      </Description>
+                    </Field>
+                    <Field>
+                      <Label>Number of questions</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={selectedCat.minQuestions}
+                        onChange={(e) => setMinQ(selectedCat.id, Math.max(1, Number(e.target.value) || 1))}
+                      />
+                    </Field>
+                  </Fieldset>
+                  <Divider soft className="my-5" />
+                  <Subheading className="!text-sm">Divisions</Subheading>
+                  {/* Horizontal pill row (button-radius, not fully round) — picks from
+                      the dropdown append here; × removes from this category only. */}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {selectedCat.divisions.map((divId) => (
+                      <span
+                        key={divId}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-950/10 bg-white py-1.5 pr-2 pl-3 text-sm/6 font-medium dark:border-white/10 dark:bg-zinc-800"
+                      >
+                        {divLabel(divId)}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${divLabel(divId)}`}
+                          className="cursor-pointer text-zinc-400 hover:text-red-600"
+                          onClick={() => removeDivisionRef(selectedCat.id, divId)}
+                        >
+                          <XMarkIcon className="size-4" />
+                        </button>
                       </span>
                     ))}
                   </div>
-                </Field>
-              </Fieldset>
-
-              <div className="mt-6 flex justify-end">
-                <Button outline onClick={() => removeCategory(cat.id)}>
-                  Remove category
-                </Button>
+                  {(() => {
+                    // Divisions are shared across categories, so reuse is the
+                    // primary path: offer the pool entries this category doesn't
+                    // reference yet. With nothing left to reuse, skip straight
+                    // to the name input.
+                    const unreferenced = edited.divisions.filter((d) => !selectedCat.divisions.includes(d.id));
+                    const showNameInput = creatingDiv || unreferenced.length === 0;
+                    return (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {!showNameInput && (
+                          <div className="w-full max-w-56">
+                            <Select
+                              aria-label="Add a division"
+                              value=""
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (v === NEW_DIVISION) setCreatingDiv(true);
+                                else if (v) addDivisionRef(selectedCat.id, v);
+                                // controlled value="" — the Select snaps back to the placeholder
+                              }}
+                            >
+                              <option value="" disabled>
+                                Add a division…
+                              </option>
+                              {unreferenced.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.label}
+                                </option>
+                              ))}
+                              <option value={NEW_DIVISION}>New division…</option>
+                            </Select>
+                          </div>
+                        )}
+                        {showNameInput && (
+                          <>
+                            <div className="max-w-48">
+                              <Input
+                                placeholder="Division name"
+                                value={newDivName}
+                                onChange={(e) => setNewDivName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') addDivisionByName(selectedCat.id);
+                                }}
+                              />
+                            </div>
+                            <Button outline onClick={() => addDivisionByName(selectedCat.id)}>
+                              <PlusIcon /> Add division
+                            </Button>
+                            {creatingDiv && (
+                              <Button
+                                plain
+                                onClick={() => {
+                                  setCreatingDiv(false);
+                                  setNewDivName('');
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  <Divider soft className="my-5" />
+                  {/* Destructive section-level action: red, outlined, at the BOTTOM
+                      of the detail context (design principles 2, 5 & 8). */}
+                  <Button
+                    outline
+                    className="!border-red-600/30 !text-red-600 dark:!border-red-400/40 dark:!text-red-400"
+                    onClick={() => removeCategory(selectedCat.id)}
+                  >
+                    Remove category
+                  </Button>
+                </>
+              )}
               </div>
             </div>
-          ))}
+          </div>
 
-          <Button outline onClick={addCategory}>
-            + Add category
-          </Button>
-        </div>
-      </div>
+          <Divider className="my-8" />
 
-      <Divider className="my-8" />
-
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <Text>
-          This config yields <strong className="text-zinc-950 dark:text-white">{slots.length} slot{slots.length !== 1 ? 's' : ''}</strong>
-          {slots.length > 0 && <> — {slots.map((s) => `(${catLabel(s.category)}×${divLabel(s.division)})`).join(', ')}</>}. Panels attach
-          to these.
-        </Text>
-        <Button onClick={() => void saveStructure()}>{structureSaved ? '✓ Saved' : 'Save Structure'}</Button>
-      </div>
+          <div className="flex flex-wrap items-center justify-end gap-4">
+            <Button onClick={() => void saveStructure()}>{structureSaved ? '✓ Saved' : 'Save Structure'}</Button>
+          </div>
         </>
       )}
     </>

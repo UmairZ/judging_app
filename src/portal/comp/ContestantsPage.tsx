@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDownIcon } from '@heroicons/react/16/solid';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useCollection, useDocData, writeDoc, removeDoc, now } from '../../data/db';
 import { useTenant } from '../../tenant/TenantContext';
@@ -18,7 +19,8 @@ import {
 import { Avatar } from '../vendor/avatar';
 import { Badge } from '../vendor/badge';
 import { Button } from '../vendor/button';
-import { Dialog, DialogActions, DialogDescription, DialogTitle } from '../vendor/dialog';
+import { Dialog, DialogActions, DialogBody, DialogDescription, DialogTitle } from '../vendor/dialog';
+import { Dropdown, DropdownButton, DropdownDivider, DropdownItem, DropdownMenu } from '../vendor/dropdown';
 import { Field, Fieldset, Label } from '../vendor/fieldset';
 import { Heading, Subheading } from '../vendor/heading';
 import { Input } from '../vendor/input';
@@ -203,16 +205,6 @@ function PromoteDrawer({ state, structure, onClose, onChange, onSubmit }: Drawer
 // Small display helpers (read-only formatting; no data logic)
 // ---------------------------------------------------------------------------
 
-/** `createdAt` may be a Firestore `Timestamp` (live backend) or a plain millis
- * number (InMemoryBackend's resolved sentinel) — normalize to a display string. */
-function createdAtDisplay(value: unknown): string {
-  if (typeof value === 'number') return new Date(value).toLocaleDateString();
-  if (value && typeof value === 'object' && typeof (value as { toMillis?: unknown }).toMillis === 'function') {
-    return new Date((value as { toMillis: () => number }).toMillis()).toLocaleDateString();
-  }
-  return '—';
-}
-
 function fullNameOf(reg: { parsedFields?: Record<string, unknown> }): string {
   const parsedFields = reg.parsedFields ?? {};
   return typeof parsedFields.fullName === 'string' ? parsedFields.fullName : '(no name)';
@@ -224,10 +216,10 @@ function fullNameOf(reg: { parsedFields?: Record<string, unknown> }): string {
 
 /**
  * Contestants: two views over the same registration/contestant data —
- * an immutable Ledger of every registration exactly as it arrived, and the
- * Roster (the promotion workflow that turns a registration into a
- * contestant + enrollments). All data logic below is ported verbatim from
- * src/admin/Registrations.tsx — same hooks, same handlers, same tp() paths.
+ * Registrations (the intake + promotion workflow: Zeffy config, CSV import,
+ * promote/bulk-promote — ported verbatim from src/admin/Registrations.tsx)
+ * and Contestants (the roster master-detail editor ported from
+ * src/admin/Contestants.tsx). Same hooks, same handlers, same tp() paths.
  */
 export function ContestantsPage() {
   const { orgId, compId, tp } = useTenant();
@@ -235,7 +227,7 @@ export function ContestantsPage() {
   const contestants = useCollection<ContestantDoc>(tp('contestants'));
   const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
 
-  const [tab, setTab] = useState<'ledger' | 'roster'>('ledger');
+  const [tab, setTab] = useState<'registrations' | 'contestants'>('registrations');
 
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
   const [busy, setBusy] = useState(false);
@@ -251,6 +243,10 @@ export function ContestantsPage() {
   const zeffyValue = zeffyTitle ?? zeffyCfg.data?.eventTitle ?? '';
   const zeffyDirty = zeffyTitle !== null && zeffyTitle.trim() !== (zeffyCfg.data?.eventTitle ?? '').trim();
   const saveZeffy = async () => { await writeDoc(tp('config/zeffy'), { eventTitle: zeffyValue.trim() }); setZeffySaved(true); };
+
+  // Zeffy integration dialog (org-specific plumbing — tucked behind the Import
+  // menu rather than living in the tab's top-level flow).
+  const [zeffyDialogOpen, setZeffyDialogOpen] = useState(false);
 
   const zeffyToken = zeffyCfg.data?.token ?? '';
   const webhookUrl = zeffyToken ? `${window.location.origin}/zeffy/${orgId}/${compId}?token=${zeffyToken}` : '';
@@ -463,16 +459,6 @@ export function ContestantsPage() {
     return aPromoted - bPromoted;
   });
 
-  // Ledger: every registration, oldest first — a read-only journal, not the
-  // working (ticket-first/pending-first) roster order above.
-  const ledgerRegs = [...registrations].sort((a, b) => {
-    const millis = (v: unknown): number =>
-      typeof v === 'number' ? v : typeof v === 'object' && v && typeof (v as { toMillis?: unknown }).toMillis === 'function'
-        ? (v as { toMillis: () => number }).toMillis()
-        : 0;
-    return millis(a.createdAt) - millis(b.createdAt);
-  });
-
   // -------------------------------------------------------------------------
   // Roster management — ported verbatim from src/admin/Contestants.tsx
   // (the true source for contestant roster editing; see Round 2 ruling).
@@ -655,10 +641,10 @@ export function ContestantsPage() {
       <div className="mt-4 -mx-2 border-b border-zinc-950/10 dark:border-white/10">
         <Navbar>
           <NavbarSection>
-            <NavbarItem current={tab === 'ledger'} onClick={() => setTab('ledger')}>
+            <NavbarItem current={tab === 'registrations'} onClick={() => setTab('registrations')}>
               Registrations
             </NavbarItem>
-            <NavbarItem current={tab === 'roster'} onClick={() => setTab('roster')}>
+            <NavbarItem current={tab === 'contestants'} onClick={() => setTab('contestants')}>
               Contestants
             </NavbarItem>
           </NavbarSection>
@@ -666,47 +652,7 @@ export function ContestantsPage() {
       </div>
 
       <div className="mt-8">
-        {tab === 'ledger' ? (
-          <Table className="[--gutter:--spacing(6)]">
-            <TableHead>
-              <TableRow>
-                <TableHeader>Name</TableHeader>
-                <TableHeader>Category</TableHeader>
-                <TableHeader>Source</TableHeader>
-                <TableHeader>Created</TableHeader>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {ledgerRegs.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4}>
-                    <Text>No registrations yet.</Text>
-                  </TableCell>
-                </TableRow>
-              )}
-              {ledgerRegs.map((reg) => {
-                const resolved = resolveCategories(reg.parsedFields?.categories, structure);
-                const categoryText = resolved.length === 0 ? '—' : resolved.map((r) => r.label).join(' · ');
-                // Source discriminator: Zeffy-written docs always carry a non-null
-                // zeffyPaymentId/zeffyItemId (see parseRegistration in
-                // src/zeffy/parse-registration.ts); manual/csv docs explicitly null
-                // those out (see handleCsvFile below). `source === 'zeffy'` is the
-                // direct expression of that same distinction.
-                const isZeffy = reg.source === 'zeffy';
-                return (
-                  <TableRow key={reg.id}>
-                    <TableCell className="font-medium">{fullNameOf(reg)}</TableCell>
-                    <TableCell className="text-zinc-500">{categoryText}</TableCell>
-                    <TableCell>
-                      <Badge color={isZeffy ? 'amber' : 'zinc'}>{isZeffy ? 'Zeffy' : 'Manual'}</Badge>
-                    </TableCell>
-                    <TableCell className="text-zinc-500">{createdAtDisplay(reg.createdAt)}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        ) : (
+        {tab === 'registrations' ? (
           <div className="space-y-8">
             <div className="flex flex-wrap items-center gap-3">
               <Text>
@@ -720,66 +666,24 @@ export function ContestantsPage() {
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleCsvFile(f); e.target.value = ''; }}
               />
               <div className="ml-auto flex gap-3">
-                <Button outline onClick={() => fileInputRef.current?.click()} disabled={busy}>
-                  Import CSV
-                </Button>
+                {/* Import menu — the future home of the Phase E import/mapping wizard
+                    (per-source entries land here alongside CSV and Zeffy). */}
+                <Dropdown>
+                  <DropdownButton outline disabled={busy}>
+                    Import
+                    <ChevronDownIcon />
+                  </DropdownButton>
+                  <DropdownMenu anchor="bottom end">
+                    <DropdownItem onClick={() => fileInputRef.current?.click()}>Import CSV…</DropdownItem>
+                    <DropdownDivider />
+                    <DropdownItem onClick={() => setZeffyDialogOpen(true)}>Zeffy integration…</DropdownItem>
+                  </DropdownMenu>
+                </Dropdown>
                 <Button outline onClick={() => void handleBulkPromote()} disabled={busy}>
                   Promote all ready
                 </Button>
               </div>
             </div>
-
-            <Fieldset>
-              <Field>
-                <Label>Zeffy event filter</Label>
-                <Text>
-                  Zeffy sends every form to one webhook — only submissions whose event title matches this are
-                  accepted. Must equal the event&apos;s exact name in Zeffy.
-                </Text>
-                <div className="mt-3 flex flex-wrap gap-3">
-                  <Input
-                    className="min-w-0 flex-1"
-                    value={zeffyValue}
-                    onChange={(e) => { setZeffyTitle(e.target.value); setZeffySaved(false); }}
-                    placeholder="e.g. 2026 Ibn Katheer Quran Competition"
-                  />
-                  <Button onClick={() => void saveZeffy()} disabled={!zeffyDirty}>
-                    {zeffySaved && !zeffyDirty ? 'Saved' : 'Save'}
-                  </Button>
-                </div>
-              </Field>
-            </Fieldset>
-
-            <Fieldset>
-              <Field>
-                <Label>Zeffy webhook</Label>
-                <Text>
-                  Paste this URL into Zeffy&apos;s webhook settings. The token is this competition&apos;s secret —
-                  rotate it if it leaks.
-                </Text>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  {zeffyToken ? (
-                    <>
-                      <code className="min-w-0 flex-1 truncate rounded-lg border border-zinc-950/10 bg-zinc-950/2.5 px-3 py-2 text-xs text-zinc-950 dark:border-white/10 dark:bg-white/5 dark:text-white">
-                        {webhookUrl}
-                      </code>
-                      <Button onClick={() => void copyUrl()}>{copied ? 'Copied' : 'Copy URL'}</Button>
-                      <Button outline onClick={rotateToken} disabled={rotating}>
-                        {rotating ? 'Rotating…' : 'Rotate token'}
-                      </Button>
-                    </>
-                  ) : zeffyCfg.loading ? (
-                    <Text>Loading…</Text>
-                  ) : (
-                    // Only offered once the doc has resolved — otherwise a click during the load
-                    // window would silently overwrite an existing token without the confirm prompt.
-                    <Button onClick={rotateToken} disabled={rotating}>
-                      {rotating ? 'Generating…' : 'Generate webhook token'}
-                    </Button>
-                  )}
-                </div>
-              </Field>
-            </Fieldset>
 
             {flash && <Text className="font-medium text-green-600 dark:text-green-400">{flash}</Text>}
             {importReport && <Text className="font-medium text-green-600 dark:text-green-400">{importReport}</Text>}
@@ -864,262 +768,329 @@ export function ContestantsPage() {
             </Table>
 
             {busy && <Text>Saving…</Text>}
+          </div>
+        ) : (
+          <div>
+            <Subheading>Contestant roster</Subheading>
+            <Text className="mt-1">
+              Edit an existing contestant&apos;s details, photo, active status, and category enrollments.
+            </Text>
 
-            <div className="border-t border-zinc-950/10 pt-8 dark:border-white/10">
-              <Subheading>Contestant roster</Subheading>
-              <Text className="mt-1">
-                Edit an existing contestant&apos;s details, photo, active status, and category enrollments.
-              </Text>
-
-              <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start">
-                {/* left: contestant list */}
-                <div className="w-full shrink-0 lg:w-72">
-                  <div className="flex items-center justify-between gap-3">
-                    <Text>{sortedContestants.length} total</Text>
-                    <Button onClick={() => void handleNewContestant()}>+ New</Button>
-                  </div>
-                  <div className="mt-3 divide-y divide-zinc-950/5 overflow-hidden rounded-lg border border-zinc-950/10 dark:divide-white/5 dark:border-white/10">
-                    {sortedContestants.length === 0 && (
-                      <div className="p-4">
-                        <Text>No contestants yet.</Text>
-                      </div>
-                    )}
-                    {sortedContestants.map((c) => {
-                      const enrCount = enrCountById.get(c.id) ?? 0;
-                      const isSelected = c.id === selectedId;
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => setSelectedId(c.id)}
-                          className={
-                            'flex w-full items-center gap-3 px-4 py-3 text-left ' +
-                            (isSelected ? 'bg-zinc-950/5 dark:bg-white/10' : 'hover:bg-zinc-950/2.5 dark:hover:bg-white/5')
-                          }
-                        >
-                          <Avatar
-                            src={c.photoUrl}
-                            initials={c.photoUrl ? undefined : initials(c.fullName || '?')}
-                            className="size-9"
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-zinc-950 dark:text-white">
-                              {c.fullName}
-                            </span>
-                            <span className="block text-xs text-zinc-500">
-                              {enrCount} enrollment{enrCount !== 1 ? 's' : ''}
-                            </span>
-                          </span>
-                          <Badge color={c.active ? 'lime' : 'zinc'}>{c.active ? 'Active' : 'Inactive'}</Badge>
-                        </button>
-                      );
-                    })}
-                  </div>
+            <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start">
+              {/* left: contestant list */}
+              <div className="w-full shrink-0 lg:w-72">
+                <div className="flex items-center justify-between gap-3">
+                  <Text>{sortedContestants.length} total</Text>
+                  <Button onClick={() => void handleNewContestant()}>+ New</Button>
                 </div>
-
-                {/* right: edit panel */}
-                <div className="min-w-0 flex-1">
-                  {!selectedId || !edit ? (
-                    <Text>Select a contestant to edit.</Text>
-                  ) : (
-                    <div className="rounded-lg border border-zinc-950/10 p-5 dark:border-white/10">
-                      <div className="flex items-center gap-3">
-                        <Subheading>{edit.fullName || 'Contestant'}</Subheading>
-                        <span className="ml-auto flex items-center gap-2">
-                          <Text>Active</Text>
-                          <Switch
-                            checked={edit.active}
-                            onChange={(active) => setEdit((prev) => (prev ? { ...prev, active } : prev))}
-                          />
-                        </span>
-                      </div>
-
-                      <div className="mt-5 flex flex-wrap gap-6">
-                        {/* photo column */}
-                        <div className="w-28 shrink-0 text-center">
-                          <Avatar
-                            src={edit.photoUrl}
-                            initials={edit.photoUrl ? undefined : initials(edit.fullName || '?')}
-                            className="size-28"
-                          />
-                          <Button
-                            outline
-                            className="mt-2 w-full"
-                            onClick={() => photoInputRef.current?.click()}
-                            disabled={uploading}
-                          >
-                            {uploading ? 'Uploading…' : 'Replace photo'}
-                          </Button>
-                          <input
-                            ref={photoInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) void handlePhotoFile(file);
-                              e.target.value = '';
-                            }}
-                          />
-                          {photoNote && (
-                            <Text className="mt-1.5 text-xs text-red-600 dark:text-red-500">{photoNote}</Text>
-                          )}
-                        </div>
-
-                        {/* fields column */}
-                        <div className="min-w-[240px] flex-1">
-                          <Fieldset>
-                            <div className="grid gap-4 sm:grid-cols-3">
-                              <Field className="sm:col-span-2">
-                                <Label>Full name</Label>
-                                <Input
-                                  value={edit.fullName}
-                                  onChange={(e) => setEdit((prev) => (prev ? { ...prev, fullName: e.target.value } : prev))}
-                                />
-                              </Field>
-                              <Field>
-                                <Label>Gender</Label>
-                                <div className="mt-2 flex gap-1.5">
-                                  {(['male', 'female', null] as const).map((g) => {
-                                    const label = g === null ? 'None' : g === 'male' ? 'Male' : 'Female';
-                                    const on = edit.gender === g;
-                                    return on ? (
-                                      <Button
-                                        key={String(g)}
-                                        onClick={() => setEdit((prev) => (prev ? { ...prev, gender: g } : prev))}
-                                      >
-                                        {label}
-                                      </Button>
-                                    ) : (
-                                      <Button
-                                        key={String(g)}
-                                        outline
-                                        onClick={() => setEdit((prev) => (prev ? { ...prev, gender: g } : prev))}
-                                      >
-                                        {label}
-                                      </Button>
-                                    );
-                                  })}
-                                </div>
-                              </Field>
-                            </div>
-
-                            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                              <Field>
-                                <Label>Date of birth</Label>
-                                <Input
-                                  type="date"
-                                  value={edit.dateOfBirth}
-                                  onChange={(e) => setEdit((prev) => (prev ? { ...prev, dateOfBirth: e.target.value } : prev))}
-                                />
-                              </Field>
-                              {selected?.registrationId && (
-                                <Field>
-                                  <Label>From registration</Label>
-                                  <Text className="mt-1 rounded-lg border border-zinc-950/10 bg-zinc-950/2.5 px-3 py-2 dark:border-white/10 dark:bg-white/5">
-                                    {selected.registrationId}
-                                  </Text>
-                                </Field>
-                              )}
-                            </div>
-
-                            <Field className="mt-6">
-                              <Label>Category enrollments</Label>
-                              <div className="mt-2 flex flex-wrap items-center gap-2">
-                                {myEnrollments.map((e) => (
-                                  <span
-                                    key={e.category}
-                                    className="inline-flex items-center gap-2 rounded-md border border-zinc-950/10 bg-white px-3 py-1.5 text-sm font-medium text-zinc-950 dark:border-white/10 dark:bg-white/5 dark:text-white"
-                                  >
-                                    {catLabel(e.category)} · {divLabel(e.division)}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveEnrollment(e.category)}
-                                      className="text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400"
-                                      title="Remove enrollment"
-                                    >
-                                      ×
-                                    </button>
-                                  </span>
-                                ))}
-
-                                {!addingCat ? (
-                                  <Button outline onClick={() => setAddingCat(true)}>
-                                    + Add category
-                                  </Button>
-                                ) : (
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <div className="w-40">
-                                      <Select value={newCat} onChange={(e) => handleNewCatChange(e.target.value)}>
-                                        <option value="">— category —</option>
-                                        {structure.categories
-                                          .filter((c) => !enrolledCatIds.has(c.id))
-                                          .map((c) => (
-                                            <option key={c.id} value={c.id}>
-                                              {c.label}
-                                            </option>
-                                          ))}
-                                      </Select>
-                                    </div>
-                                    {newCat && (
-                                      <div className="w-40">
-                                        <Select value={newDiv} onChange={(e) => setNewDiv(e.target.value)}>
-                                          <option value="">— division —</option>
-                                          {(structure.categories.find((c) => c.id === newCat)?.divisions ?? []).map(
-                                            (d) => (
-                                              <option key={d} value={d}>
-                                                {divLabel(d)}
-                                              </option>
-                                            ),
-                                          )}
-                                        </Select>
-                                      </div>
-                                    )}
-                                    <Button onClick={handleAddEnrollment} disabled={!newCat || !newDiv}>
-                                      Add
-                                    </Button>
-                                    <Button
-                                      plain
-                                      onClick={() => {
-                                        setAddingCat(false);
-                                        setNewCat('');
-                                        setNewDiv('');
-                                      }}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                )}
-                              </div>
-                            </Field>
-                          </Fieldset>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-zinc-950/10 pt-4 dark:border-white/10">
-                        <Text className="text-red-600 dark:text-red-500">
-                          Removing a contestant leaves the immutable master intact — re-adding is trivial.
-                        </Text>
-                        <Button color="red" onClick={() => setConfirmRemoveOpen(true)}>
-                          Remove
-                        </Button>
-                        <div className="ml-auto flex items-center gap-3">
-                          <Button plain onClick={() => setSelectedId(null)}>
-                            Cancel
-                          </Button>
-                          <Button onClick={() => void handleSave()} disabled={saving}>
-                            {saving ? 'Saving…' : 'Save changes'}
-                          </Button>
-                        </div>
-                      </div>
+                <div className="mt-3 divide-y divide-zinc-950/5 overflow-hidden rounded-lg border border-zinc-950/10 dark:divide-white/5 dark:border-white/10">
+                  {sortedContestants.length === 0 && (
+                    <div className="p-4">
+                      <Text>No contestants yet.</Text>
                     </div>
                   )}
+                  {sortedContestants.map((c) => {
+                    const enrCount = enrCountById.get(c.id) ?? 0;
+                    const isSelected = c.id === selectedId;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setSelectedId(c.id)}
+                        className={
+                          'flex w-full items-center gap-3 px-4 py-3 text-left ' +
+                          (isSelected ? 'bg-zinc-950/5 dark:bg-white/10' : 'hover:bg-zinc-950/2.5 dark:hover:bg-white/5')
+                        }
+                      >
+                        <Avatar
+                          src={c.photoUrl}
+                          initials={c.photoUrl ? undefined : initials(c.fullName || '?')}
+                          className="size-9"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-zinc-950 dark:text-white">
+                            {c.fullName}
+                          </span>
+                          <span className="block text-xs text-zinc-500">
+                            {enrCount} enrollment{enrCount !== 1 ? 's' : ''}
+                          </span>
+                        </span>
+                        <Badge color={c.active ? 'lime' : 'zinc'}>{c.active ? 'Active' : 'Inactive'}</Badge>
+                      </button>
+                    );
+                  })}
                 </div>
+              </div>
+
+              {/* right: edit panel */}
+              <div className="min-w-0 flex-1">
+                {!selectedId || !edit ? (
+                  <Text>Select a contestant to edit.</Text>
+                ) : (
+                  <div className="rounded-lg border border-zinc-950/10 p-5 dark:border-white/10">
+                    <div className="flex items-center gap-3">
+                      <Subheading>{edit.fullName || 'Contestant'}</Subheading>
+                      <span className="ml-auto flex items-center gap-2">
+                        <Text>Active</Text>
+                        <Switch
+                          checked={edit.active}
+                          onChange={(active) => setEdit((prev) => (prev ? { ...prev, active } : prev))}
+                        />
+                      </span>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap gap-6">
+                      {/* photo column */}
+                      <div className="w-28 shrink-0 text-center">
+                        <Avatar
+                          src={edit.photoUrl}
+                          initials={edit.photoUrl ? undefined : initials(edit.fullName || '?')}
+                          className="size-28"
+                        />
+                        <Button
+                          outline
+                          className="mt-2 w-full"
+                          onClick={() => photoInputRef.current?.click()}
+                          disabled={uploading}
+                        >
+                          {uploading ? 'Uploading…' : 'Replace photo'}
+                        </Button>
+                        <input
+                          ref={photoInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) void handlePhotoFile(file);
+                            e.target.value = '';
+                          }}
+                        />
+                        {photoNote && (
+                          <Text className="mt-1.5 text-xs text-red-600 dark:text-red-500">{photoNote}</Text>
+                        )}
+                      </div>
+
+                      {/* fields column */}
+                      <div className="min-w-[240px] flex-1">
+                        <Fieldset>
+                          <div className="grid gap-4 sm:grid-cols-3">
+                            <Field className="sm:col-span-2">
+                              <Label>Full name</Label>
+                              <Input
+                                value={edit.fullName}
+                                onChange={(e) => setEdit((prev) => (prev ? { ...prev, fullName: e.target.value } : prev))}
+                              />
+                            </Field>
+                            <Field>
+                              <Label>Gender</Label>
+                              <div className="mt-2 flex gap-1.5">
+                                {(['male', 'female', null] as const).map((g) => {
+                                  const label = g === null ? 'None' : g === 'male' ? 'Male' : 'Female';
+                                  const on = edit.gender === g;
+                                  return on ? (
+                                    <Button
+                                      key={String(g)}
+                                      onClick={() => setEdit((prev) => (prev ? { ...prev, gender: g } : prev))}
+                                    >
+                                      {label}
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      key={String(g)}
+                                      outline
+                                      onClick={() => setEdit((prev) => (prev ? { ...prev, gender: g } : prev))}
+                                    >
+                                      {label}
+                                    </Button>
+                                  );
+                                })}
+                              </div>
+                            </Field>
+                          </div>
+
+                          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                            <Field>
+                              <Label>Date of birth</Label>
+                              <Input
+                                type="date"
+                                value={edit.dateOfBirth}
+                                onChange={(e) => setEdit((prev) => (prev ? { ...prev, dateOfBirth: e.target.value } : prev))}
+                              />
+                            </Field>
+                            {selected?.registrationId && (
+                              <Field>
+                                <Label>From registration</Label>
+                                <Text className="mt-1 rounded-lg border border-zinc-950/10 bg-zinc-950/2.5 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                                  {selected.registrationId}
+                                </Text>
+                              </Field>
+                            )}
+                          </div>
+
+                          <Field className="mt-6">
+                            <Label>Category enrollments</Label>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              {myEnrollments.map((e) => (
+                                <span
+                                  key={e.category}
+                                  className="inline-flex items-center gap-2 rounded-md border border-zinc-950/10 bg-white px-3 py-1.5 text-sm font-medium text-zinc-950 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                                >
+                                  {catLabel(e.category)} · {divLabel(e.division)}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveEnrollment(e.category)}
+                                    className="text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400"
+                                    title="Remove enrollment"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+
+                              {!addingCat ? (
+                                <Button outline onClick={() => setAddingCat(true)}>
+                                  + Add category
+                                </Button>
+                              ) : (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="w-40">
+                                    <Select value={newCat} onChange={(e) => handleNewCatChange(e.target.value)}>
+                                      <option value="">— category —</option>
+                                      {structure.categories
+                                        .filter((c) => !enrolledCatIds.has(c.id))
+                                        .map((c) => (
+                                          <option key={c.id} value={c.id}>
+                                            {c.label}
+                                          </option>
+                                        ))}
+                                    </Select>
+                                  </div>
+                                  {newCat && (
+                                    <div className="w-40">
+                                      <Select value={newDiv} onChange={(e) => setNewDiv(e.target.value)}>
+                                        <option value="">— division —</option>
+                                        {(structure.categories.find((c) => c.id === newCat)?.divisions ?? []).map(
+                                          (d) => (
+                                            <option key={d} value={d}>
+                                              {divLabel(d)}
+                                            </option>
+                                          ),
+                                        )}
+                                      </Select>
+                                    </div>
+                                  )}
+                                  <Button onClick={handleAddEnrollment} disabled={!newCat || !newDiv}>
+                                    Add
+                                  </Button>
+                                  <Button
+                                    plain
+                                    onClick={() => {
+                                      setAddingCat(false);
+                                      setNewCat('');
+                                      setNewDiv('');
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </Field>
+                        </Fieldset>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-zinc-950/10 pt-4 dark:border-white/10">
+                      <Text className="text-red-600 dark:text-red-500">
+                        Removing a contestant leaves the immutable master intact — re-adding is trivial.
+                      </Text>
+                      <Button color="red" onClick={() => setConfirmRemoveOpen(true)}>
+                        Remove
+                      </Button>
+                      <div className="ml-auto flex items-center gap-3">
+                        <Button plain onClick={() => setSelectedId(null)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={() => void handleSave()} disabled={saving}>
+                          {saving ? 'Saving…' : 'Save changes'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Zeffy integration — org-specific plumbing, reached via the Import menu.
+          The two sections below moved here verbatim from the tab's top-level flow.
+          The rotate confirm below is a separate Dialog with its own open state:
+          when it opens from in here the two stack (the confirm on top), and
+          closing it returns to this dialog. */}
+      <Dialog open={zeffyDialogOpen} onClose={setZeffyDialogOpen} size="2xl">
+        <DialogTitle>Zeffy integration</DialogTitle>
+        <DialogBody className="space-y-8">
+          <Fieldset>
+            <Field>
+              <Label>Zeffy event filter</Label>
+              <Text>
+                Zeffy sends every form to one webhook — only submissions whose event title matches this are
+                accepted. Must equal the event&apos;s exact name in Zeffy.
+              </Text>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <Input
+                  className="min-w-0 flex-1"
+                  value={zeffyValue}
+                  onChange={(e) => { setZeffyTitle(e.target.value); setZeffySaved(false); }}
+                  placeholder="e.g. 2026 Ibn Katheer Quran Competition"
+                />
+                <Button onClick={() => void saveZeffy()} disabled={!zeffyDirty}>
+                  {zeffySaved && !zeffyDirty ? 'Saved' : 'Save'}
+                </Button>
+              </div>
+            </Field>
+          </Fieldset>
+
+          <Fieldset>
+            <Field>
+              <Label>Zeffy webhook</Label>
+              <Text>
+                Paste this URL into Zeffy&apos;s webhook settings. The token is this competition&apos;s secret —
+                rotate it if it leaks.
+              </Text>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                {zeffyToken ? (
+                  <>
+                    <code className="min-w-0 flex-1 truncate rounded-lg border border-zinc-950/10 bg-zinc-950/2.5 px-3 py-2 text-xs text-zinc-950 dark:border-white/10 dark:bg-white/5 dark:text-white">
+                      {webhookUrl}
+                    </code>
+                    <Button onClick={() => void copyUrl()}>{copied ? 'Copied' : 'Copy URL'}</Button>
+                    <Button outline onClick={rotateToken} disabled={rotating}>
+                      {rotating ? 'Rotating…' : 'Rotate token'}
+                    </Button>
+                  </>
+                ) : zeffyCfg.loading ? (
+                  <Text>Loading…</Text>
+                ) : (
+                  // Only offered once the doc has resolved — otherwise a click during the load
+                  // window would silently overwrite an existing token without the confirm prompt.
+                  <Button onClick={rotateToken} disabled={rotating}>
+                    {rotating ? 'Generating…' : 'Generate webhook token'}
+                  </Button>
+                )}
+              </div>
+            </Field>
+          </Fieldset>
+        </DialogBody>
+        <DialogActions>
+          <Button plain onClick={() => setZeffyDialogOpen(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={confirmRotateOpen} onClose={setConfirmRotateOpen}>
         <DialogTitle>Rotate the webhook token?</DialogTitle>

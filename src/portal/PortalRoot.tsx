@@ -7,7 +7,6 @@ import { CompShell } from './comp/CompShell';
 import { ContestantsPage } from './comp/ContestantsPage';
 import { JudgesPage } from './comp/JudgesPage';
 import { LeaderboardPage } from './comp/LeaderboardPage';
-import { OverviewPage } from './comp/OverviewPage';
 import { ProvisioningPage } from './comp/ProvisioningPage';
 import { ScoringPage } from './comp/ScoringPage';
 import { HomePage } from './HomePage';
@@ -46,9 +45,7 @@ export function PortalRoot() {
     return (
       <TenantProvider orgId={org.id} compId={route.compId}>
         <CompShell compId={route.compId} section={route.section}>
-          {route.section === 'overview' ? (
-            <OverviewPage />
-          ) : route.section === 'contestants' ? (
+          {route.section === 'contestants' ? (
             <ContestantsPage />
           ) : route.section === 'categories' ? (
             <CategoriesPage />
@@ -81,6 +78,6 @@ function renderRoute(route: PortalRoute) {
 }
 
 /** Tasks 7-12 replace this with the real page for each section. */
-function ComingSoon({ section }: { section: Exclude<CompSection, 'overview'> }) {
+function ComingSoon({ section }: { section: CompSection }) {
   return <div>coming soon: {section}</div>;
 }

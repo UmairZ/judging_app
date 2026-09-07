@@ -1,6 +1,6 @@
 import { validateIds } from '../onboarding/logic';
 
-export type CompSection = 'overview' | 'contestants' | 'categories' | 'judges' | 'scoring' | 'leaderboard' | 'provisioning';
+export type CompSection = 'contestants' | 'categories' | 'judges' | 'scoring' | 'leaderboard' | 'provisioning';
 
 export type PortalRoute =
   | { kind: 'home' }
@@ -10,7 +10,6 @@ export type PortalRoute =
   | null;
 
 const COMP_SECTIONS: CompSection[] = [
-  'overview',
   'contestants',
   'categories',
   'judges',
@@ -26,7 +25,7 @@ const COMP_SECTIONS: CompSection[] = [
  * - /portal -> { kind: 'home' }
  * - /portal/org -> { kind: 'org' }
  * - /portal/account -> { kind: 'account' }
- * - /portal/c/{compId} -> { kind: 'comp', compId, section: 'overview' }
+ * - /portal/c/{compId} -> { kind: 'comp', compId, section: 'contestants' }
  * - /portal/c/{compId}/{section} -> { kind: 'comp', compId, section }
  *
  * Returns null for unrecognized paths.
@@ -64,8 +63,8 @@ export function parsePortalRoute(pathname: string): PortalRoute {
       return null;
     }
 
-    // Determine section (default to 'overview')
-    const sectionStr = segments[3] || 'overview';
+    // Determine section (default to 'contestants')
+    const sectionStr = segments[3] || 'contestants';
     if (!COMP_SECTIONS.includes(sectionStr as CompSection)) {
       return null;
     }
@@ -84,11 +83,11 @@ export function parsePortalRoute(pathname: string): PortalRoute {
  * Build a portal route path for a competition.
  *
  * @param compId - the competition ID
- * @param section - the section to navigate to (defaults to 'overview')
+ * @param section - the section to navigate to (defaults to 'contestants')
  * @returns the pathname for this route
  */
-export function compPath(compId: string, section: CompSection = 'overview'): string {
-  if (section === 'overview') {
+export function compPath(compId: string, section: CompSection = 'contestants'): string {
+  if (section === 'contestants') {
     return `/portal/c/${compId}`;
   }
   return `/portal/c/${compId}/${section}`;
