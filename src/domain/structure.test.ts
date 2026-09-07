@@ -4,6 +4,9 @@ import {
   generateSlots,
   slotId,
   defaultDivisionForCategory,
+  categoryMistakeLimit,
+  DEFAULT_MISTAKE_LIMIT,
+  type Category,
 } from './structure';
 
 describe('generateSlots', () => {
@@ -36,5 +39,16 @@ describe('defaultDivisionForCategory', () => {
 
   it('returns null for a gendered category with unknown gender', () => {
     expect(defaultDivisionForCategory(cat('1'), null)).toBeNull();
+  });
+});
+
+describe('categoryMistakeLimit', () => {
+  const base: Category = { id: 'x', label: 'X', minQuestions: 3, divisions: [] };
+  it('falls back to the default when the category has no limit', () => {
+    expect(categoryMistakeLimit(base)).toBe(DEFAULT_MISTAKE_LIMIT);
+    expect(DEFAULT_MISTAKE_LIMIT).toBe(5);
+  });
+  it('returns the explicit limit when present', () => {
+    expect(categoryMistakeLimit({ ...base, mistakeLimit: 8 })).toBe(8);
   });
 });
