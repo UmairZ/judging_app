@@ -7,6 +7,7 @@ export interface Category {
   id: string;
   label: string;
   minQuestions: number;
+  mistakeLimit?: number;
   divisions: string[];
   zeffyLabels?: string[];
 }
@@ -53,4 +54,14 @@ export function defaultDivisionForCategory(category: Category, gender?: 'male' |
     if (d && category.divisions.includes(d)) return d;
   }
   return null;
+}
+
+/** Hifz mistakes on one question before the judge is asked to disqualify it.
+ * 5 reproduces the old rail worst case (5 prompted-failed = 10-point rail). */
+export const DEFAULT_MISTAKE_LIMIT = 5;
+
+export function categoryMistakeLimit(c: Category): number {
+  const v = c.mistakeLimit;
+  // Hand-edited docs must degrade safely (same principle as unknown model ids).
+  return typeof v === 'number' && Number.isFinite(v) && v >= 1 ? v : DEFAULT_MISTAKE_LIMIT;
 }

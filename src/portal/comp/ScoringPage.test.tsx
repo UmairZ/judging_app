@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, cleanup } from '@testing-library/react';
+import { act, fireEvent, render, screen, cleanup, waitFor } from '@testing-library/react';
 import type { DbBackend } from '../../data/backend';
 
 // Same import-safety pattern as CategoriesPage.test.tsx.
@@ -19,9 +19,12 @@ const { InMemoryBackend, DbProvider } = await import('../../data/backend');
 const { TenantProvider } = await import('../../tenant/TenantContext');
 const { ScoringPage } = await import('./ScoringPage');
 const { DEFAULT_SCORING_CONFIG } = await import('../../scoring');
+const { writeDoc } = await import('../../data/db');
+const writeDocSpy = writeDoc as unknown as ReturnType<typeof vi.fn>;
 
 afterEach(() => {
   cleanup();
+  writeDocSpy.mockClear();
 });
 
 function seededBackend() {
@@ -137,7 +140,7 @@ describe('ScoringPage', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
   });
 
-  it('renders the scoring-system chooser with "Escalating penalties" disabled and non-selectable', async () => {
+  it('selects escalating penalties and persists the model on save', async () => {
     const backend = seededBackend();
     render(
       <DbProvider backend={backend}>
@@ -148,16 +151,56 @@ describe('ScoringPage', () => {
     );
     await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.weights.hifz));
 
-    const standard = screen.getByRole('radio', { name: /Standard deductions/ }) as HTMLButtonElement;
-    const escalating = screen.getByRole('radio', { name: /Escalating penalties/ }) as HTMLButtonElement;
-    expect(standard.getAttribute('aria-checked')).toBe('true');
-    expect(escalating.getAttribute('aria-checked')).toBe('false');
-    expect(escalating.disabled).toBe(true);
+    fireEvent.click(await screen.findByText('Escalating penalties'));
+    expect(screen.getByRole('radio', { name: /escalating penalties/i }).getAttribute('aria-checked')).toBe('true');
 
-    // Clicking the disabled card must not select it (nor deselect Standard).
-    fireEvent.click(escalating);
-    expect(escalating.getAttribute('aria-checked')).toBe('false');
-    expect(standard.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(writeDocSpy).toHaveBeenCalled());
+    expect(writeDocSpy.mock.calls.at(-1)![1]).toMatchObject({ model: 'escalating-v2' });
+  });
+
+  it('shows the escalation caption only when v2 is selected', async () => {
+    const backend = seededBackend();
+    render(
+      <DbProvider backend={backend}>
+        <TenantProvider orgId="ik" compId="2026">
+          <ScoringPage />
+        </TenantProvider>
+      </DbProvider>,
+    );
+    await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.weights.hifz));
+
+    expect(screen.queryByText(/costs one more point than the last/)).toBeNull();
+    fireEvent.click(await screen.findByText('Escalating penalties'));
+    expect(screen.getByText(/costs one more point than the last/)).toBeTruthy();
+  });
+
+  it('surfaces an unknown-model error from a hand-edited doc', async () => {
+    const backend = new InMemoryBackend();
+    backend.seed('orgs/ik/competitions/2026/config/scoring', { ...DEFAULT_SCORING_CONFIG, model: 'bogus-v9' });
+    render(
+      <DbProvider backend={backend}>
+        <TenantProvider orgId="ik" compId="2026">
+          <ScoringPage />
+        </TenantProvider>
+      </DbProvider>,
+    );
+
+    expect(await screen.findByText(/unknown scoring system/)).toBeTruthy();
+  });
+
+  it('explains the disqualification flag as a per-category mistake limit', async () => {
+    const backend = seededBackend();
+    render(
+      <DbProvider backend={backend}>
+        <TenantProvider orgId="ik" compId="2026">
+          <ScoringPage />
+        </TenantProvider>
+      </DbProvider>,
+    );
+
+    expect(await screen.findByText(/mistake limit/i)).toBeTruthy();
+    expect(screen.queryByText(/memorization points hit zero/)).toBeNull();
   });
 
   it('recomputes the cost caption from the live config when a weight changes', async () => {

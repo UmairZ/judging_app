@@ -261,4 +261,24 @@ describe('CategoriesPage', () => {
     expect(screen.getByRole('button', { name: 'Save Structure' })).toBeTruthy();
     expect(screen.getByText('Brothers')).toBeTruthy(); // seeded division row, not the 3-division default pool
   });
+
+  it('shows the default mistake limit for categories without one', async () => {
+    renderPage(seededBackend());
+    await screen.findByDisplayValue("1 Juz'");
+
+    // seeded structure's categories carry no mistakeLimit
+    const input = (await screen.findByLabelText('Mistake limit')) as HTMLInputElement;
+    expect(input.value).toBe('5');
+  });
+
+  it('persists an edited mistake limit through Save Structure', async () => {
+    renderPage(seededBackend());
+    await screen.findByDisplayValue("1 Juz'");
+
+    const input = (await screen.findByLabelText('Mistake limit')) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '8' } });
+
+    const payload = (await saveAndGetPayload()) as unknown as { categories: { mistakeLimit?: number }[] };
+    expect(payload.categories.some((c) => c.mistakeLimit === 8)).toBe(true);
+  });
 });

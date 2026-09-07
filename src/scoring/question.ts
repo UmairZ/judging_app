@@ -12,12 +12,30 @@ export function countEvents(q: Question): EventCounts {
   return counts;
 }
 
+/** Hifz mistakes that cost points and count toward the DQ limit — self-corrected is free. */
+export function hifzMistakeCount(q: Question): number {
+  const c = countEvents(q);
+  return c.prompted_fixed + c.prompted_failed;
+}
+
 export function hifzDeduction(q: Question, cfg: ScoringConfig): number {
   const c = countEvents(q);
-  return (
+  const linear =
     c.prompted_fixed * cfg.hifz_deductions.prompted_fixed +
-    c.prompted_failed * cfg.hifz_deductions.prompted_failed
-  );
+    c.prompted_failed * cfg.hifz_deductions.prompted_failed;
+  if (cfg.model === 'escalating-v2') {
+    // k-th hifz mistake in a question costs its base + (k−1) — order-independent
+    // closed form: Σbases + K(K−1)/2 (program spec §D+, simulated 2026-09-04).
+    const K = hifzMistakeCount(q);
+    return linear + (K * (K - 1)) / 2;
+  }
+  // 'deduction-v1' and any unknown model id fall back to linear.
+  return linear;
+}
+
+/** Auto-flag trigger: the category's mistake limit reached on this question. */
+export function mistakeLimitReached(q: Question, limit: number): boolean {
+  return !q.disqualified && hifzMistakeCount(q) >= limit;
 }
 
 export function hifzQuestionScore(q: Question, cfg: ScoringConfig): number {
@@ -51,11 +69,6 @@ export function voiceFraction(q: Question, cfg: ScoringConfig): number | null {
   if (q.disqualified) return 0;
   if (q.voice == null) return null;
   return q.voice / cfg.voice_max;
-}
-
-/** Auto-flag trigger: hifz deductions have reached the base (score at floor). */
-export function hifzAtFloor(q: Question, cfg: ScoringConfig): boolean {
-  return !q.disqualified && hifzDeduction(q, cfg) >= cfg.hifz_base;
 }
 
 /** Blended 0..100 score for a single question (unrated voice counts as 0). */

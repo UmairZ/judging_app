@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDocData, writeDoc } from '../../data/db';
 import { useTenant } from '../../tenant/TenantContext';
-import { DEFAULT_STRUCTURE_CONFIG, type StructureConfig } from '../../domain/structure';
+import { categoryMistakeLimit, DEFAULT_STRUCTURE_CONFIG, type StructureConfig } from '../../domain/structure';
 import { Button } from '../vendor/button';
 import { Divider } from '../vendor/divider';
 import { Description, Field, Fieldset, Label } from '../vendor/fieldset';
@@ -88,6 +88,12 @@ export function CategoriesPage() {
     setEdited((prev) => ({
       ...prev,
       categories: prev.categories.map((c) => (c.id === catId ? { ...c, minQuestions: v } : c)),
+    }));
+  }
+  function setMistakeLimit(catId: string, v: number) {
+    setEdited((prev) => ({
+      ...prev,
+      categories: prev.categories.map((c) => (c.id === catId ? { ...c, mistakeLimit: v } : c)),
     }));
   }
   function setCatLabel(catId: string, label: string) {
@@ -229,6 +235,18 @@ export function CategoriesPage() {
                         value={selectedCat.minQuestions}
                         onChange={(e) => setMinQ(selectedCat.id, Math.max(1, Number(e.target.value) || 1))}
                       />
+                    </Field>
+                    <Field>
+                      <Label>Mistake limit</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={categoryMistakeLimit(selectedCat)}
+                        onChange={(e) => setMistakeLimit(selectedCat.id, Math.max(1, Number(e.target.value) || 1))}
+                      />
+                      <Description>
+                        Hifz mistakes on one question before the judge is asked to disqualify it.
+                      </Description>
                     </Field>
                   </Fieldset>
                   <Divider soft className="my-5" />

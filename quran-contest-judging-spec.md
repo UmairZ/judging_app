@@ -108,7 +108,7 @@ Each question has a boolean `disqualified`. When true, **all three** components 
 
 There is **one knob** — `hifz_base` — driving both the score floor and the DQ trigger:
 
-1. **Auto-flag.** As soon as a question's `hifz_deduction(q)` reaches `hifz_base` (i.e. its hifz score has hit 0), the UI **prompts** the judge: *"Call it? This question's hifz has bottomed out."* The hifz score is already 0 from deductions; the prompt is the judge's chance to write off the **whole** question.
+1. **Auto-flag.** As soon as a question accumulates the category's mistake limit worth of hifz mistakes (prompted or prompted-failed on that one question; default 5, configurable per category), the UI **prompts** the judge: *"Call it?"* — the judge's chance to write off the **whole** question.
    - **Confirm** → the question becomes a DQ (hifz, tajweed, **and voice** all 0).
    - **Dismiss** → the question stays; hifz is 0 (naturally), **tajweed and voice still count**.
    - Auto-flag never disqualifies silently.

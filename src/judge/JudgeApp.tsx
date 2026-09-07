@@ -4,7 +4,7 @@ import { useMembership } from '../auth/MembershipContext';
 import { useTenant } from '../tenant/TenantContext';
 import { useCollection, useDocData } from '../data/db';
 import type { JudgeDoc, PanelDoc, AssignmentDoc, TiebreakDoc, SessionDoc, ContestantDoc, EnrollmentDoc } from '../data/types';
-import { DEFAULT_STRUCTURE_CONFIG, type StructureConfig } from '../domain/structure';
+import { DEFAULT_STRUCTURE_CONFIG, categoryMistakeLimit, DEFAULT_MISTAKE_LIMIT, type StructureConfig } from '../domain/structure';
 import { enrollmentId } from '../domain/ids';
 import { C, serif } from '../ui/theme';
 import WelcomeScreen from './WelcomeScreen';
@@ -74,7 +74,9 @@ export default function JudgeApp() {
   if (screen === 'welcome') {
     content = <WelcomeScreen name={judgeName} subtitle={subtitle} onStart={() => setScreen('dashboard')} />;
   } else if (screen === 'grading' && selected) {
-    const minQuestions = structure.categories.find((c) => c.id === selected.category)?.minQuestions ?? 4;
+    const cat = structure.categories.find((c) => c.id === selected.category);
+    const minQuestions = cat?.minQuestions ?? 4;
+    const mistakeLimit = cat ? categoryMistakeLimit(cat) : DEFAULT_MISTAKE_LIMIT;
     const meta = { position: items.findIndex((i) => i.enrollmentId === selected.enrollmentId) + 1, total: items.length, ...panelMeta, startedCount: startedCountFor(selected.enrollmentId) };
     content = (
       <GradingScreen
@@ -82,17 +84,21 @@ export default function JudgeApp() {
         enrollmentId={selected.enrollmentId}
         judgeId={judgeId}
         minQuestions={minQuestions}
+        mistakeLimit={mistakeLimit}
         meta={meta}
         onEnd={() => setScreen('dashboard')}
       />
     );
   } else if (screen === 'tiebreak' && tbTarget) {
+    const tbCat = structure.categories.find((c) => c.id === tbTarget.category);
+    const tbMistakeLimit = tbCat ? categoryMistakeLimit(tbCat) : DEFAULT_MISTAKE_LIMIT;
     content = (
       <GradingScreen
         contestant={{ name: tbTarget.name, slotLabel: tbTarget.slotLabel }}
         enrollmentId={tbTarget.enrollmentId}
         judgeId={judgeId}
         minQuestions={1}
+        mistakeLimit={tbMistakeLimit}
         meta={{ position: 0, total: 0, ...panelMeta, startedCount: startedCountFor(tbTarget.enrollmentId) }}
         tieBreak
         onEnd={() => setScreen('dashboard')}

@@ -10,8 +10,9 @@ import {
   tajweedQuestionScore,
   tajweedFraction,
   voiceFraction,
-  hifzAtFloor,
   questionScore,
+  hifzMistakeCount,
+  mistakeLimitReached,
 } from './question';
 
 function q(events: QuestionEvent[], extra: Partial<Question> = {}): Question {
@@ -87,24 +88,6 @@ describe('voiceFraction', () => {
   });
 });
 
-describe('hifzAtFloor (auto-flag trigger)', () => {
-  it('is true when deductions reach hifz_base', () => {
-    const question = q([ev('prompted_failed'), ev('prompted_failed'), ev('prompted_failed'),
-      ev('prompted_failed'), ev('prompted_failed')]); // 10 == base
-    expect(hifzAtFloor(question, CFG)).toBe(true);
-  });
-
-  it('is false before the floor is reached', () => {
-    expect(hifzAtFloor(q([ev('prompted_failed')]), CFG)).toBe(false);
-  });
-
-  it('is false for an already-disqualified question', () => {
-    const question = q([ev('prompted_failed'), ev('prompted_failed'), ev('prompted_failed'),
-      ev('prompted_failed'), ev('prompted_failed')], { disqualified: true });
-    expect(hifzAtFloor(question, CFG)).toBe(false);
-  });
-});
-
 describe('questionScore (single-question blended, for sudden-death)', () => {
   it('blends hifz/tajweed/voice with the configured weights', () => {
     // hifz 1.0, tajweed 1.0, voice 5/5=1.0 -> 70 + 25 + 5 = 100
@@ -114,5 +97,54 @@ describe('questionScore (single-question blended, for sudden-death)', () => {
   it('treats unrated voice as 0', () => {
     // hifz 1.0, tajweed 1.0, voice excluded -> 70 + 25 + 0 = 95
     expect(questionScore(q([], { voice: null }), CFG)).toBeCloseTo(95, 10);
+  });
+});
+
+describe('escalating-v2 hifz deduction', () => {
+  const V2 = { ...CFG, model: 'escalating-v2' };
+  it('single mistake costs its base alone', () => {
+    expect(hifzDeduction(q([ev('prompted_fixed')]), V2)).toBe(1);
+  });
+  it('adds K(K-1)/2 on top of the linear sum', () => {
+    // bases 1+1=2, K=2 → +1 = 3
+    expect(hifzDeduction(q([ev('prompted_fixed'), ev('prompted_fixed')]), V2)).toBe(3);
+    // bases 1+2=3, K=2 → +1 = 4
+    expect(hifzDeduction(q([ev('prompted_fixed'), ev('prompted_failed')]), V2)).toBe(4);
+    // bases 1+1+2=4, K=3 → +3 = 7
+    expect(hifzDeduction(q([ev('prompted_fixed'), ev('prompted_fixed'), ev('prompted_failed')]), V2)).toBe(7);
+  });
+  it('is order-independent', () => {
+    const a = hifzDeduction(q([ev('prompted_failed'), ev('prompted_fixed'), ev('prompted_fixed')]), V2);
+    const b = hifzDeduction(q([ev('prompted_fixed'), ev('prompted_fixed'), ev('prompted_failed')]), V2);
+    expect(a).toBe(b);
+  });
+  it('self-corrected costs nothing and never escalates', () => {
+    expect(hifzDeduction(q([ev('self_corrected'), ev('self_corrected'), ev('self_corrected')]), V2)).toBe(0);
+    // one real mistake + self-corrected noise: still just the base (K=1)
+    expect(hifzDeduction(q([ev('self_corrected'), ev('prompted_fixed'), ev('self_corrected')]), V2)).toBe(1);
+  });
+  it('unknown model id falls back to v1 linear math', () => {
+    const weird = { ...CFG, model: 'weird-v9' };
+    const question = q([ev('prompted_fixed'), ev('prompted_failed')]);
+    expect(hifzDeduction(question, weird)).toBe(hifzDeduction(question, CFG));
+  });
+  it('question score still floors at 0 under escalation', () => {
+    const many = q(Array.from({ length: 8 }, () => ev('prompted_failed')));
+    expect(hifzQuestionScore(many, V2)).toBe(0);
+  });
+});
+
+describe('hifzMistakeCount / mistakeLimitReached', () => {
+  it('counts prompted + prompted-failed only', () => {
+    expect(hifzMistakeCount(q([ev('prompted_fixed'), ev('prompted_failed'), ev('self_corrected'), ev('tajweed_major')]))).toBe(2);
+  });
+  it('reaches the limit at exactly the limit, not before', () => {
+    const two = q([ev('prompted_fixed'), ev('prompted_failed')]);
+    expect(mistakeLimitReached(two, 3)).toBe(false);
+    expect(mistakeLimitReached(two, 2)).toBe(true);
+  });
+  it('never fires on an already-disqualified question', () => {
+    const dq = { ...q([ev('prompted_failed'), ev('prompted_failed')]), disqualified: true };
+    expect(mistakeLimitReached(dq, 1)).toBe(false);
   });
 });
