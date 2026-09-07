@@ -5,15 +5,16 @@ import { useTenant } from '../tenant/TenantContext';
 import type { SessionDoc } from '../data/types';
 import { C, serif, pct } from '../ui/theme';
 import {
-  DEFAULT_SCORING_CONFIG as CFG,
+  DEFAULT_SCORING_CONFIG,
   sessionScore,
   componentMeans,
   questionScore,
-  hifzAtFloor,
+  mistakeLimitReached,
   countEvents,
   type Question,
   type Session,
   type DeductionEventType,
+  type ScoringConfig,
 } from '../scoring';
 
 /* ---- the five deduction keys, grouped as in the design ---- */
@@ -33,12 +34,13 @@ function freshQuestion(index: number, isAdded = false): Question {
   return { index, events: [], voice: null, disqualified: false, isAdded, isTieBreak: false };
 }
 
-export default function GradingScreen({ contestant, enrollmentId, judgeId, minQuestions, meta, onEnd, tieBreak = false }: { contestant: { name: string; slotLabel: string }; enrollmentId: string; judgeId: string; minQuestions: number; meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number; startedCount: number }; onEnd: () => void; tieBreak?: boolean }) {
+export default function GradingScreen({ contestant, enrollmentId, judgeId, minQuestions, mistakeLimit, meta, onEnd, tieBreak = false }: { contestant: { name: string; slotLabel: string }; enrollmentId: string; judgeId: string; minQuestions: number; mistakeLimit: number; meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number; startedCount: number }; onEnd: () => void; tieBreak?: boolean }) {
   const { tp } = useTenant();
   const sessionId = `${enrollmentId}__${judgeId}`;
   const { data: sessionDoc, loading } = useDocData<SessionDoc>(tp(`sessions/${sessionId}`));
   const sync = useSyncState(tp(`sessions/${sessionId}`));
   const { write } = useDb();
+  const cfg = useDocData<ScoringConfig>(tp('config/scoring')).data ?? DEFAULT_SCORING_CONFIG;
   // How many panel judges have started this contestant — passed in by the parent, which
   // already subscribes to the sessions collection (no extra listener here).
   const startedCount = meta.startedCount;
@@ -109,9 +111,9 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
   const firstUnratedVoice = questions.findIndex(needsVoice);
   const canFinish = firstUnratedVoice === -1;
   const counts = countEvents(aq);
-  const score = tieBreak ? questionScore(aq, CFG) : sessionScore(session, CFG);
-  const { H, T, V } = componentMeans(session, CFG);
-  const showPrompt = hifzAtFloor(aq, CFG) && !dismissed.has(active);
+  const score = tieBreak ? questionScore(aq, cfg) : sessionScore(session, cfg);
+  const { H, T, V } = componentMeans(session, cfg);
+  const showPrompt = mistakeLimitReached(aq, mistakeLimit) && !dismissed.has(active);
 
   const patch = (i: number, fn: (q: Question) => Question) => {
     if (locked) return;
@@ -250,7 +252,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
             <div style={{ flex: 1, overflow: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {questions.map((q, i) => {
                 const isActive = i === active;
-                const total = q.disqualified ? 0 : Math.round(questionScore(q, CFG));
+                const total = q.disqualified ? 0 : Math.round(questionScore(q, cfg));
                 return (
                   <div key={i} onClick={() => setActive(i)} style={{ cursor: 'pointer', borderRadius: 8, padding: '11px 13px', border: `1.5px solid ${isActive ? C.brass : q.disqualified ? C.failLine : C.line}`, background: isActive ? '#FCF7E9' : q.disqualified ? C.failBg : '#fff' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -313,10 +315,10 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
                       <span style={{ fontSize: 11, fontWeight: 700, color: C.fail, background: C.failBg, padding: '2px 9px', borderRadius: 999 }}>not rated</span>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>rate as you go · 0–{CFG.voice_max}</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>rate as you go · 0–{cfg.voice_max}</div>
                 </div>
                 <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 9 }}>
-                  {Array.from({ length: CFG.voice_max + 1 }, (_, n) => {
+                  {Array.from({ length: cfg.voice_max + 1 }, (_, n) => {
                     const on = aq.voice != null && (n === 0 ? aq.voice === 0 : n <= aq.voice && aq.voice > 0);
                     return (
                       <div key={n} onClick={() => setVoice(n)} style={{ flex: 1, cursor: 'pointer', textAlign: 'center' }}>
@@ -346,7 +348,7 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
                   </div>
                   <div style={{ fontFamily: serif, fontSize: 25, fontWeight: 600, color: C.greenDeep, marginBottom: 8 }}>Call it?</div>
                   <div style={{ fontSize: 14.5, color: C.sub, lineHeight: 1.55, marginBottom: 24 }}>
-                    This question's hifz has bottomed out — already 0 from deductions. Write off the <strong style={{ color: C.brassDark }}>whole question</strong> (hifz, tajweed &amp; voice), or keep it and let tajweed and voice still count.
+                    That's {mistakeLimit} hifz mistakes on this question — this category's limit. Write off the <strong style={{ color: C.brassDark }}>whole question</strong> (hifz, tajweed &amp; voice), or keep it and let the remaining points still count.
                   </div>
                   <div style={{ display: 'flex', gap: 12 }}>
                     <div onClick={dismissPrompt} style={{ flex: 1, cursor: 'pointer', background: '#fff', border: '1.5px solid #D8D0BE', borderRadius: 9, padding: 14, fontSize: 15, fontWeight: 600, color: '#41504B' }}>Keep it</div>
@@ -362,9 +364,9 @@ export default function GradingScreen({ contestant, enrollmentId, judgeId, minQu
           <div style={{ width: 296, flex: 'none', borderLeft: `1px solid ${C.line}`, background: C.cream, padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
             <div>
               <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 12 }}>Score breakdown</div>
-              <Bar label="Hifz · 70%" labelColor={C.brassDark} value={pct(H)} frac={H} color={C.hifzBar} />
-              <Bar label="Tajweed · 25%" labelColor={C.tajBar} value={pct(T)} frac={T} color={C.tajBar} />
-              <Bar label="Voice · 5%" labelColor={C.voiceBar} value={questions.some((q) => q.voice != null || q.disqualified) ? pct(V) : 'pending'} frac={V} color={C.voiceBar} />
+              <Bar label={`Hifz · ${cfg.weights.hifz}%`} labelColor={C.brassDark} value={pct(H)} frac={H} color={C.hifzBar} />
+              <Bar label={`Tajweed · ${cfg.weights.tajweed}%`} labelColor={C.tajBar} value={pct(T)} frac={T} color={C.tajBar} />
+              <Bar label={`Voice · ${cfg.weights.voice}%`} labelColor={C.voiceBar} value={questions.some((q) => q.voice != null || q.disqualified) ? pct(V) : 'pending'} frac={V} color={C.voiceBar} />
             </div>
             <div>
               <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 8 }}>Notes</div>

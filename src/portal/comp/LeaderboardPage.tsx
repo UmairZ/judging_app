@@ -11,7 +11,7 @@ import {
   type ScoringConfig,
   type EnrollmentSummary,
 } from '../../scoring';
-import { DEFAULT_STRUCTURE_CONFIG, generateSlots, slotId, type StructureConfig, type Slot } from '../../domain/structure';
+import { DEFAULT_STRUCTURE_CONFIG, generateSlots, slotId, categoryMistakeLimit, DEFAULT_MISTAKE_LIMIT, type StructureConfig, type Slot } from '../../domain/structure';
 import { enrollmentId } from '../../domain/ids';
 import GradingScreen from '../../judge/GradingScreen';
 import Projector from '../../admin/Projector';
@@ -51,6 +51,7 @@ interface Editing {
   name: string;
   slotLabel: string;
   minQuestions: number;
+  mistakeLimit: number;
   meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number; startedCount: number };
 }
 
@@ -249,12 +250,14 @@ export function LeaderboardPage() {
   // Open one judge's session for the admin to correct (reuses the grading screen).
   const openEdit = (r: Row, jid: string) => {
     if (!slot || !panel) return;
+    const cat = structure.categories.find((c) => c.id === slot.category);
     setEditing({
       enrollmentId: r.enrollmentId,
       judgeId: jid,
       name: r.name,
       slotLabel: `${catLabel(slot.category)} · ${divLabel(slot.division)}`,
-      minQuestions: structure.categories.find((c) => c.id === slot.category)?.minQuestions ?? 4,
+      minQuestions: cat?.minQuestions ?? 4,
+      mistakeLimit: cat ? categoryMistakeLimit(cat) : DEFAULT_MISTAKE_LIMIT,
       meta: { position: 0, total: 0, panelName: panel.name, judgeIndex: panel.judgeIds.indexOf(jid) + 1, panelSize: panel.judgeIds.length, startedCount: r.summary.startedCount },
     });
   };
@@ -466,6 +469,7 @@ export function LeaderboardPage() {
             enrollmentId={editing.enrollmentId}
             judgeId={editing.judgeId}
             minQuestions={editing.minQuestions}
+            mistakeLimit={editing.mistakeLimit}
             meta={editing.meta}
             onEnd={() => setEditing(null)}
           />

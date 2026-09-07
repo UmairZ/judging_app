@@ -71,11 +71,6 @@ export function voiceFraction(q: Question, cfg: ScoringConfig): number | null {
   return q.voice / cfg.voice_max;
 }
 
-/** Auto-flag trigger: hifz deductions have reached the base (score at floor). */
-export function hifzAtFloor(q: Question, cfg: ScoringConfig): boolean {
-  return !q.disqualified && hifzDeduction(q, cfg) >= cfg.hifz_base;
-}
-
 /** Blended 0..100 score for a single question (unrated voice counts as 0). */
 export function questionScore(q: Question, cfg: ScoringConfig): number {
   const v = voiceFraction(q, cfg);

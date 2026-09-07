@@ -20,7 +20,6 @@ export {
   tajweedQuestionScore,
   tajweedFraction,
   voiceFraction,
-  hifzAtFloor,
   questionScore,
   hifzMistakeCount,
   mistakeLimitReached,

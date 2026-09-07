@@ -18,6 +18,7 @@ export default function DemoGrading() {
             enrollmentId="demo-enrollment"
             judgeId="demo-judge"
             minQuestions={3}
+            mistakeLimit={5}
             meta={{ position: 1, total: 1, panelName: 'Demo panel', judgeIndex: 0, panelSize: 1, startedCount: 1 }}
             onEnd={() => backend.write('sessions/demo-enrollment__demo-judge', { questions: [] }, false)}
           />

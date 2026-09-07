@@ -10,7 +10,6 @@ import {
   tajweedQuestionScore,
   tajweedFraction,
   voiceFraction,
-  hifzAtFloor,
   questionScore,
   hifzMistakeCount,
   mistakeLimitReached,
@@ -86,24 +85,6 @@ describe('voiceFraction', () => {
 
   it('is 0 for a disqualified question regardless of rating', () => {
     expect(voiceFraction(q([], { voice: 5, disqualified: true }), CFG)).toBe(0);
-  });
-});
-
-describe('hifzAtFloor (auto-flag trigger)', () => {
-  it('is true when deductions reach hifz_base', () => {
-    const question = q([ev('prompted_failed'), ev('prompted_failed'), ev('prompted_failed'),
-      ev('prompted_failed'), ev('prompted_failed')]); // 10 == base
-    expect(hifzAtFloor(question, CFG)).toBe(true);
-  });
-
-  it('is false before the floor is reached', () => {
-    expect(hifzAtFloor(q([ev('prompted_failed')]), CFG)).toBe(false);
-  });
-
-  it('is false for an already-disqualified question', () => {
-    const question = q([ev('prompted_failed'), ev('prompted_failed'), ev('prompted_failed'),
-      ev('prompted_failed'), ev('prompted_failed')], { disqualified: true });
-    expect(hifzAtFloor(question, CFG)).toBe(false);
   });
 });
 
