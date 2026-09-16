@@ -1,6 +1,6 @@
 import { validateIds } from '../onboarding/logic';
 
-export type CompSection = 'contestants' | 'categories' | 'judges' | 'scoring' | 'leaderboard' | 'provisioning';
+export type CompSection = 'contestants' | 'categories' | 'judges' | 'scoring' | 'rules' | 'leaderboard' | 'provisioning';
 
 export type PortalRoute =
   | { kind: 'home' }
@@ -14,6 +14,7 @@ const COMP_SECTIONS: CompSection[] = [
   'categories',
   'judges',
   'scoring',
+  'rules',
   'leaderboard',
   'provisioning',
 ];

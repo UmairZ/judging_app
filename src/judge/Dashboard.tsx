@@ -29,13 +29,15 @@ function Avatar({ name, bg, fg }: { name: string; bg: string; fg: string }) {
 }
 
 export default function Dashboard({
-  judgeName, items, tieBreaks, onGrade, onTieBreak,
+  judgeName, items, tieBreaks, onGrade, onTieBreak, rulesText, onOpenRules,
 }: {
   judgeName: string;
   items: JudgeQueueItem[];
   tieBreaks: TieBreakItem[];
   onGrade: (c: JudgeQueueItem) => void;
   onTieBreak: (t: TieBreakItem) => void;
+  rulesText?: string;
+  onOpenRules?: () => void;
 }) {
   const [tab, setTab] = useState<'queue' | 'tiebreaks'>('queue');
   const [showGraded, setShowGraded] = useState(false);
@@ -63,7 +65,14 @@ export default function Dashboard({
         <div style={{ padding: '20px 24px 14px', background: C.cream }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontFamily: serif, fontSize: 22, fontWeight: 600, color: C.greenDeep }}>{judgeName}</span>
-            <LangToggle lang={lang} setLang={setLang} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {rulesText && (
+                <span onClick={onOpenRules} style={{ cursor: 'pointer', fontSize: 12, fontWeight: 600, color: C.brassDark, border: `1px solid ${C.line}`, padding: '5px 12px', borderRadius: 999, background: '#fff' }}>
+                  <L k="rules" lang={lang} />
+                </span>
+              )}
+              <LangToggle lang={lang} setLang={setLang} />
+            </div>
           </div>
           <div style={{ fontSize: 12.5, color: C.muted, marginTop: 4 }}>{`${toGrade.length} ${t('toGrade', lang)} · ${graded.length} ${t('graded', lang)}`}</div>
         </div>

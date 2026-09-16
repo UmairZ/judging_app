@@ -8,6 +8,7 @@ import { ContestantsPage } from './comp/ContestantsPage';
 import { JudgesPage } from './comp/JudgesPage';
 import { LeaderboardPage } from './comp/LeaderboardPage';
 import { ProvisioningPage } from './comp/ProvisioningPage';
+import { RulesPage } from './comp/RulesPage';
 import { ScoringPage } from './comp/ScoringPage';
 import { HomePage } from './HomePage';
 import { usePortalPath } from './nav';
@@ -53,6 +54,8 @@ export function PortalRoot() {
             <JudgesPage />
           ) : route.section === 'scoring' ? (
             <ScoringPage />
+          ) : route.section === 'rules' ? (
+            <RulesPage />
           ) : route.section === 'leaderboard' ? (
             <LeaderboardPage />
           ) : route.section === 'provisioning' ? (

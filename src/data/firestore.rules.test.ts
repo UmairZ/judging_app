@@ -115,6 +115,15 @@ describe('staff-only collections', () => {
   it('a judge cannot write contestants', async () => {
     await assertFails(setDoc(doc(as('uJudgeA'), `${P1}/contestants/c1`), { fullName: 'X' }));
   });
+
+  it('a judge can read the rules (policies) doc but cannot write it; staff can', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `${P1}/config/policies`), { rulesText: 'No phones on stage.' });
+    });
+    await assertSucceeds(getDoc(doc(as('uJudgeA'), `${P1}/config/policies`)));
+    await assertFails(setDoc(doc(as('uJudgeA'), `${P1}/config/policies`), { rulesText: 'hacked' }));
+    await assertSucceeds(setDoc(doc(as('staff1'), `${P1}/config/policies`), { rulesText: 'No phones on stage.' }));
+  });
 });
 
 describe('registrations — immutable master', () => {

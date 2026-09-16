@@ -7,6 +7,8 @@ import type { JudgeDoc, PanelDoc, AssignmentDoc, TiebreakDoc, SessionDoc, Contes
 import { DEFAULT_STRUCTURE_CONFIG, categoryMistakeLimit, DEFAULT_MISTAKE_LIMIT, type StructureConfig } from '../domain/structure';
 import { enrollmentId } from '../domain/ids';
 import { C, serif } from '../ui/theme';
+import RulesModal from './grading/RulesModal';
+import { useJudgeLang } from './useJudgeLang';
 import WelcomeScreen from './WelcomeScreen';
 import Dashboard, { type TieBreakItem } from './Dashboard';
 import GradingScreen from './GradingScreen';
@@ -21,6 +23,8 @@ export default function JudgeApp() {
   const [selected, setSelected] = useState<JudgeQueueItem | null>(null);
   const [tbTarget, setTbTarget] = useState<TieBreakItem | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const { lang } = useJudgeLang();
 
   const judges = useCollection<JudgeDoc>(tp('judges'));
   const panels = useCollection<PanelDoc>(tp('panels'));
@@ -30,6 +34,9 @@ export default function JudgeApp() {
   const contestants = useCollection<ContestantDoc>(tp('contestants'));
   const enrollments = useCollection<EnrollmentDoc>(tp('enrollments'));
   const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
+  // Subscribed once here for Dashboard's Rules button — GradingScreen's own
+  // useGradingSession subscribes independently for the grading-screen pill.
+  const rulesText = useDocData<{ rulesText?: string }>(tp('config/policies')).data?.rulesText ?? '';
 
   // Single source for the queue — collections are subscribed once here, not again inside the hook.
   const items = useMemo(
@@ -112,6 +119,8 @@ export default function JudgeApp() {
         tieBreaks={tieBreaks}
         onGrade={(c) => { setSelected(c); setScreen('grading'); }}
         onTieBreak={(t) => { setTbTarget(t); setScreen('tiebreak'); }}
+        rulesText={rulesText}
+        onOpenRules={() => setRulesOpen(true)}
       />
     );
   }
@@ -119,6 +128,7 @@ export default function JudgeApp() {
   return (
     <>
       {content}
+      {rulesOpen && <RulesModal text={rulesText} lang={lang} onClose={() => setRulesOpen(false)} />}
       <div
         onPointerDown={startPress}
         onPointerUp={endPress}

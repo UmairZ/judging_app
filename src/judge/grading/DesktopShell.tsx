@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { C, serif } from '../../ui/theme';
 import { questionScore } from '../../scoring';
 import type { GradingScreenProps, GradingSession } from '../useGradingSession';
@@ -7,16 +8,18 @@ import StepperCard, { HIFZ_KEYS, TAJWEED_KEYS } from './StepperCard';
 import VoiceScale from './VoiceScale';
 import ScoreBars from './ScoreBars';
 import DQOverlay from './DQOverlay';
+import RulesModal from './RulesModal';
 
 /** The desktop grading layout — pure presentation over useGradingSession. */
 export default function DesktopShell({ contestant, minQuestions, mistakeLimit, meta, onEnd, s }: GradingScreenProps & { s: GradingSession }) {
   const {
-    cfg, locked, tieBreak, questions, active, setActive, aq, counts, score, means,
+    cfg, rulesText, locked, tieBreak, questions, active, setActive, aq, counts, score, means,
     sync, notes, setNotes, canFinish, voiceNudge, showPrompt,
     inc, dec, setVoice, manualDQ, restoreDQ, resetQ, dismissPrompt, confirmDQ,
     addQuestion, removeQuestion, finalize, reopen, submitTieBreak, saveAndExit, needsVoice,
   } = s;
   const { lang, setLang } = useJudgeLang();
+  const [rulesOpen, setRulesOpen] = useState(false);
   // How many panel judges have started this contestant — passed in by the parent, which
   // already subscribes to the sessions collection (no extra listener here).
   const startedCount = meta.startedCount;
@@ -52,6 +55,11 @@ export default function DesktopShell({ contestant, minQuestions, mistakeLimit, m
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 26 }}>
             <LangToggle lang={lang} setLang={setLang} />
+            {rulesText && (
+              <span onClick={() => setRulesOpen(true)} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>
+                <L k="rules" lang={lang} />
+              </span>
+            )}
             {(() => {
               const status = locked
                 ? { key: 'gradedLocked' as const, color: C.gold, dot: C.gold }
@@ -206,6 +214,8 @@ export default function DesktopShell({ contestant, minQuestions, mistakeLimit, m
           </div>
           )}
         </div>
+
+        {rulesOpen && <RulesModal text={rulesText} lang={lang} onClose={() => setRulesOpen(false)} />}
       </div>
   );
 }

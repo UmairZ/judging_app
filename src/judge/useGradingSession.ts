@@ -44,6 +44,7 @@ export function useGradingSession({ enrollmentId, judgeId, minQuestions, mistake
   const sync = useSyncState(tp(`sessions/${sessionId}`));
   const { write } = useDb();
   const cfg = useDocData<ScoringConfig>(tp('config/scoring')).data ?? DEFAULT_SCORING_CONFIG;
+  const rulesText = useDocData<{ rulesText?: string }>(tp('config/policies')).data?.rulesText ?? '';
   const [questions, setQuestions] = useState<Question[]>([]);
   const [active, setActive] = useState(0);
   const seeded = useRef(false);
@@ -166,7 +167,7 @@ export function useGradingSession({ enrollmentId, judgeId, minQuestions, mistake
   const saveAndExit = () => { if (!locked && dirty.current) persist(); onEnd(); };
 
   return {
-    cfg, loading, locked, tieBreak, questions, active, setActive, aq, counts, score,
+    cfg, rulesText, loading, locked, tieBreak, questions, active, setActive, aq, counts, score,
     means: { H, T, V }, sync, notes, setNotes, canFinish, voiceNudge, showPrompt,
     inc, dec, setVoice, manualDQ, restoreDQ, resetQ, dismissPrompt, confirmDQ,
     addQuestion, removeQuestion, finalize, reopen, submitTieBreak, saveAndExit, needsVoice,

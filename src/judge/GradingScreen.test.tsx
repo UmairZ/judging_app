@@ -108,6 +108,29 @@ describe('language toggle', () => {
   });
 });
 
+describe('Rules modal', () => {
+  it('shows a Rules button when policies are seeded; opens both paragraphs; × closes it', async () => {
+    const backend = new InMemoryBackend();
+    backend.seed('orgs/demo/competitions/demo/config/policies', { rulesText: 'Rule one.\n\nRule two.' });
+    renderScreen(backend, 5);
+
+    const button = await screen.findByText('Rules');
+    fireEvent.click(button);
+    expect(await screen.findByText('Rule one.')).toBeTruthy();
+    expect(screen.getByText('Rule two.')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('Close'));
+    expect(screen.queryByText('Rule one.')).toBeNull();
+  });
+
+  it('hides the Rules affordance entirely when no policies doc exists', async () => {
+    const backend = new InMemoryBackend();
+    renderScreen(backend, 5);
+    await screen.findByText('Prompted');
+    expect(screen.queryByText('Rules')).toBeNull();
+  });
+});
+
 describe('count-based auto-flag', () => {
   it('prompts at the mistake limit, not before', async () => {
     const backend = new InMemoryBackend();
