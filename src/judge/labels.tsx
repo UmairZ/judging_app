@@ -59,7 +59,7 @@ export const JUDGE_LABELS = {
   judgesStarted:   { en: 'judges started',             ar: 'من الحكام بدأوا' },
   rateAsYouGo:     { en: 'rate as you go',             ar: 'قيّم أولًا بأول' },
   // banners
-  lockedBanner:    { en: '✓ This session is graded & locked — scores are read-only. Tap "Reopen to edit" to change anything.', ar: '✓ هذه الجلسة مُقيَّمة ومقفلة — الدرجات للقراءة فقط. اضغط «إعادة فتح للتعديل» لأي تغيير.' },
+  lockedBanner:    { en: '✓ This session is graded & locked — scores are read-only. Tap “Reopen to edit” to change anything.', ar: '✓ هذه الجلسة مُقيَّمة ومقفلة — الدرجات للقراءة فقط. اضغط «إعادة فتح للتعديل» لأي تغيير.' },
   voiceNudge:      { en: 'Rate voice on every question before finishing — jumped you to the next unrated one.', ar: 'قيّم الصوت في كل سؤال قبل الإنهاء — نقلناك إلى أول سؤال غير مقيَّم.' },
   tieBreakHeader:  { en: '⚖︎ Sudden-death tie-break — grade one question', ar: '⚖︎ جولة حاسمة لكسر التعادل — قيّم سؤالًا واحدًا' },
   // dashboard
