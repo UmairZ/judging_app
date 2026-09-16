@@ -132,8 +132,9 @@ export function useGradingSession({ enrollmentId, judgeId, minQuestions, mistake
   const resetQ = () => patch(active, (q) => freshQuestion(q.index, q.isAdded));
   // "Keep it" lives on the question and persists via the normal tap path.
   const dismissPrompt = () => patch(active, (q) => ({ ...q, flagDismissed: true }));
-  // A disqualified question never prompts (mistakeLimitReached guards on !q.disqualified).
-  const confirmDQ = () => { manualDQ(); };
+  // Also marks the prompt dismissed so an explicit "Restore question" isn't
+  // immediately re-interrogated — the judge already ruled on this question.
+  const confirmDQ = () => patch(active, (q) => ({ ...q, disqualified: true, flagDismissed: true }));
   const setNotes = (v: string) => { dirty.current = true; setNotesState(v); };
   const addQuestion = () => {
     if (locked) return;

@@ -70,6 +70,18 @@ describe('flagDismissed persistence (D1 parked fix)', () => {
     fireEvent.click(within(card).getByTitle('Add one'));
     expect(await screen.findByText('Call it?')).toBeTruthy();
   });
+
+  it('Disqualify-then-Restore does not immediately re-prompt', async () => {
+    const backend = new InMemoryBackend();
+    renderScreen(backend, 1);
+    const label = await screen.findByText('Prompted');
+    const card = label.parentElement!.parentElement!.parentElement as HTMLElement;
+    fireEvent.click(within(card).getByTitle('Add one'));
+    fireEvent.click(await screen.findByText('Disqualify'));
+    fireEvent.click(await screen.findByText('Restore question'));
+    // still at the limit, but the judge already ruled — no re-interrogation
+    expect(screen.queryByText('Call it?')).toBeNull();
+  });
 });
 
 it('rail header says "{N} questions", not "min N"', async () => {
