@@ -38,6 +38,7 @@ export const JUDGE_LABELS = {
   addQuestion:     { en: '+ Add question',             ar: '+ أضف سؤالًا' },
   addChip:         { en: '+ Add',                      ar: '+ أضف' },
   rules:           { en: 'Rules',                      ar: 'القوانين' },
+  close:           { en: 'Close',                      ar: 'إغلاق' },
   // question rail / chips
   questions:       { en: 'Questions',                  ar: 'الأسئلة' },
   question:        { en: 'Question',                   ar: 'السؤال' },
@@ -79,6 +80,8 @@ export const JUDGE_LABELS = {
   noTieBreaksDetail:{ en: 'When the admin starts a sudden-death, the tied contestants appear here for you to re-grade.', ar: 'عند بدء المشرف جولةً حاسمة، يظهر المتعادلون هنا لإعادة تقييمهم.' },
   getStarted:      { en: 'Get Started',                ar: 'ابدأ' },
   welcomeGreeting: { en: 'Welcome, {name}',             ar: 'مرحبًا، {name}' },
+  judgeFallback:   { en: 'Judge',                       ar: 'الحكم' },
+  yourAssigned:    { en: 'Your assigned contestants',   ar: 'المتسابقون المعيّنون لك' },
   // misc / composed
   loading:         { en: 'Loading…',                   ar: 'جارٍ التحميل…' },
   contestant:      { en: 'Contestant',                  ar: 'المتسابق' },

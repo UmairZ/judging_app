@@ -20,6 +20,14 @@ const STATUS: Record<QueueStatus, { labelKey: LabelKey; color: string; bg: strin
   not_started: { labelKey: 'notStarted', color: '#8A938E', bg: '#F0ECE0', dot: '#B6AE9C', avatarBg: '#ECE6D8', avatarFg: '#A89C82' },
 };
 
+/** The queue card's second line, composed from the localized label table
+ * (the item itself only carries status + marks — see useJudgeQueue). */
+function detailFor(c: JudgeQueueItem, lang: Parameters<typeof t>[1]): string {
+  if (c.status === 'graded') return t('gradedStatus', lang);
+  if (c.status === 'in_progress') return `${t('inProgress', lang)} · ${c.marks} ${t('marks', lang)}`;
+  return t('notYetGraded', lang);
+}
+
 function Avatar({ name, bg, fg }: { name: string; bg: string; fg: string }) {
   return (
     <div style={{ width: 44, height: 44, borderRadius: '50%', background: bg, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: serif, fontWeight: 600, color: fg, fontSize: 16 }}>
@@ -94,7 +102,7 @@ export default function Dashboard({
                   <Avatar name={c.name} bg={s.avatarBg} fg={s.avatarFg} />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 15.5, fontWeight: 600, color: C.ink }}>{c.name}</div>
-                    <div style={{ fontSize: 12.5, color: live ? C.brassDark : C.muted }}>{c.slotLabel} · {c.detail}</div>
+                    <div style={{ fontSize: 12.5, color: live ? C.brassDark : C.muted }}>{c.slotLabel} · {detailFor(c, lang)}</div>
                   </div>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: s.color, background: s.bg, padding: '5px 11px', borderRadius: 999, whiteSpace: 'nowrap' }}>
                     <span style={{ width: 7, height: 7, borderRadius: 999, background: s.dot, display: 'inline-block' }} />

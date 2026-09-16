@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { C, serif } from '../../ui/theme';
-import { L, type JudgeLang } from '../labels';
+import { L, t, type JudgeLang } from '../labels';
 
 /** Full-screen rules overlay — organizer-written text (config/policies.rulesText),
  * rendered verbatim. Blank lines start a new paragraph; a single \n breaks a line
@@ -27,7 +27,7 @@ export default function RulesModal({ text, lang, onClose }: { text: string; lang
       >
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('close', lang)}
           style={{ position: 'absolute', top: 14, right: 16, background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: C.muted }}
         >
           ×

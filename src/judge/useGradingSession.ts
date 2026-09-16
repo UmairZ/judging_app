@@ -25,6 +25,11 @@ export interface GradingScreenProps {
   meta: { position: number; total: number; panelName: string; judgeIndex: number; panelSize: number; startedCount: number };
   onEnd: () => void;
   tieBreak?: boolean;
+  /** Force the desktop layout regardless of viewport — for surfaces that embed
+   * GradingScreen inside a fixed-size card (e.g. the marketing /demo page),
+   * where MobileShell's viewport-fixed furniture would escape the card.
+   * Default (undefined) picks the shell from the real viewport via useIsPhone. */
+  forcedShell?: 'desktop';
 }
 
 export function freshQuestion(index: number, isAdded = false): Question {

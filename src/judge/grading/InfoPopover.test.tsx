@@ -43,4 +43,13 @@ describe('StepperCard ⓘ popover', () => {
     fireEvent.mouseDown(screen.getByText('outside'));
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
+
+  it('opens on focus and closes on blur (spec §3: keyboard users tabbing to the ⓘ)', () => {
+    render(<StepperCard def={promptedFailed} count={0} lang="en" cfg={DEFAULT_SCORING_CONFIG} onInc={() => {}} onDec={() => {}} />);
+    const info = screen.getByLabelText('More info');
+    fireEvent.focus(info);
+    expect(screen.getByRole('tooltip')).toBeTruthy();
+    fireEvent.blur(info);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
 });

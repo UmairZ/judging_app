@@ -213,7 +213,7 @@ export default function MobileShell({ contestant, mistakeLimit, meta, onEnd, s }
         </div>
       )}
 
-      {rulesOpen && <RulesModal text={rulesText} lang={lang} onClose={() => setRulesOpen(false)} />}
+      {rulesOpen && rulesText && <RulesModal text={rulesText} lang={lang} onClose={() => setRulesOpen(false)} />}
     </div>
   );
 }

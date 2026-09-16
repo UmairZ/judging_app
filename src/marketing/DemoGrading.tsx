@@ -20,6 +20,10 @@ export default function DemoGrading() {
             minQuestions={3}
             mistakeLimit={5}
             meta={{ position: 1, total: 1, panelName: 'Demo panel', judgeIndex: 0, panelSize: 1, startedCount: 1 }}
+            // Embedded card, not a real judge device: MobileShell's fixed-position
+            // bottom bar/DQ overlay would escape this card and pin over the marketing
+            // page on phones. Force desktop, matching pre-D2 (single-shell) behavior.
+            forcedShell="desktop"
             onEnd={() => backend.write('sessions/demo-enrollment__demo-judge', { questions: [] }, false)}
           />
         </TenantProvider>

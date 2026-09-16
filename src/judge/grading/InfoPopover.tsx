@@ -56,6 +56,8 @@ export default function InfoPopover({ type, cfg, lang }: { type: DeductionEventT
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
         aria-label={t('moreInfo', lang)}
         style={{
           width: 18, height: 18, borderRadius: '50%', border: `1px solid ${C.muted}`, color: C.muted,
@@ -71,7 +73,7 @@ export default function InfoPopover({ type, cfg, lang }: { type: DeductionEventT
           style={{
             position: 'absolute', top: '100%', left: 0, marginTop: 6,
             background: '#fff', border: `1px solid ${C.cardLine}`, borderRadius: 10,
-            boxShadow: '0 6px 18px rgba(28,41,38,.18)', maxWidth: 280, zIndex: 6,
+            boxShadow: '0 6px 18px rgba(28,41,38,.18)', maxWidth: 'min(280px, calc(100vw - 24px))', zIndex: 6,
             padding: '10px 12px', fontSize: 13, lineHeight: 1.4, color: C.ink,
           }}
         >

@@ -215,7 +215,7 @@ export default function DesktopShell({ contestant, minQuestions, mistakeLimit, m
           )}
         </div>
 
-        {rulesOpen && <RulesModal text={rulesText} lang={lang} onClose={() => setRulesOpen(false)} />}
+        {rulesOpen && rulesText && <RulesModal text={rulesText} lang={lang} onClose={() => setRulesOpen(false)} />}
       </div>
   );
 }

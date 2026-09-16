@@ -8,6 +8,7 @@ import { DEFAULT_STRUCTURE_CONFIG, categoryMistakeLimit, DEFAULT_MISTAKE_LIMIT, 
 import { enrollmentId } from '../domain/ids';
 import { C, serif } from '../ui/theme';
 import RulesModal from './grading/RulesModal';
+import { t } from './labels';
 import { useJudgeLang } from './useJudgeLang';
 import WelcomeScreen from './WelcomeScreen';
 import Dashboard, { type TieBreakItem } from './Dashboard';
@@ -45,10 +46,10 @@ export default function JudgeApp() {
   );
   const startedCountFor = (enr: string) => sessions.filter((s) => s.enrollmentId === enr).length;
 
-  const judgeName = judges.find((j) => j.id === judgeId)?.name ?? 'Judge';
+  const judgeName = judges.find((j) => j.id === judgeId)?.name ?? t('judgeFallback', lang);
   const myPanel = panels.find((p) => p.judgeIds.includes(judgeId));
   const slots = [...new Set(items.map((i) => i.slotLabel))];
-  const subtitle = slots.length ? slots.join(' · ') : 'Your assigned contestants';
+  const subtitle = slots.length ? slots.join(' · ') : t('yourAssigned', lang);
   const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
   const divLabel = (id: string) => structure.divisions.find((d) => d.id === id)?.label ?? id;
   const panelMeta = { panelName: myPanel?.name ?? '', judgeIndex: myPanel ? myPanel.judgeIds.indexOf(judgeId) + 1 : 0, panelSize: myPanel?.judgeIds.length ?? 0 };
@@ -128,7 +129,7 @@ export default function JudgeApp() {
   return (
     <>
       {content}
-      {rulesOpen && <RulesModal text={rulesText} lang={lang} onClose={() => setRulesOpen(false)} />}
+      {rulesOpen && rulesText && <RulesModal text={rulesText} lang={lang} onClose={() => setRulesOpen(false)} />}
       <div
         onPointerDown={startPress}
         onPointerUp={endPress}

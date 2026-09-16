@@ -11,7 +11,8 @@ export interface JudgeQueueItem {
   name: string;
   slotLabel: string;
   status: QueueStatus;
-  detail: string;
+  /** Marks recorded so far on the judge's own session (0 when no session exists yet). */
+  marks: number;
 }
 
 export interface JudgeQueueData {
@@ -43,16 +44,8 @@ export function buildJudgeQueue(judgeId: string, data: JudgeQueueData): JudgeQue
     .filter((e) => mySlots.has(slotKey(e.category, e.division)))
     .map((e) => {
       const sess = sessions.find((s) => s.enrollmentId === e.id && s.judgeId === judgeId);
-      let status: QueueStatus = 'not_started';
-      let detail = 'Not yet graded';
-      if (sess?.finalizedAt) {
-        status = 'graded';
-        detail = 'Graded';
-      } else if (sess) {
-        status = 'in_progress';
-        const marks = sess.questions.reduce((n, q) => n + q.events.length, 0);
-        detail = `In progress · ${marks} marks`;
-      }
+      const marks = sess ? sess.questions.reduce((n, q) => n + q.events.length, 0) : 0;
+      const status: QueueStatus = sess?.finalizedAt ? 'graded' : sess ? 'in_progress' : 'not_started';
       return {
         enrollmentId: e.id,
         contestantId: e.contestantId,
@@ -60,7 +53,7 @@ export function buildJudgeQueue(judgeId: string, data: JudgeQueueData): JudgeQue
         name: contestants.find((c) => c.id === e.contestantId)?.fullName ?? '—',
         slotLabel: `${catLabel(e.category)} · ${divLabel(e.division)}`,
         status,
-        detail,
+        marks,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

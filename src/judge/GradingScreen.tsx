@@ -6,6 +6,7 @@ import MobileShell from './grading/MobileShell';
 export type { GradingScreenProps };
 export default function GradingScreen(props: GradingScreenProps) {
   const session = useGradingSession(props);
-  const phone = useIsPhone();
+  const viewportIsPhone = useIsPhone();
+  const phone = props.forcedShell === 'desktop' ? false : viewportIsPhone;
   return phone ? <MobileShell {...props} s={session} /> : <DesktopShell {...props} s={session} />;
 }
