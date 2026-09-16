@@ -155,13 +155,13 @@ export default function DesktopShell({ contestant, minQuestions, mistakeLimit, m
               <SectionLabel color={C.brassDark}><L k="hifz" lang={lang} /></SectionLabel>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {HIFZ_KEYS.map((k) => (
-                  <StepperCard key={k.type} def={k} count={counts[k.type]} lang={lang} onInc={() => inc(k.type)} onDec={() => dec(k.type)} />
+                  <StepperCard key={k.type} def={k} count={counts[k.type]} lang={lang} cfg={cfg} onInc={() => inc(k.type)} onDec={() => dec(k.type)} />
                 ))}
               </div>
               <SectionLabel color={C.green} style={{ marginTop: 18 }}><L k="tajweed" lang={lang} /></SectionLabel>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {TAJWEED_KEYS.map((k) => (
-                  <StepperCard key={k.type} def={k} count={counts[k.type]} lang={lang} onInc={() => inc(k.type)} onDec={() => dec(k.type)} />
+                  <StepperCard key={k.type} def={k} count={counts[k.type]} lang={lang} cfg={cfg} onInc={() => inc(k.type)} onDec={() => dec(k.type)} />
                 ))}
               </div>
 

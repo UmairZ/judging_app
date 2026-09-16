@@ -1,6 +1,7 @@
 import { C, serif } from '../../ui/theme';
-import type { DeductionEventType } from '../../scoring';
+import type { DeductionEventType, ScoringConfig } from '../../scoring';
 import { L, t, type JudgeLang } from '../labels';
+import InfoPopover from './InfoPopover';
 
 /* ---- the five deduction keys, grouped as in the design ---- */
 export type KeyDef = { type: DeductionEventType };
@@ -14,12 +15,13 @@ export const TAJWEED_KEYS: KeyDef[] = [
   { type: 'tajweed_minor' },
 ];
 
-export default function StepperCard({ def, count, lang, onInc, onDec }: { def: KeyDef; count: number; lang: JudgeLang; onInc: () => void; onDec: () => void }) {
+export default function StepperCard({ def, count, lang, cfg, onInc, onDec }: { def: KeyDef; count: number; lang: JudgeLang; cfg: ScoringConfig; onInc: () => void; onDec: () => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16, background: '#fff', border: `1px solid ${C.cardLine}`, borderRadius: 12, padding: '12px 14px 12px 18px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16, background: '#fff', border: `1px solid ${C.cardLine}`, borderRadius: 12, padding: '12px 14px 12px 18px', position: 'relative' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <L k={def.type} lang={lang} style={{ fontSize: 18, fontWeight: 600, color: C.ink, whiteSpace: 'nowrap' }} />
+          <InfoPopover type={def.type} cfg={cfg} lang={lang} />
         </div>
         <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}><L k={`${def.type}_desc`} lang={lang} /></div>
       </div>

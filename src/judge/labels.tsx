@@ -90,6 +90,11 @@ export const JUDGE_LABELS = {
   dqAbbrev:        { en: 'DQ',                           ar: 'ملغى' },
   // DQ overlay body (count-based auto-flag)
   dqBody:          { en: "That's {n} hifz mistakes on this question — this category's limit. Write off the whole question (hifz, tajweed & voice), or keep it and let the remaining points still count.", ar: 'هذه {n} أخطاء حفظ في هذا السؤال — وهو حدّ هذه الفئة. أتشطب السؤال كاملًا (حفظًا وتجويدًا وصوتًا) أم تُبقيه وتحتسب النقاط المتبقية؟' },
+  // per-deduction ⓘ popover (live model-aware costs)
+  moreInfo:        { en: 'More info',                   ar: 'مزيد من التفاصيل' },
+  costsPoints:     { en: 'Costs {n} point(s)',           ar: 'يُخصم {n} من النقاط' },
+  escalates:       { en: '— repeats in the same question cost 1 more each time', ar: '— يزيد الخصم نقطة مع كل تكرار في السؤال نفسه' },
+  noPenalty:       { en: 'No penalty — tracked only',    ar: 'لا خصم — يُسجَّل فقط' },
 } as const;
 
 export type LabelKey = keyof typeof JUDGE_LABELS;
