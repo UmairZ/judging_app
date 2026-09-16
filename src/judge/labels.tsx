@@ -77,6 +77,7 @@ export const JUDGE_LABELS = {
   noTieBreaks:     { en: 'No tie-breaks right now.',   ar: 'لا يوجد كسر تعادل حاليًا.' },
   noTieBreaksDetail:{ en: 'When the admin starts a sudden-death, the tied contestants appear here for you to re-grade.', ar: 'عند بدء المشرف جولةً حاسمة، يظهر المتعادلون هنا لإعادة تقييمهم.' },
   getStarted:      { en: 'Get Started',                ar: 'ابدأ' },
+  welcomeGreeting: { en: 'Welcome, {name}',             ar: 'مرحبًا، {name}' },
   // misc / composed
   loading:         { en: 'Loading…',                   ar: 'جارٍ التحميل…' },
   contestant:      { en: 'Contestant',                  ar: 'المتسابق' },

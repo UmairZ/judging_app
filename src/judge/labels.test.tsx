@@ -4,6 +4,7 @@ import { render, screen, cleanup, renderHook, act } from '@testing-library/react
 import { JUDGE_LABELS, t, L, nQuestions } from './labels';
 import { useJudgeLang } from './useJudgeLang';
 import { useIsPhone } from './useIsPhone';
+import WelcomeScreen from './WelcomeScreen';
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -54,6 +55,20 @@ describe('useJudgeLang', () => {
     localStorage.setItem('judge-lang', 'zz');
     const { result } = renderHook(() => useJudgeLang());
     expect(result.current.lang).toBe('en');
+  });
+});
+
+describe('WelcomeScreen greeting', () => {
+  it('renders "Welcome, {name}" in English by default, and the Arabic greeting once judge-lang is ar', () => {
+    render(<WelcomeScreen name="Test" subtitle="" onStart={() => {}} />);
+    expect(screen.getByText('Welcome, Test')).toBeTruthy();
+    cleanup();
+    localStorage.setItem('judge-lang', 'ar');
+    render(<WelcomeScreen name="Test" subtitle="" onStart={() => {}} />);
+    const greeting = screen.getByText('مرحبًا، Test');
+    expect(greeting.getAttribute('dir')).toBe('rtl');
+    expect(greeting.getAttribute('lang')).toBe('ar');
+    expect(screen.queryByText('Welcome, Test')).toBeNull();
   });
 });
 
