@@ -44,6 +44,18 @@ describe('StepperCard ⓘ popover', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
+  it('a tap (mouseenter then click, as touch fires them) leaves the popover OPEN', () => {
+    render(<StepperCard def={promptedFailed} count={0} lang="en" cfg={DEFAULT_SCORING_CONFIG} onInc={() => {}} onDec={() => {}} />);
+    const info = screen.getByLabelText('More info');
+    // touch tap sequence: mouseenter → (mousedown) → click
+    fireEvent.mouseEnter(info.parentElement as HTMLElement);
+    fireEvent.click(info);
+    expect(screen.getByRole('tooltip')).toBeTruthy();
+    // a second cold click (no fresh mouseenter) closes it
+    fireEvent.click(info);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
   it('opens on focus and closes on blur (spec §3: keyboard users tabbing to the ⓘ)', () => {
     render(<StepperCard def={promptedFailed} count={0} lang="en" cfg={DEFAULT_SCORING_CONFIG} onInc={() => {}} onDec={() => {}} />);
     const info = screen.getByLabelText('More info');

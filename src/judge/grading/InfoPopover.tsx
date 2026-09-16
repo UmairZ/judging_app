@@ -26,6 +26,10 @@ export function costLine(type: DeductionEventType, cfg: ScoringConfig, lang: Jud
 export default function InfoPopover({ type, cfg, lang }: { type: DeductionEventType; cfg: ScoringConfig; lang: JudgeLang }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  // Touch/tap fires mouseenter BEFORE click: without this flag the enter opens the
+  // popover and the click instantly toggles it shut (verified live). A click right
+  // after a hover-open keeps it open; only a "cold" click on an open popover closes.
+  const hoverOpened = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -50,12 +54,16 @@ export default function InfoPopover({ type, cfg, lang }: { type: DeductionEventT
     <div
       ref={ref}
       style={{ position: 'relative', display: 'inline-flex', flex: 'none' }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={() => { hoverOpened.current = true; setOpen(true); }}
+      onMouseLeave={() => { hoverOpened.current = false; setOpen(false); }}
     >
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (!open) { setOpen(true); return; }
+          if (hoverOpened.current) { hoverOpened.current = false; return; }
+          setOpen(false);
+        }}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
         aria-label={t('moreInfo', lang)}
@@ -73,7 +81,7 @@ export default function InfoPopover({ type, cfg, lang }: { type: DeductionEventT
           style={{
             position: 'absolute', top: '100%', left: 0, marginTop: 6,
             background: '#fff', border: `1px solid ${C.cardLine}`, borderRadius: 10,
-            boxShadow: '0 6px 18px rgba(28,41,38,.18)', maxWidth: 'min(280px, calc(100vw - 24px))', zIndex: 6,
+            boxShadow: '0 6px 18px rgba(28,41,38,.18)', width: 'max-content', maxWidth: 'min(280px, calc(100vw - 24px))', zIndex: 6,
             padding: '10px 12px', fontSize: 13, lineHeight: 1.4, color: C.ink,
           }}
         >
