@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
 import { render, screen, cleanup, renderHook, act } from '@testing-library/react';
-import { JUDGE_LABELS, t, L } from './labels';
+import { JUDGE_LABELS, t, L, nQuestions } from './labels';
 import { useJudgeLang } from './useJudgeLang';
 import { useIsPhone } from './useIsPhone';
 
@@ -24,6 +24,20 @@ describe('labels table', () => {
     expect(span.getAttribute('dir')).toBe('rtl');
     expect(span.getAttribute('lang')).toBe('ar');
     expect(screen.queryByText('Finish')).toBeNull();
+  });
+});
+
+describe('nQuestions', () => {
+  it('formats en and ar with western numerals', () => {
+    expect(nQuestions(3, 'en')).toBe('3 questions');
+    expect(nQuestions(3, 'ar')).toBe('3 أسئلة');
+  });
+});
+
+describe('dqBody', () => {
+  it('carries an {n} slot in both languages', () => {
+    expect(JUDGE_LABELS.dqBody.en).toContain('{n}');
+    expect(JUDGE_LABELS.dqBody.ar).toContain('{n}');
   });
 });
 

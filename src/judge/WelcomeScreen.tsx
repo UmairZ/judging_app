@@ -1,7 +1,10 @@
 import { C, serif, arabic } from '../ui/theme';
+import { L } from './labels';
+import { useJudgeLang } from './useJudgeLang';
 
 /** Branded judge welcome — device is pre-bound to the judge; no login. */
 export default function WelcomeScreen({ name, subtitle, onStart }: { name: string; subtitle: string; onStart: () => void }) {
+  const { lang } = useJudgeLang();
   return (
     <div style={{ width: '100%', height: '100vh', background: 'radial-gradient(circle at 50% 32%, #FBF8F1, #F1E9D9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', position: 'relative' }}>
       <div style={{ position: 'absolute', top: 40, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
@@ -17,7 +20,7 @@ export default function WelcomeScreen({ name, subtitle, onStart }: { name: strin
       <div style={{ fontSize: 15, color: '#6B6355', marginBottom: 34 }}>{subtitle}</div>
 
       <button onClick={onStart} style={{ background: C.green, color: '#fff', fontSize: 16, fontWeight: 700, padding: '15px 48px', borderRadius: 6, border: 'none', cursor: 'pointer', boxShadow: '0 4px 16px rgba(32,101,96,.28)' }}>
-        Get Started
+        <L k="getStarted" lang={lang} />
       </button>
     </div>
   );

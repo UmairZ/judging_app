@@ -11,7 +11,7 @@ const { DEFAULT_SCORING_CONFIG } = await import('../scoring');
 const { default: GradingScreen } = await import('./GradingScreen');
 const { useGradingSession } = await import('./useGradingSession');
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimit: number) {
   return render(
@@ -89,6 +89,23 @@ it('rail header says "{N} questions", not "min N"', async () => {
   renderScreen(backend, 5); // minQuestions=3 in the harness
   expect(await screen.findByText('3 questions')).toBeTruthy();
   expect(screen.queryByText(/min 3/)).toBeNull();
+});
+
+describe('language toggle', () => {
+  it('renders English by default with no Arabic visible', async () => {
+    renderScreen(new InMemoryBackend(), 5);
+    expect(await screen.findByText('Prompted')).toBeTruthy();
+    expect(screen.queryByText('لُقِّن')).toBeNull();
+  });
+  it('switches the screen to Arabic and persists across remount', async () => {
+    renderScreen(new InMemoryBackend(), 5);
+    fireEvent.click(await screen.findByRole('button', { name: 'ع' }));
+    expect(await screen.findByText('لُقِّن')).toBeTruthy();
+    expect(screen.queryByText('Prompted')).toBeNull();
+    cleanup();
+    renderScreen(new InMemoryBackend(), 5);
+    expect(await screen.findByText('لُقِّن')).toBeTruthy();
+  });
 });
 
 describe('count-based auto-flag', () => {

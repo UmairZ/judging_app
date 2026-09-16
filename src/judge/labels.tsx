@@ -77,6 +77,18 @@ export const JUDGE_LABELS = {
   noTieBreaks:     { en: 'No tie-breaks right now.',   ar: 'لا يوجد كسر تعادل حاليًا.' },
   noTieBreaksDetail:{ en: 'When the admin starts a sudden-death, the tied contestants appear here for you to re-grade.', ar: 'عند بدء المشرف جولةً حاسمة، يظهر المتعادلون هنا لإعادة تقييمهم.' },
   getStarted:      { en: 'Get Started',                ar: 'ابدأ' },
+  // misc / composed
+  loading:         { en: 'Loading…',                   ar: 'جارٍ التحميل…' },
+  contestant:      { en: 'Contestant',                  ar: 'المتسابق' },
+  of:              { en: 'of',                          ar: 'من' },
+  youAreJudge:     { en: 'You are Judge',                ar: 'أنت الحكم' },
+  removeOne:       { en: 'Remove one',                  ar: 'أنقص واحدًا' },
+  addOne:          { en: 'Add one',                     ar: 'أضف واحدًا' },
+  voiceDelivery:   { en: 'Voice & delivery',            ar: 'الصوت والأداء' },
+  pending:         { en: 'pending',                     ar: 'قيد الانتظار' },
+  dqAbbrev:        { en: 'DQ',                           ar: 'ملغى' },
+  // DQ overlay body (count-based auto-flag)
+  dqBody:          { en: "That's {n} hifz mistakes on this question — this category's limit. Write off the whole question (hifz, tajweed & voice), or keep it and let the remaining points still count.", ar: 'هذه {n} أخطاء حفظ في هذا السؤال — وهو حدّ هذه الفئة. أتشطب السؤال كاملًا (حفظًا وتجويدًا وصوتًا) أم تُبقيه وتحتسب النقاط المتبقية؟' },
 } as const;
 
 export type LabelKey = keyof typeof JUDGE_LABELS;
@@ -84,6 +96,11 @@ export type JudgeLang = 'en' | 'ar';
 
 export function t(key: LabelKey, lang: JudgeLang): string {
   return JUDGE_LABELS[key][lang];
+}
+
+/** "3 questions" (en) / "3 أسئلة" (ar) — numerals stay western. */
+export function nQuestions(n: number, lang: JudgeLang): string {
+  return lang === 'ar' ? `${n} أسئلة` : `${n} questions`;
 }
 
 /** Renders the ONE selected language; Arabic isolated rtl (layout stays LTR). */
