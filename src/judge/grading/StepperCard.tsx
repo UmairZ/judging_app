@@ -27,7 +27,7 @@ export default function StepperCard({ def, count, lang, cfg, onInc, onDec, compa
         </div>
         <div style={{ fontSize: compact ? 12 : 13, color: C.muted, marginTop: 2, ...(compact ? { lineHeight: 1.35 } : {}) }}><L k={`${def.type}_desc`} lang={lang} /></div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 8 : 12, flex: 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 8 : 12, ...(compact ? { flex: 'none' } : {}) }}>
         <button onClick={onDec} title={t('removeOne', lang)} style={{ width: 44, height: 44, borderRadius: 10, border: '1.5px solid #C9BD9E', color: C.brassDark, fontSize: compact ? 24 : 26, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: '#fff', ...(compact ? { padding: 0 } : {}) }}>−</button>
         <span style={{ fontFamily: serif, fontSize: compact ? 24 : 30, fontWeight: 700, color: C.greenDeep, minWidth: compact ? 24 : 30, textAlign: 'center' }}>{count}</span>
         <button onClick={onInc} title={t('addOne', lang)} style={{ width: compact ? 52 : 58, height: compact ? 52 : 58, borderRadius: compact ? 12 : 13, background: C.green, color: '#fff', fontSize: compact ? 27 : 30, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: 'none', boxShadow: '0 2px 7px rgba(32,101,96,.28)', ...(compact ? { padding: 0 } : {}) }}>+</button>
