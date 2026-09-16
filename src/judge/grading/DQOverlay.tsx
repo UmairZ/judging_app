@@ -5,7 +5,7 @@ import { L, t, type JudgeLang } from '../labels';
 export default function DQOverlay({ limit, lang, onKeep, onConfirm }: { limit: number; lang: JudgeLang; onKeep: () => void; onConfirm: () => void }) {
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'rgba(28,41,38,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
-      <div style={{ width: 440, background: C.cream, border: `1px solid ${C.cardLine}`, borderRadius: 16, padding: '30px 30px 26px', boxShadow: '0 24px 60px rgba(20,40,36,.32)', textAlign: 'center' }}>
+      <div style={{ width: 'min(440px, calc(100vw - 32px))', background: C.cream, border: `1px solid ${C.cardLine}`, borderRadius: 16, padding: '30px 30px 26px', boxShadow: '0 24px 60px rgba(20,40,36,.32)', textAlign: 'center' }}>
         <div style={{ width: 52, height: 52, borderRadius: '50%', background: C.pill, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
           <span style={{ fontSize: 26, color: C.brass }}>⚠</span>
         </div>

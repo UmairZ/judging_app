@@ -36,6 +36,7 @@ export const JUDGE_LABELS = {
   disqualifyQ:     { en: 'Disqualify question',        ar: 'إلغاء السؤال' },
   restoreQ:        { en: 'Restore question',           ar: 'استرجاع السؤال' },
   addQuestion:     { en: '+ Add question',             ar: '+ أضف سؤالًا' },
+  addChip:         { en: '+ Add',                      ar: '+ أضف' },
   rules:           { en: 'Rules',                      ar: 'القوانين' },
   // question rail / chips
   questions:       { en: 'Questions',                  ar: 'الأسئلة' },
