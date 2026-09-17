@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { C, serif, initials } from '../ui/theme';
 import { L, t, type LabelKey } from './labels';
 import { useJudgeLang, LangToggle } from './useJudgeLang';
@@ -55,6 +55,39 @@ export default function Dashboard({
   const graded = items.filter((i) => i.status === 'graded');
   const pendingTB = tieBreaks.filter((tb) => !tb.graded).length;
 
+  // Group the to-grade rows by their organizer-defined slot (category · division).
+  // A single distinct slot is noise (design principle 10) — render flat in that case.
+  const bySlot = new Map<string, JudgeQueueItem[]>();
+  for (const c of toGrade) {
+    const arr = bySlot.get(c.slotLabel) ?? [];
+    arr.push(c);
+    bySlot.set(c.slotLabel, arr);
+  }
+  const grouped = bySlot.size > 1;
+  const slotGroups = grouped
+    ? Array.from(bySlot.keys())
+        .sort((a, b) => a.localeCompare(b))
+        .map((slotLabel) => ({ slotLabel, rows: bySlot.get(slotLabel)! }))
+    : [{ slotLabel: '', rows: toGrade }];
+
+  const renderRow = (c: JudgeQueueItem, showSlot: boolean) => {
+    const s = STATUS[c.status];
+    const live = c.status === 'in_progress';
+    return (
+      <div key={c.enrollmentId} onClick={() => onGrade(c)} style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#fff', border: `1.5px solid ${live ? C.brass : C.line}`, boxShadow: live ? '0 0 0 3px rgba(185,150,68,.12)' : 'none', borderRadius: 10, padding: '12px 15px', cursor: 'pointer' }}>
+        <Avatar name={c.name} bg={s.avatarBg} fg={s.avatarFg} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 600, color: C.ink }}>{c.name}</div>
+          <div style={{ fontSize: 12.5, color: live ? C.brassDark : C.muted }}>{showSlot ? `${c.slotLabel} · ${detailFor(c, lang)}` : detailFor(c, lang)}</div>
+        </div>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: s.color, background: s.bg, padding: '5px 11px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+          <span style={{ width: 7, height: 7, borderRadius: 999, background: s.dot, display: 'inline-block' }} />
+          <L k={s.labelKey} lang={lang} />
+        </span>
+      </div>
+    );
+  };
+
   const Tab = ({ id, labelKey, badge, badgeColor }: { id: 'queue' | 'tiebreaks'; labelKey: LabelKey; badge?: number; badgeColor?: string }) => {
     const on = tab === id;
     return (
@@ -94,23 +127,17 @@ export default function Dashboard({
             {items.length === 0 && (
               <div style={{ padding: '32px 8px', textAlign: 'center', color: C.muted, fontSize: 14 }}><L k="emptyQueue" lang={lang} /></div>
             )}
-            {toGrade.map((c) => {
-              const s = STATUS[c.status];
-              const live = c.status === 'in_progress';
-              return (
-                <div key={c.enrollmentId} onClick={() => onGrade(c)} style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#fff', border: `1.5px solid ${live ? C.brass : C.line}`, boxShadow: live ? '0 0 0 3px rgba(185,150,68,.12)' : 'none', borderRadius: 10, padding: '12px 15px', cursor: 'pointer' }}>
-                  <Avatar name={c.name} bg={s.avatarBg} fg={s.avatarFg} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 15.5, fontWeight: 600, color: C.ink }}>{c.name}</div>
-                    <div style={{ fontSize: 12.5, color: live ? C.brassDark : C.muted }}>{c.slotLabel} · {detailFor(c, lang)}</div>
+            {slotGroups.map((g) => (
+              <Fragment key={g.slotLabel || '_all'}>
+                {grouped && (
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '10px 4px 2px' }}>
+                    <span style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600 }}>{g.slotLabel}</span>
+                    <span style={{ fontSize: 11, color: '#B6AE9C' }}>{g.rows.length}</span>
                   </div>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: s.color, background: s.bg, padding: '5px 11px', borderRadius: 999, whiteSpace: 'nowrap' }}>
-                    <span style={{ width: 7, height: 7, borderRadius: 999, background: s.dot, display: 'inline-block' }} />
-                    <L k={s.labelKey} lang={lang} />
-                  </span>
-                </div>
-              );
-            })}
+                )}
+                {g.rows.map((c) => renderRow(c, !grouped))}
+              </Fragment>
+            ))}
 
             {graded.length > 0 && (
               <>
