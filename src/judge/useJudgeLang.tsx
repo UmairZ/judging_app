@@ -25,7 +25,26 @@ export function useJudgeLang(): { lang: JudgeLang; setLang: (l: JudgeLang) => vo
   return { lang, setLang };
 }
 
-/** Compact EN | ع pill pair — one language renders at a time (spec §2). */
+/** Shared light pill family (Option C) — Rules affordance on cream/white ground.
+ * Every call site sits on a light background now, so one style covers all of them. */
+export const rulesPillStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: 30,
+  boxSizing: 'border-box',
+  border: `1px solid ${C.line}`,
+  background: '#fff',
+  color: C.greenDeep,
+  borderRadius: 999,
+  padding: '0 14px',
+  fontSize: 12.5,
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+
+/** Segmented EN | ع pill — one rounded container, two halves (spec §2). Light-pill
+ * family: every call site now sits on a light (cream/white) background. */
 export function LangToggle({ lang, setLang }: { lang: JudgeLang; setLang: (l: JudgeLang) => void }) {
   const Side = ({ side, text }: { side: JudgeLang; text: string }) => {
     const active = lang === side;
@@ -36,13 +55,11 @@ export function LangToggle({ lang, setLang }: { lang: JudgeLang; setLang: (l: Ju
         style={{
           cursor: 'pointer',
           border: 'none',
-          borderRadius: 999,
-          padding: '4px 10px',
-          fontSize: 11.5,
-          fontWeight: 700,
-          lineHeight: 1.4,
-          background: active ? C.pill : 'transparent',
-          color: active ? C.brassDark : C.muted,
+          padding: '0 12px',
+          fontSize: 12,
+          fontWeight: 600,
+          background: active ? C.greenDeep : 'transparent',
+          color: active ? '#fff' : C.greenDeep,
         }}
       >
         {text}
@@ -50,9 +67,20 @@ export function LangToggle({ lang, setLang }: { lang: JudgeLang; setLang: (l: Ju
     );
   };
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        height: 30,
+        boxSizing: 'border-box',
+        border: `1px solid ${C.line}`,
+        background: '#fff',
+        borderRadius: 999,
+        overflow: 'hidden',
+      }}
+    >
       <Side side="en" text="EN" />
       <Side side="ar" text="ع" />
-    </div>
+    </span>
   );
 }

@@ -116,6 +116,18 @@ describe('back arrow replaces Save & exit (desktop header)', () => {
     fireEvent.click(await screen.findByLabelText('Back to queue'));
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps the language toggle out of the green header (moved to the utility strip below)', async () => {
+    renderScreen(new InMemoryBackend(), 5);
+    // Back arrow and Finish are both direct children of the green header row —
+    // their common parent is the header, which must not also contain the EN toggle.
+    const arrow = await screen.findByLabelText('Back to queue');
+    const finish = await screen.findByText('Finish');
+    const header = arrow.parentElement as HTMLElement;
+    expect(header.contains(finish)).toBe(true);
+    expect(within(header).queryByRole('button', { name: 'EN' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'EN' })).toBeTruthy(); // exists elsewhere, in the strip below
+  });
 });
 
 it('rail header shows the "Questions" label with no count and no "min N"', async () => {

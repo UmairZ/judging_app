@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { C, serif, initials } from '../ui/theme';
 import { L, t, type LabelKey } from './labels';
-import { useJudgeLang, LangToggle } from './useJudgeLang';
+import { useJudgeLang, LangToggle, rulesPillStyle } from './useJudgeLang';
 import type { JudgeQueueItem, QueueStatus } from './useJudgeQueue';
 
 export interface TieBreakItem {
@@ -102,7 +102,7 @@ export default function Dashboard({
             <span style={{ fontFamily: serif, fontSize: 22, fontWeight: 600, color: C.greenDeep }}>{judgeName}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               {rulesText && (
-                <span onClick={onOpenRules} style={{ cursor: 'pointer', fontSize: 12, fontWeight: 600, color: C.brassDark, border: `1px solid ${C.line}`, padding: '5px 12px', borderRadius: 999, background: '#fff' }}>
+                <span onClick={onOpenRules} style={rulesPillStyle}>
                   <L k="rules" lang={lang} />
                 </span>
               )}

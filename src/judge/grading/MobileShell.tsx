@@ -3,7 +3,7 @@ import { C, serif } from '../../ui/theme';
 import { questionScore } from '../../scoring';
 import type { GradingScreenProps, GradingSession } from '../useGradingSession';
 import { L, t } from '../labels';
-import { useJudgeLang, LangToggle } from '../useJudgeLang';
+import { useJudgeLang, LangToggle, rulesPillStyle } from '../useJudgeLang';
 import StepperCard, { HIFZ_KEYS, TAJWEED_KEYS } from './StepperCard';
 import VoiceScale from './VoiceScale';
 import DQOverlay from './DQOverlay';
@@ -78,11 +78,15 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
           {rulesText && (
-            <span onClick={() => setRulesOpen(true)} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', boxSizing: 'border-box', minHeight: 44, fontSize: 12.5, fontWeight: 600, color: '#41504B', border: '1px solid #D8D0BE', padding: '8px 16px', borderRadius: 5, background: '#fff' }}>
-              <L k="rules" lang={lang} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>
+              <span onClick={() => setRulesOpen(true)} style={rulesPillStyle}>
+                <L k="rules" lang={lang} />
+              </span>
             </span>
           )}
-          <LangToggle lang={lang} setLang={setLang} />
+          <span style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>
+            <LangToggle lang={lang} setLang={setLang} />
+          </span>
         </div>
       </div>
 

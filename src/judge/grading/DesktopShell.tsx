@@ -3,7 +3,7 @@ import { C, serif } from '../../ui/theme';
 import { questionScore } from '../../scoring';
 import type { GradingScreenProps, GradingSession } from '../useGradingSession';
 import { L, t } from '../labels';
-import { useJudgeLang, LangToggle } from '../useJudgeLang';
+import { useJudgeLang, LangToggle, rulesPillStyle } from '../useJudgeLang';
 import StepperCard, { HIFZ_KEYS, TAJWEED_KEYS } from './StepperCard';
 import VoiceScale from './VoiceScale';
 import DQOverlay from './DQOverlay';
@@ -27,6 +27,14 @@ export default function DesktopShell({ contestant, mistakeLimit, meta, s }: Grad
     return <div style={{ width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.parchment, color: C.muted, fontFamily: serif }}>{t('loading', lang)}</div>;
   }
 
+  const status = locked
+    ? { key: 'gradedLocked' as const, color: C.gold, dot: C.gold }
+    : sync === 'offline'
+    ? { key: 'offlineSaved' as const, color: '#E8B45F', dot: '#E8B45F' }
+    : sync === 'saving'
+    ? { key: 'saving' as const, color: C.gold, dot: C.gold }
+    : { key: 'saved' as const, color: '#8FD4AE', dot: '#6FCBA0' };
+
   return (
     <div style={{ width: '100%', height: '100vh', background: C.parchment, overflow: 'hidden', display: 'flex', flexDirection: 'column', color: C.ink, position: 'relative' }}>
 
@@ -46,35 +54,10 @@ export default function DesktopShell({ contestant, mistakeLimit, meta, s }: Grad
               <span style={{ fontSize: 12, fontWeight: 600, color: '#06211C', background: C.gold, padding: '3px 10px', borderRadius: 999 }}>{contestant.slotLabel}</span>
             </div>
             <div style={{ fontSize: 13, color: '#9DBDB4', marginTop: 3 }}>
-              {tieBreak ? (
-                <span style={{ color: C.gold, fontWeight: 600 }}><L k="tieBreakHeader" lang={lang} /></span>
-              ) : (
-                `${t('contestant', lang)} ${meta.position} ${t('of', lang)} ${meta.total}`
-              )}
+              {!tieBreak && `${t('contestant', lang)} ${meta.position} ${t('of', lang)} ${meta.total}`}
             </div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 26 }}>
-            <LangToggle lang={lang} setLang={setLang} />
-            {rulesText && (
-              <span onClick={() => setRulesOpen(true)} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}>
-                <L k="rules" lang={lang} />
-              </span>
-            )}
-            {(() => {
-              const status = locked
-                ? { key: 'gradedLocked' as const, color: C.gold, dot: C.gold }
-                : sync === 'offline'
-                ? { key: 'offlineSaved' as const, color: '#E8B45F', dot: '#E8B45F' }
-                : sync === 'saving'
-                ? { key: 'saving' as const, color: C.gold, dot: C.gold }
-                : { key: 'saved' as const, color: '#8FD4AE', dot: '#6FCBA0' };
-              return (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: status.color, fontWeight: 600 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 999, background: status.dot, boxShadow: `0 0 8px ${status.dot}`, display: 'inline-block' }} />
-                  <L k={status.key} lang={lang} />
-                </div>
-              );
-            })()}
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9DBDB4', fontWeight: 600 }}>{tieBreak ? t('tieBreakScore', lang) : t('sessionScore', lang)}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, justifyContent: 'flex-end' }}>
@@ -88,6 +71,24 @@ export default function DesktopShell({ contestant, mistakeLimit, meta, s }: Grad
               <span onClick={locked ? reopen : finalize} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#06211C', background: C.gold, padding: '11px 18px', borderRadius: 5 }}><L k={locked ? 'reopenEdit' : 'finish'} lang={lang} /></span>
             )}
           </div>
+        </div>
+
+        {/* ---- utility strip: sync status + tie-break flag left, Rules + language toggle right ---- */}
+        <div style={{ flex: 'none', minHeight: 40, boxSizing: 'border-box', background: C.cream, borderBottom: `1px solid ${C.line}`, padding: '6px 30px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: status.color, fontWeight: 600 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 999, background: status.dot, boxShadow: `0 0 8px ${status.dot}`, display: 'inline-block' }} />
+            <L k={status.key} lang={lang} />
+          </div>
+          {tieBreak && (
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: C.gold }}><L k="tieBreakHeader" lang={lang} /></span>
+          )}
+          <div style={{ flex: 1 }} />
+          {rulesText && (
+            <span onClick={() => setRulesOpen(true)} style={rulesPillStyle}>
+              <L k="rules" lang={lang} />
+            </span>
+          )}
+          <LangToggle lang={lang} setLang={setLang} />
         </div>
 
         {locked && (
