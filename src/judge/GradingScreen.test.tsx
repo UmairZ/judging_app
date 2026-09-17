@@ -84,6 +84,20 @@ describe('flagDismissed persistence (D1 parked fix)', () => {
   });
 });
 
+describe('Disqualify button hidden on an already-disqualified question', () => {
+  it('hides "Disqualify question" once DQ\'d, restores it after Restore question', async () => {
+    const backend = new InMemoryBackend();
+    renderScreen(backend, 5);
+    await screen.findByText('Prompted');
+    expect(screen.getByText('Disqualify question')).toBeTruthy();
+    fireEvent.click(screen.getByText('Disqualify question'));
+    expect(await screen.findByText('Restore question')).toBeTruthy();
+    expect(screen.queryByText('Disqualify question')).toBeNull();
+    fireEvent.click(screen.getByText('Restore question'));
+    expect(await screen.findByText('Disqualify question')).toBeTruthy();
+  });
+});
+
 describe('back arrow replaces Save & exit (desktop header)', () => {
   it('renders a back arrow with the backToQueue aria-label, and no "Save & exit" pill', async () => {
     renderScreen(new InMemoryBackend(), 5);

@@ -109,6 +109,18 @@ describe('MobileShell (phone viewport)', () => {
     expect(screen.queryByText('Cancel')).toBeNull();
     expect(screen.queryByText('Back to queue')).toBeNull();
   });
+
+  it('hides "Disqualify question" once DQ\'d, restores it after Restore question', async () => {
+    mockPhone();
+    renderScreen(new InMemoryBackend(), 5);
+    await screen.findByText('Q1');
+    expect(screen.getByText('Disqualify question')).toBeTruthy();
+    fireEvent.click(screen.getByText('Disqualify question'));
+    expect(await screen.findByText('Restore question')).toBeTruthy();
+    expect(screen.queryByText('Disqualify question')).toBeNull();
+    fireEvent.click(screen.getByText('Restore question'));
+    expect(await screen.findByText('Disqualify question')).toBeTruthy();
+  });
 });
 
 describe('shell picker (desktop viewport)', () => {

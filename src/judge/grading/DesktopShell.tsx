@@ -185,7 +185,9 @@ export default function DesktopShell({ contestant, minQuestions, mistakeLimit, m
               <div onClick={resetQ} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1.5px solid #D8D0BE', borderRadius: 8, padding: '13px 20px', fontSize: 15, fontWeight: 600, color: C.sub }}>
                 <span style={{ fontSize: 17, color: C.brassDark }}>↺</span> <L k="resetPoints" lang={lang} />
               </div>
-              <div onClick={manualDQ} style={{ marginLeft: 'auto', cursor: 'pointer', background: '#fff', border: '1.5px solid #E0B6AA', borderRadius: 8, padding: '13px 22px', fontSize: 15, fontWeight: 600, color: C.fail }}><L k="disqualifyQ" lang={lang} /></div>
+              {!aq.disqualified && (
+                <div onClick={manualDQ} style={{ marginLeft: 'auto', cursor: 'pointer', background: '#fff', border: '1.5px solid #E0B6AA', borderRadius: 8, padding: '13px 22px', fontSize: 15, fontWeight: 600, color: C.fail }}><L k="disqualifyQ" lang={lang} /></div>
+              )}
             </div>
 
             {/* auto-flag prompt */}
