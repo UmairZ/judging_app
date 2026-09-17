@@ -11,7 +11,7 @@ import DQOverlay from './DQOverlay';
 import RulesModal from './RulesModal';
 
 /** The desktop grading layout — pure presentation over useGradingSession. */
-export default function DesktopShell({ contestant, minQuestions, mistakeLimit, meta, onEnd, s }: GradingScreenProps & { s: GradingSession }) {
+export default function DesktopShell({ contestant, minQuestions, mistakeLimit, meta, s }: GradingScreenProps & { s: GradingSession }) {
   const {
     cfg, rulesText, locked, tieBreak, questions, active, setActive, aq, counts, score, means,
     sync, notes, setNotes, canFinish, voiceNudge, showPrompt,
@@ -33,6 +33,14 @@ export default function DesktopShell({ contestant, minQuestions, mistakeLimit, m
 
         {/* ---- header ---- */}
         <div style={{ height: 92, flex: 'none', display: 'flex', alignItems: 'center', padding: '0 30px', background: C.greenDeep }}>
+          <button
+            onClick={saveAndExit}
+            aria-label={t('backToQueue', lang)}
+            title={t('backToQueue', lang)}
+            style={{ width: 44, height: 44, minWidth: 44, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: '#DCEAE6', fontSize: 22, lineHeight: 1, marginRight: 6, padding: 0 }}
+          >
+            ←
+          </button>
           <div style={{ width: 46, height: 46, borderRadius: '50%', background: C.cream, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
             <span style={{ width: 12, height: 12, background: C.green, transform: 'rotate(45deg)', display: 'inline-block' }} />
           </div>
@@ -83,15 +91,9 @@ export default function DesktopShell({ contestant, minQuestions, mistakeLimit, m
               </div>
             </div>
             {tieBreak ? (
-              <>
-                <span onClick={onEnd} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}><L k="cancel" lang={lang} /></span>
-                <span onClick={submitTieBreak} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#06211C', background: C.gold, padding: '11px 18px', borderRadius: 5 }}><L k="submitTieBreak" lang={lang} /></span>
-              </>
+              <span onClick={submitTieBreak} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#06211C', background: C.gold, padding: '11px 18px', borderRadius: 5 }}><L k="submitTieBreak" lang={lang} /></span>
             ) : (
-              <>
-                <span onClick={saveAndExit} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '11px 18px', borderRadius: 5, background: '#11332D' }}><L k={locked ? 'backToQueue' : 'saveExit'} lang={lang} /></span>
-                <span onClick={locked ? reopen : finalize} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#06211C', background: C.gold, padding: '11px 18px', borderRadius: 5 }}><L k={locked ? 'reopenEdit' : 'finish'} lang={lang} /></span>
-              </>
+              <span onClick={locked ? reopen : finalize} style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#06211C', background: C.gold, padding: '11px 18px', borderRadius: 5 }}><L k={locked ? 'reopenEdit' : 'finish'} lang={lang} /></span>
             )}
           </div>
         </div>

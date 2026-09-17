@@ -12,7 +12,7 @@ import RulesModal from './RulesModal';
 
 /** The phone grading layout (spec §6, DemoMobile shape) — pure presentation over
  * useGradingSession; the same brain object DesktopShell consumes. */
-export default function MobileShell({ contestant, mistakeLimit, meta, onEnd, s }: GradingScreenProps & { s: GradingSession }) {
+export default function MobileShell({ contestant, mistakeLimit, meta, s }: GradingScreenProps & { s: GradingSession }) {
   const {
     cfg, rulesText, locked, tieBreak, questions, active, setActive, aq, counts, score, means,
     sync, notes, setNotes, canFinish, voiceNudge, showPrompt,
@@ -42,6 +42,14 @@ export default function MobileShell({ contestant, mistakeLimit, meta, onEnd, s }
       {/* ---- header ---- */}
       <div style={{ background: C.greenDeep, padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <button
+            onClick={saveAndExit}
+            aria-label={t('backToQueue', lang)}
+            title={t('backToQueue', lang)}
+            style={{ width: 44, height: 44, minWidth: 44, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: '#DCEAE6', fontSize: 20, lineHeight: 1, padding: 0, marginTop: -2 }}
+          >
+            ←
+          </button>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
               <span style={{ fontFamily: serif, fontSize: 18, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{contestant.name}</span>
@@ -193,15 +201,9 @@ export default function MobileShell({ contestant, mistakeLimit, meta, onEnd, s }
         )}
         <div style={{ background: C.cream, borderTop: `1px solid ${C.line}`, padding: '10px 14px', display: 'flex', gap: 10 }}>
           {tieBreak ? (
-            <>
-              <BarButton onClick={onEnd}><L k="cancel" lang={lang} /></BarButton>
-              <BarButton primary onClick={submitTieBreak}><L k="submitTieBreak" lang={lang} /></BarButton>
-            </>
+            <BarButton primary onClick={submitTieBreak}><L k="submitTieBreak" lang={lang} /></BarButton>
           ) : (
-            <>
-              <BarButton onClick={saveAndExit}><L k={locked ? 'backToQueue' : 'saveExit'} lang={lang} /></BarButton>
-              <BarButton primary onClick={locked ? reopen : finalize}><L k={locked ? 'reopenEdit' : 'finish'} lang={lang} /></BarButton>
-            </>
+            <BarButton primary onClick={locked ? reopen : finalize}><L k={locked ? 'reopenEdit' : 'finish'} lang={lang} /></BarButton>
           )}
         </div>
       </div>

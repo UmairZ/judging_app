@@ -29,7 +29,7 @@ function mockDesktop() {
   })) as unknown as typeof window.matchMedia;
 }
 
-function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimit: number) {
+function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimit: number, onEnd: () => void = () => {}) {
   return render(
     <DbProvider backend={backend}>
       <TenantProvider orgId="demo" compId="demo">
@@ -40,7 +40,7 @@ function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimi
           minQuestions={3}
           mistakeLimit={mistakeLimit}
           meta={{ position: 1, total: 1, panelName: '', judgeIndex: 0, panelSize: 0, startedCount: 0 }}
-          onEnd={() => {}}
+          onEnd={onEnd}
         />
       </TenantProvider>
     </DbProvider>,
@@ -82,6 +82,32 @@ describe('MobileShell (phone viewport)', () => {
     const card = label.parentElement!.parentElement!.parentElement as HTMLElement;
     fireEvent.click(within(card).getByTitle('Add one'));
     expect(await screen.findByText('Call it?')).toBeTruthy();
+  });
+
+  it('shows a back arrow in the header with the backToQueue aria-label', async () => {
+    mockPhone();
+    renderScreen(new InMemoryBackend(), 5);
+    await screen.findByText('Q1');
+    expect(screen.getByLabelText('Back to queue')).toBeTruthy();
+  });
+
+  it('clicking the back arrow calls onEnd', async () => {
+    mockPhone();
+    const onEnd = vi.fn();
+    renderScreen(new InMemoryBackend(), 5, onEnd);
+    await screen.findByText('Q1');
+    fireEvent.click(screen.getByLabelText('Back to queue'));
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('bottom bar has only Finish — no Save & exit, Cancel or Back to queue pill', async () => {
+    mockPhone();
+    renderScreen(new InMemoryBackend(), 5);
+    await screen.findByText('Q1');
+    expect(screen.getByText('Finish')).toBeTruthy();
+    expect(screen.queryByText('Save & exit')).toBeNull();
+    expect(screen.queryByText('Cancel')).toBeNull();
+    expect(screen.queryByText('Back to queue')).toBeNull();
   });
 });
 

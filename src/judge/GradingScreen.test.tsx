@@ -13,7 +13,7 @@ const { useGradingSession } = await import('./useGradingSession');
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
-function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimit: number) {
+function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimit: number, onEnd: () => void = () => {}) {
   return render(
     <DbProvider backend={backend}>
       <TenantProvider orgId="demo" compId="demo">
@@ -24,7 +24,7 @@ function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimi
           minQuestions={3}
           mistakeLimit={mistakeLimit}
           meta={{ position: 1, total: 1, panelName: '', judgeIndex: 0, panelSize: 0, startedCount: 0 }}
-          onEnd={() => {}}
+          onEnd={onEnd}
         />
       </TenantProvider>
     </DbProvider>,
@@ -81,6 +81,22 @@ describe('flagDismissed persistence (D1 parked fix)', () => {
     fireEvent.click(await screen.findByText('Restore question'));
     // still at the limit, but the judge already ruled — no re-interrogation
     expect(screen.queryByText('Call it?')).toBeNull();
+  });
+});
+
+describe('back arrow replaces Save & exit (desktop header)', () => {
+  it('renders a back arrow with the backToQueue aria-label, and no "Save & exit" pill', async () => {
+    renderScreen(new InMemoryBackend(), 5);
+    const arrow = await screen.findByLabelText('Back to queue');
+    expect(arrow).toBeTruthy();
+    expect(screen.queryByText('Save & exit')).toBeNull();
+  });
+
+  it('clicking the back arrow calls onEnd', async () => {
+    const onEnd = vi.fn();
+    renderScreen(new InMemoryBackend(), 5, onEnd);
+    fireEvent.click(await screen.findByLabelText('Back to queue'));
+    expect(onEnd).toHaveBeenCalledTimes(1);
   });
 });
 
