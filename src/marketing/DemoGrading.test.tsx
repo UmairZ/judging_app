@@ -49,7 +49,7 @@ describe('DemoGrading', () => {
     mockPhone();
     render(<DemoGrading />);
     // Desktop-only question-rail header.
-    expect(await screen.findByText('3 questions')).toBeTruthy();
+    expect(await screen.findByText('Questions')).toBeTruthy();
     // MobileShell-only chip/markers must not render.
     expect(screen.queryByText('Q1')).toBeNull();
     expect(screen.queryByText('+ Add')).toBeNull();

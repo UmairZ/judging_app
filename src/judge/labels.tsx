@@ -19,7 +19,7 @@ export const JUDGE_LABELS = {
   tajweed_major_desc:   { en: 'A clear tajweed rule was broken (e.g. a missed elongation or rule of nūn).', ar: 'خطأ واضح في أحكام التجويد (كترك مدّ أو حكم نون).' },
   tajweed_minor_desc:   { en: 'A slight imperfection in articulation or pronunciation.', ar: 'خلل يسير في النطق أو الأداء.' },
   // header / status
-  sessionScore:    { en: 'Session score',              ar: 'مجموع الجلسة' },
+  sessionScore:    { en: 'Average score',              ar: 'متوسط الدرجات' },
   tieBreakScore:   { en: 'Tie-break score',            ar: 'درجة كسر التعادل' },
   saved:           { en: 'Saved',                      ar: 'تم الحفظ' },
   saving:          { en: 'Saving…',                    ar: 'جارٍ الحفظ…' },

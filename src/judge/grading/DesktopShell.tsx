@@ -2,18 +2,17 @@ import { useState } from 'react';
 import { C, serif } from '../../ui/theme';
 import { questionScore } from '../../scoring';
 import type { GradingScreenProps, GradingSession } from '../useGradingSession';
-import { L, t, nQuestions } from '../labels';
+import { L, t } from '../labels';
 import { useJudgeLang, LangToggle } from '../useJudgeLang';
 import StepperCard, { HIFZ_KEYS, TAJWEED_KEYS } from './StepperCard';
 import VoiceScale from './VoiceScale';
-import ScoreBars from './ScoreBars';
 import DQOverlay from './DQOverlay';
 import RulesModal from './RulesModal';
 
 /** The desktop grading layout — pure presentation over useGradingSession. */
-export default function DesktopShell({ contestant, minQuestions, mistakeLimit, meta, s }: GradingScreenProps & { s: GradingSession }) {
+export default function DesktopShell({ contestant, mistakeLimit, meta, s }: GradingScreenProps & { s: GradingSession }) {
   const {
-    cfg, rulesText, locked, tieBreak, questions, active, setActive, aq, counts, score, means,
+    cfg, rulesText, locked, tieBreak, questions, active, setActive, aq, counts, score,
     sync, notes, setNotes, canFinish, voiceNudge, showPrompt,
     inc, dec, setVoice, manualDQ, restoreDQ, resetQ, dismissPrompt, confirmDQ,
     addQuestion, removeQuestion, finalize, reopen, submitTieBreak, saveAndExit, needsVoice,
@@ -41,10 +40,7 @@ export default function DesktopShell({ contestant, minQuestions, mistakeLimit, m
           >
             ←
           </button>
-          <div style={{ width: 46, height: 46, borderRadius: '50%', background: C.cream, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
-            <span style={{ width: 12, height: 12, background: C.green, transform: 'rotate(45deg)', display: 'inline-block' }} />
-          </div>
-          <div style={{ marginLeft: 16, minWidth: 0 }}>
+          <div style={{ marginLeft: 10, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontFamily: serif, fontSize: 22, fontWeight: 600, color: '#fff' }}>{contestant.name}</span>
               <span style={{ fontSize: 12, fontWeight: 600, color: '#06211C', background: C.gold, padding: '3px 10px', borderRadius: 999 }}>{contestant.slotLabel}</span>
@@ -53,11 +49,7 @@ export default function DesktopShell({ contestant, minQuestions, mistakeLimit, m
               {tieBreak ? (
                 <span style={{ color: C.gold, fontWeight: 600 }}><L k="tieBreakHeader" lang={lang} /></span>
               ) : (
-                <>
-                  {`${t('contestant', lang)} ${meta.position} ${t('of', lang)} ${meta.total}`}
-                  {meta.panelName && <> · {meta.panelName}</>}
-                  {meta.panelSize > 0 && <> · <span style={{ color: '#CFE2DB' }}>{`${t('youAreJudge', lang)} ${meta.judgeIndex} ${t('of', lang)} ${meta.panelSize}`}</span></>}
-                </>
+                `${t('contestant', lang)} ${meta.position} ${t('of', lang)} ${meta.total}`
               )}
             </div>
           </div>
@@ -116,8 +108,8 @@ export default function DesktopShell({ contestant, minQuestions, mistakeLimit, m
           {/* question rail (hidden in tie-break mode — single question) */}
           {!tieBreak && (
           <div style={{ width: 244, flex: 'none', borderRight: `1px solid ${C.line}`, background: C.cream, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '16px 18px 10px', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
-              <L k="questions" lang={lang} /><span style={{ color: '#B6AE9C' }}>{nQuestions(minQuestions, lang)}</span>
+            <div style={{ padding: '16px 18px 10px', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600 }}>
+              <L k="questions" lang={lang} />
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {questions.map((q, i) => {
@@ -197,7 +189,7 @@ export default function DesktopShell({ contestant, minQuestions, mistakeLimit, m
           {/* side — score breakdown + completeness (hidden in tie-break mode) */}
           {!tieBreak && (
           <div style={{ width: 296, flex: 'none', borderLeft: `1px solid ${C.line}`, background: C.cream, padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <ScoreBars cfg={cfg} means={means} questions={questions} lang={lang} />
+            {/* Phase E insertion point: the assigned question's passage (surah/ayah/page + Madani line-broken text) renders here. */}
             <div>
               <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 8 }}><L k="notes" lang={lang} /></div>
               <textarea

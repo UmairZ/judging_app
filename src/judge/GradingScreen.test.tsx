@@ -32,15 +32,19 @@ function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimi
 }
 
 describe('GradingScreen live config', () => {
-  it('renders the tenant scoring weights, not the defaults', async () => {
+  // Re-anchored off the removed score-breakdown panel (which used to assert on
+  // 'Hifz · 55%'). The voice scale's 0..voice_max button row is still rendered
+  // straight from the live tenant config, so a non-default voice_max still proves
+  // the config subscription is wired up — and still fails if it breaks.
+  it('renders the tenant voice_max, not the default', async () => {
     const backend = new InMemoryBackend();
     backend.seed('orgs/demo/competitions/demo/config/scoring', {
       ...DEFAULT_SCORING_CONFIG,
-      weights: { hifz: 55, tajweed: 40, voice: 5 },
+      voice_max: 8,
     });
     renderScreen(backend, 5);
-    expect(await screen.findByText('Hifz · 55%')).toBeTruthy();
-    expect(screen.getByText('Tajweed · 40%')).toBeTruthy();
+    expect(await screen.findByText(/0–8/)).toBeTruthy();
+    expect(screen.queryByText(/0–5/)).toBeNull(); // default voice_max would show this
   });
 });
 
@@ -114,10 +118,11 @@ describe('back arrow replaces Save & exit (desktop header)', () => {
   });
 });
 
-it('rail header says "{N} questions", not "min N"', async () => {
+it('rail header shows the "Questions" label with no count and no "min N"', async () => {
   const backend = new InMemoryBackend();
   renderScreen(backend, 5); // minQuestions=3 in the harness
-  expect(await screen.findByText('3 questions')).toBeTruthy();
+  expect(await screen.findByText('Questions')).toBeTruthy();
+  expect(screen.queryByText('3 questions')).toBeNull();
   expect(screen.queryByText(/min 3/)).toBeNull();
 });
 

@@ -127,7 +127,29 @@ describe('shell picker (desktop viewport)', () => {
   it('still renders the side rail when the phone query does not match', async () => {
     mockDesktop();
     renderScreen(new InMemoryBackend(), 5);
-    expect(await screen.findByText('3 questions')).toBeTruthy(); // rail header
+    expect(await screen.findByText('Questions')).toBeTruthy(); // rail header
+    expect(screen.queryByText('3 questions')).toBeNull(); // count dropped from the rail header
     expect(screen.queryByText('Q1')).toBeNull(); // no chips
+  });
+});
+
+describe('mobile header vs. utility strip split', () => {
+  it('keeps the language toggle and Rules pill out of the green header, moving them to the strip below it', async () => {
+    mockPhone();
+    const backend = new InMemoryBackend();
+    backend.seed('orgs/demo/competitions/demo/config/policies', { rulesText: 'Rule one.\n\nRule two.' });
+    renderScreen(backend, 5);
+    await screen.findByText('Q1');
+
+    // back arrow -> header row -> green header div (structural, not style-string matching —
+    // jsdom re-serializes inline colors, so it can't be relied on to still read "#16413B").
+    const header = screen.getByLabelText('Back to queue').parentElement!.parentElement as HTMLElement;
+    expect(within(header).queryByRole('button', { name: 'ع' })).toBeNull();
+    expect(within(header).queryByText('Rules')).toBeNull();
+
+    const strip = header.nextElementSibling as HTMLElement;
+    expect(strip).toBeTruthy();
+    expect(within(strip).getByRole('button', { name: 'ع' })).toBeTruthy();
+    expect(within(strip).getByText('Rules')).toBeTruthy();
   });
 });

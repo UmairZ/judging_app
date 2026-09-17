@@ -6,7 +6,6 @@ import { L, t } from '../labels';
 import { useJudgeLang, LangToggle } from '../useJudgeLang';
 import StepperCard, { HIFZ_KEYS, TAJWEED_KEYS } from './StepperCard';
 import VoiceScale from './VoiceScale';
-import ScoreBars from './ScoreBars';
 import DQOverlay from './DQOverlay';
 import RulesModal from './RulesModal';
 
@@ -14,7 +13,7 @@ import RulesModal from './RulesModal';
  * useGradingSession; the same brain object DesktopShell consumes. */
 export default function MobileShell({ contestant, mistakeLimit, meta, s }: GradingScreenProps & { s: GradingSession }) {
   const {
-    cfg, rulesText, locked, tieBreak, questions, active, setActive, aq, counts, score, means,
+    cfg, rulesText, locked, tieBreak, questions, active, setActive, aq, counts, score,
     sync, notes, setNotes, canFinish, voiceNudge, showPrompt,
     inc, dec, setVoice, manualDQ, restoreDQ, resetQ, dismissPrompt, confirmDQ,
     addQuestion, removeQuestion, finalize, reopen, submitTieBreak, saveAndExit, needsVoice,
@@ -41,35 +40,18 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
 
       {/* ---- header ---- */}
       <div style={{ background: C.greenDeep, padding: '14px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             onClick={saveAndExit}
             aria-label={t('backToQueue', lang)}
             title={t('backToQueue', lang)}
-            style={{ width: 44, height: 44, minWidth: 44, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: '#DCEAE6', fontSize: 20, lineHeight: 1, padding: 0, marginTop: -2 }}
+            style={{ width: 44, height: 44, minWidth: 44, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: '#DCEAE6', fontSize: 20, lineHeight: 1, padding: 0 }}
           >
             ←
           </button>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-              <span style={{ fontFamily: serif, fontSize: 18, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{contestant.name}</span>
-              <span style={{ flex: 'none', fontSize: 11, fontWeight: 600, color: '#06211C', background: C.gold, padding: '2px 9px', borderRadius: 999 }}>{contestant.slotLabel}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: status.color, fontWeight: 600 }}>
-                <span style={{ width: 7, height: 7, borderRadius: 999, background: status.dot, boxShadow: `0 0 8px ${status.dot}`, display: 'inline-block' }} />
-                <L k={status.key} lang={lang} />
-              </span>
-              <LangToggle lang={lang} setLang={setLang} />
-              {rulesText && (
-                <span onClick={() => setRulesOpen(true)} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', boxSizing: 'border-box', minHeight: 44, fontSize: 12.5, fontWeight: 600, color: '#DCEAE6', border: '1px solid #3A6258', padding: '8px 16px', borderRadius: 5, background: '#11332D' }}>
-                  <L k="rules" lang={lang} />
-                </span>
-              )}
-            </div>
-            {tieBreak && (
-              <div style={{ marginTop: 6, fontSize: 12.5, fontWeight: 600, color: C.gold }}><L k="tieBreakHeader" lang={lang} /></div>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+            <span style={{ fontFamily: serif, fontSize: 18, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{contestant.name}</span>
+            <span style={{ flex: 'none', fontSize: 11, fontWeight: 600, color: '#06211C', background: C.gold, padding: '2px 9px', borderRadius: 999 }}>{contestant.slotLabel}</span>
           </div>
           <div style={{ textAlign: 'right', flex: 'none' }}>
             <div style={{ fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: '#9DBDB4', fontWeight: 600 }}>{tieBreak ? t('tieBreakScore', lang) : t('sessionScore', lang)}</div>
@@ -78,6 +60,25 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
               <span style={{ fontSize: 13, color: '#9DBDB4' }}>/ 100</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ---- utility strip: sync status + tie-break flag left, Rules + language toggle right ---- */}
+      <div style={{ background: C.cream, borderBottom: `1px solid ${C.line}`, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        {tieBreak && (
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: C.gold }}><L k="tieBreakHeader" lang={lang} /></span>
+        )}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: status.color, fontWeight: 600 }}>
+          <span style={{ width: 7, height: 7, borderRadius: 999, background: status.dot, boxShadow: `0 0 8px ${status.dot}`, display: 'inline-block' }} />
+          <L k={status.key} lang={lang} />
+        </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+          {rulesText && (
+            <span onClick={() => setRulesOpen(true)} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', boxSizing: 'border-box', minHeight: 44, fontSize: 12.5, fontWeight: 600, color: '#41504B', border: '1px solid #D8D0BE', padding: '8px 16px', borderRadius: 5, background: '#fff' }}>
+              <L k="rules" lang={lang} />
+            </span>
+          )}
+          <LangToggle lang={lang} setLang={setLang} />
         </div>
       </div>
 
@@ -155,9 +156,7 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
 
         {!tieBreak && (
           <>
-            <div style={{ marginTop: 16, background: '#fff', border: `1px solid ${C.cardLine}`, borderRadius: 12, padding: '13px 14px 2px' }}>
-              <ScoreBars cfg={cfg} means={means} questions={questions} lang={lang} />
-            </div>
+            {/* Phase E insertion point: the assigned question's passage (surah/ayah/page + Madani line-broken text) renders here. */}
 
             <div style={{ marginTop: 16 }}>
               <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 8 }}><L k="notes" lang={lang} /></div>
