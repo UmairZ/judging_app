@@ -47,13 +47,11 @@ describe('Dashboard queue grouping', () => {
     ];
     render(<Dashboard judgeName="Judge" items={items} tieBreaks={[]} onGrade={noop} onTieBreak={noop} />);
 
-    const ahmedSubtitle = screen.getByText('Ahmed Ali').nextElementSibling as HTMLElement;
-    expect(ahmedSubtitle.textContent).toBe('Not yet graded');
-    expect(ahmedSubtitle.textContent).not.toContain("1 Juz'");
-
-    const zaidSubtitle = screen.getByText('Zaid Rahman').nextElementSibling as HTMLElement;
-    expect(zaidSubtitle.textContent).toBe('In progress · 4 marks');
-    expect(zaidSubtitle.textContent).not.toContain("2 Juz'");
+    // Grouped rows have NO subtitle at all — the header carries the slot and
+    // the status pill carries the status (operator, 2026-09-17).
+    expect(screen.getByText('Ahmed Ali').nextElementSibling).toBeNull();
+    expect(screen.getByText('Zaid Rahman').nextElementSibling).toBeNull();
+    expect(screen.queryByText(/marks/)).toBeNull();
   });
 
   it('renders no section header and keeps the slotLabel in the subtitle when only one slot is present', () => {
@@ -63,11 +61,15 @@ describe('Dashboard queue grouping', () => {
     ];
     render(<Dashboard judgeName="Judge" items={items} tieBreaks={[]} onGrade={noop} onTieBreak={noop} />);
 
-    // no isolated header node carrying just the slot label
-    expect(screen.queryByText('Tajweed A · Brothers', { exact: true })).toBeNull();
+    // The slot text appears only as row subtitles (one per row) — never as a
+    // section header, which is recognizable by its uppercase small-caps style.
+    const nodes = screen.getAllByText('Tajweed A · Brothers', { exact: true });
+    expect(nodes).toHaveLength(2);
+    for (const n of nodes) expect((n as HTMLElement).style.textTransform).not.toBe('uppercase');
 
+    // Single-slot rows keep only the slot as subtitle (status lives in the pill).
     const subtitle = screen.getByText('Ali Khan').nextElementSibling as HTMLElement;
-    expect(subtitle.textContent).toBe('Tajweed A · Brothers · Not yet graded');
+    expect(subtitle.textContent).toBe('Tajweed A · Brothers');
   });
 
   it('keeps graded items in the collapsed section, ungrouped, with slotLabel intact', () => {
