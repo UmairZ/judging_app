@@ -46,7 +46,7 @@ export const rulesPillStyle: React.CSSProperties = {
 /** Segmented EN | ع pill — one rounded container, two halves (spec §2). Light-pill
  * family: every call site now sits on a light (cream/white) background. */
 export function LangToggle({ lang, setLang }: { lang: JudgeLang; setLang: (l: JudgeLang) => void }) {
-  const Side = ({ side, text }: { side: JudgeLang; text: string }) => {
+  const Side = ({ side, text, fontSize }: { side: JudgeLang; text: string; fontSize: number }) => {
     const active = lang === side;
     return (
       <button
@@ -55,9 +55,17 @@ export function LangToggle({ lang, setLang }: { lang: JudgeLang; setLang: (l: Ju
         style={{
           cursor: 'pointer',
           border: 'none',
+          // Fill the container's full height so the active fill is a true
+          // segment, not a lozenge floating inside the pill.
+          height: '100%',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minWidth: 40,
           padding: '0 12px',
-          fontSize: 12,
+          fontSize,
           fontWeight: 600,
+          lineHeight: 1,
           background: active ? C.greenDeep : 'transparent',
           color: active ? '#fff' : C.greenDeep,
         }}
@@ -70,7 +78,7 @@ export function LangToggle({ lang, setLang }: { lang: JudgeLang; setLang: (l: Ju
     <span
       style={{
         display: 'inline-flex',
-        alignItems: 'center',
+        alignItems: 'stretch',
         height: 30,
         boxSizing: 'border-box',
         border: `1px solid ${C.line}`,
@@ -79,8 +87,9 @@ export function LangToggle({ lang, setLang }: { lang: JudgeLang; setLang: (l: Ju
         overflow: 'hidden',
       }}
     >
-      <Side side="en" text="EN" />
-      <Side side="ar" text="ع" />
+      {/* ع gets a bump for optical parity — Arabic glyphs render small at 12px. */}
+      <Side side="en" text="EN" fontSize={12} />
+      <Side side="ar" text="ع" fontSize={15} />
     </span>
   );
 }
