@@ -49,9 +49,13 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
           >
             ←
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-            <span style={{ fontFamily: serif, fontSize: 18, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{contestant.name}</span>
-            <span style={{ flex: 'none', fontSize: 11, fontWeight: 600, color: '#06211C', background: C.gold, padding: '2px 9px', borderRadius: 999 }}>{contestant.slotLabel}</span>
+          {/* Name gets the full row width; the category pill sits beneath it so
+              longer names don't truncate against the pill + score. */}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontFamily: serif, fontSize: 18, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{contestant.name}</div>
+            <div style={{ marginTop: 4 }}>
+              <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, color: '#06211C', background: C.gold, padding: '2px 9px', borderRadius: 999 }}>{contestant.slotLabel}</span>
+            </div>
           </div>
           <div style={{ textAlign: 'right', flex: 'none' }}>
             <div style={{ fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: '#9DBDB4', fontWeight: 600 }}>{tieBreak ? t('tieBreakScore', lang) : t('sessionScore', lang)}</div>
