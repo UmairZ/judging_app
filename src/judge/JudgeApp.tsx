@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useMembership } from '../auth/MembershipContext';
 import { useTenant } from '../tenant/TenantContext';
@@ -73,10 +73,28 @@ export default function JudgeApp() {
       }),
     );
 
-  // Hidden admin re-entry: long-press the top-left corner for ~1.2s.
+  // Hidden admin re-entry: long-press the top-left corner (64×64) for ~1.2s.
+  // Window-level listeners instead of an overlay div: the old invisible
+  // 64×64 fixed div swallowed clicks on anything beneath it — which now
+  // includes the grading screen's back arrow. Coordinate-gated listeners
+  // keep the gesture while letting every click pass through.
   const pressTimer = useRef<number | null>(null);
-  const startPress = () => { pressTimer.current = window.setTimeout(() => setAdminOpen(true), 1200); };
-  const endPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+  useEffect(() => {
+    const endPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+    const startPress = (e: PointerEvent) => {
+      if (e.clientX > 64 || e.clientY > 64) return;
+      pressTimer.current = window.setTimeout(() => setAdminOpen(true), 1200);
+    };
+    window.addEventListener('pointerdown', startPress);
+    window.addEventListener('pointerup', endPress);
+    window.addEventListener('pointercancel', endPress);
+    return () => {
+      endPress();
+      window.removeEventListener('pointerdown', startPress);
+      window.removeEventListener('pointerup', endPress);
+      window.removeEventListener('pointercancel', endPress);
+    };
+  }, []);
 
   let content;
   if (screen === 'welcome') {
@@ -130,14 +148,6 @@ export default function JudgeApp() {
     <>
       {content}
       {rulesOpen && rulesText && <RulesModal text={rulesText} lang={lang} onClose={() => setRulesOpen(false)} />}
-      <div
-        onPointerDown={startPress}
-        onPointerUp={endPress}
-        onPointerLeave={endPress}
-        onPointerCancel={endPress}
-        title="Hold to switch to admin"
-        style={{ position: 'fixed', top: 0, left: 0, width: 64, height: 64, zIndex: 60 }}
-      />
       {adminOpen && <AdminReentry onClose={() => setAdminOpen(false)} signInEmail={signInEmail} />}
     </>
   );
