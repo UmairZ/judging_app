@@ -96,11 +96,11 @@ export const JUDGE_LABELS = {
   dqBody:          { en: 'This question has reached the limit of {n} hifz mistakes. Score the question as zero, or keep it and retain the remaining points.', ar: 'بلغ هذا السؤال حدّ {n} من أخطاء الحفظ. صفِّر السؤال، أو أبقِه واحتسب النقاط المتبقية.' },
   // per-deduction ⓘ popover (live model-aware costs)
   moreInfo:        { en: 'About this mistake',           ar: 'عن هذا الخطأ' },
-  costsPoints:     { en: 'Costs {n} point(s)',           ar: 'يُخصم {n} من النقاط' },
-  escalates:       { en: '— repeats in the same question cost 1 more each time', ar: '— يزيد الخصم نقطة مع كل تكرار في السؤال نفسه' },
   noPenalty:       { en: 'No penalty — tracked only',    ar: 'لا خصم — يُسجَّل فقط' },
-  // temporary copy hold — operator is re-finalizing scoring weights, 2026-09-18
-  scoringValue:    { en: '[SCORING VALUE]',               ar: '[قيمة الخصم]' },
+  costRawPoints:      { en: '−{n} points',                                    ar: 'يُخصم {n} من النقاط' },
+  costPercentHifz:    { en: "−{n}% of this question's memorization",         ar: 'يُخصم {n}٪ من حفظ هذا السؤال' },
+  costPercentTajweed: { en: "−{n}% of this question's tajweed",              ar: 'يُخصم {n}٪ من تجويد هذا السؤال' },
+  escalatesStep:      { en: ' · each repeat in this question costs {step} more percentage points', ar: ' · كل تكرار في هذا السؤال يزيد الخصم {step} نقطة مئوية' },
 } as const;
 
 export type LabelKey = keyof typeof JUDGE_LABELS;

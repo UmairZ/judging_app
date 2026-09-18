@@ -3,11 +3,42 @@ import { C } from '../../ui/theme';
 import type { DeductionEventType, ScoringConfig } from '../../scoring';
 import { t, type JudgeLang, type LabelKey } from '../labels';
 
-/** The ONLY cost-copy source for deduction types. Holds the [SCORING VALUE] / [قيمة الخصم]
- * placeholder in both languages while the operator finalizes scoring v3, 2026-09-18 — the
- * computed cost composition lives in git history and scoring v3 rebuilds this line anyway. */
-export function costLine(_type: DeductionEventType, _cfg: ScoringConfig, lang: JudgeLang): string {
-  return t('scoringValue', lang);
+/** Event type → raw/percent cost-key map (spec §4). */
+const COST_KEY = {
+  self_corrected: 'hesitation',
+  prompted_fixed: 'prompted',
+  prompted_failed: 'unable',
+  tajweed_major: 'tajweed_major',
+  tajweed_minor: 'tajweed_minor',
+} as const;
+
+const HIFZ_TYPES = new Set<DeductionEventType>(['self_corrected', 'prompted_fixed', 'prompted_failed']);
+
+/** The ONLY cost-copy source for deduction types. Composes the live cost line per
+ * scoring model, in both languages (spec §4). Callers pass a resolveScoringConfig'd
+ * cfg — costLine assumes a valid v3 shape. */
+export function costLine(type: DeductionEventType, cfg: ScoringConfig, lang: JudgeLang): string {
+  const key = COST_KEY[type];
+
+  if (cfg.model === 'raw-v3') {
+    const n = cfg.raw.costs[key];
+    if (n === 0) return t('noPenalty', lang);
+    return t('costRawPoints', lang).replace('{n}', String(n));
+  }
+
+  // percent family (weighted-v3 / escalating-v3)
+  if (type === 'self_corrected') return t('noPenalty', lang);
+
+  const isTajweed = key === 'tajweed_major' || key === 'tajweed_minor';
+  const n = cfg.percent.costs[key as 'prompted' | 'unable' | 'tajweed_major' | 'tajweed_minor'];
+  if (n === 0) return t('noPenalty', lang);
+  let line = t(isTajweed ? 'costPercentTajweed' : 'costPercentHifz', lang).replace('{n}', String(n));
+
+  if (cfg.model === 'escalating-v3' && HIFZ_TYPES.has(type) && !isTajweed) {
+    line += t('escalatesStep', lang).replace('{step}', String(cfg.percent.escalation_step));
+  }
+
+  return line;
 }
 
 export default function InfoPopover({ type, cfg, lang }: { type: DeductionEventType; cfg: ScoringConfig; lang: JudgeLang }) {

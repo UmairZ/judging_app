@@ -101,8 +101,8 @@ describe('sessions — one writer per doc, judgeId from the member doc', () => {
 
 describe('staff-only collections', () => {
   it('a judge cannot write config, staff can', async () => {
-    await assertFails(setDoc(doc(as('uJudgeA'), `${P1}/config/scoring`), { hifz_base: 9 }));
-    await assertSucceeds(setDoc(doc(as('staff1'), `${P1}/config/scoring`), { hifz_base: 9 }));
+    await assertFails(setDoc(doc(as('uJudgeA'), `${P1}/config/scoring`), { voice_max: 9 }));
+    await assertSucceeds(setDoc(doc(as('staff1'), `${P1}/config/scoring`), { voice_max: 9 }));
   });
 
   it('a judge can read config (needed for their queue)', async () => {
@@ -173,7 +173,7 @@ describe('cross-tenant isolation — the SaaS invariant', () => {
     const db = as('staff2'); // org2 staff
     await assertFails(getDoc(doc(db, `${P1}/config/structure`)));
     await assertFails(getDoc(doc(db, `${P1}/contestants/c1`)));
-    await assertFails(setDoc(doc(db, `${P1}/config/scoring`), { hifz_base: 1 }));
+    await assertFails(setDoc(doc(db, `${P1}/config/scoring`), { voice_max: 1 }));
     await assertFails(setDoc(doc(db, `${P1}/sessions/sx`), { judgeId: 'jA', enrollmentId: 'e1', questions: [] }));
   });
 

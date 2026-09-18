@@ -23,12 +23,50 @@ export interface DbBackend {
   readonly kind: 'live' | 'demo';
 }
 
+/** Firestore TERMINATES a listener on error — e.g. a listen that starts during
+ * an auth transition (the judge-device admin re-entry flow does exactly this)
+ * gets permission-denied once and then never recovers. A dead config/scoring
+ * listener would silently score judges on DEFAULTS, so instead of dying quietly
+ * we log and re-subscribe with backoff. Attempts reset on any successful
+ * snapshot; after 6 failures we stop retrying (the error log is the trail). */
+function resilient(start: (onNext: () => void, onError: () => void) => () => void): () => void {
+  let stopped = false;
+  let attempt = 0;
+  let unsub: () => void = () => {};
+  const go = () => {
+    if (stopped) return;
+    unsub = start(
+      () => { attempt = 0; },
+      () => {
+        unsub();
+        attempt += 1;
+        if (attempt > 6) return;
+        setTimeout(go, Math.min(8000, 500 * 2 ** attempt));
+      },
+    );
+  };
+  go();
+  return () => { stopped = true; unsub(); };
+}
+
 const firestoreBackend: DbBackend = {
   kind: 'live',
   subscribeDoc: (path, cb) =>
-    onSnapshot(doc(db, path), (snap) => cb(snap.exists() ? { id: snap.id, ...snap.data() } : null), () => cb(null)),
+    resilient((onNext, onError) =>
+      onSnapshot(
+        doc(db, path),
+        (snap) => { onNext(); cb(snap.exists() ? { id: snap.id, ...snap.data() } : null); },
+        (err) => { console.error(`[db] doc listen failed, retrying: ${path}`, err); cb(null); onError(); },
+      ),
+    ),
   subscribeCollection: (path, cb) =>
-    onSnapshot(collection(db, path), (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })))),
+    resilient((onNext, onError) =>
+      onSnapshot(
+        collection(db, path),
+        (snap) => { onNext(); cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); },
+        (err) => { console.error(`[db] collection listen failed, retrying: ${path}`, err); onError(); },
+      ),
+    ),
   write: (path, data, merge) =>
     setDoc(doc(db, path), { ...data, updatedAt: serverTimestamp(), updatedBy: auth.currentUser?.uid ?? null }, { merge }),
   count: async (path, presentField) => {

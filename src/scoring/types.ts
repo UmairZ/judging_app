@@ -28,15 +28,36 @@ export interface Session {
   questions: Question[];
 }
 
+/** The three v3 scoring systems (spec 2026-09-18):
+ *  raw-v3       — per-question 100 with raw point costs from one pool
+ *  weighted-v3  — component weights, percent-native costs
+ *  escalating-v3 — weighted-v3 + escalating repeat penalties on hifz (the comp system)
+ */
+export type ScoringModel = 'raw-v3' | 'weighted-v3' | 'escalating-v3';
+
+/** Model ids the engine implements. Unknown/legacy ids resolve to the defaults
+ * via resolveScoringConfig (never crash mid-event, never mix half-shaped configs). */
+export const KNOWN_MODELS: readonly ScoringModel[] = ['raw-v3', 'weighted-v3', 'escalating-v3'];
+
 export interface ScoringConfig {
-  /** Rubric identifier — future scoring models get new ids; presets are named configs. */
+  /** ScoringModel at rest; string for forward compat — unknown ids score with the defaults. */
   model: string;
-  weights: { hifz: number; tajweed: number; voice: number };
-  hifz_base: number;
-  tajweed_base: number;
+  /** Shared judge rating scale — voice is rated 0..voice_max in every system. */
   voice_max: number;
-  hifz_deductions: { prompted_fixed: number; prompted_failed: number };
-  tajweed_deductions: { major: number; minor: number };
+  /** raw-v3 tuning — one deduction pool, untouched by weighted/escalating edits. */
+  raw: {
+    costs: { hesitation: number; prompted: number; unable: number; tajweed_major: number; tajweed_minor: number };
+    /** Voice's fixed slice of each question's 100 (1..30). */
+    voice_worth: number;
+  };
+  /** weighted-v3 + escalating-v3 tuning — costs are percentages of a component.
+   * Hesitation is hardwired free here (operator decision 4) — no knob. */
+  percent: {
+    weights: { hifz: number; tajweed: number; voice: number };
+    costs: { prompted: number; unable: number; tajweed_major: number; tajweed_minor: number };
+    /** escalating-v3 only: the k-th counted hifz mistake costs (k−1)·step extra percentage points (0..50). */
+    escalation_step: number;
+  };
 }
 
 export interface EventCounts {
@@ -64,6 +85,3 @@ export interface EnrollmentSummary {
   totalPromptedFailed: number;
   startedCount: number;
 }
-
-/** Model ids the engine implements. Unknown ids score as 'deduction-v1' (never crash mid-event). */
-export const KNOWN_MODELS = ['deduction-v1', 'escalating-v2'] as const;

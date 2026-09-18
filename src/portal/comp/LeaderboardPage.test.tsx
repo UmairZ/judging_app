@@ -19,6 +19,7 @@ vi.mock('../../data/db', async () => {
 const { InMemoryBackend, DbProvider } = await import('../../data/backend');
 const { TenantProvider } = await import('../../tenant/TenantContext');
 const { LeaderboardPage } = await import('./LeaderboardPage');
+const { DEFAULT_SCORING_CONFIG } = await import('../../scoring');
 
 afterEach(cleanup);
 
@@ -84,5 +85,51 @@ describe('LeaderboardPage', () => {
     expect(aminaRowIdx).toBeLessThan(bilalRowIdx);
 
     expect(screen.getByRole('button', { name: /Projector mode/ })).toBeTruthy();
+  });
+});
+
+describe('LeaderboardPage component-column gating (spec §1: raw-v3 has no components)', () => {
+  it('hides the Hifz/Tajweed columns under raw-v3, but still ranks the rows', async () => {
+    const backend = seededBackend();
+    backend.seed('orgs/ik/competitions/2026/config/scoring', { ...DEFAULT_SCORING_CONFIG, model: 'raw-v3' });
+    render(
+      <DbProvider backend={backend}>
+        <TenantProvider orgId="ik" compId="2026">
+          <LeaderboardPage />
+        </TenantProvider>
+      </DbProvider>,
+    );
+
+    expect(await screen.findByText('Amina Noor')).toBeTruthy();
+    expect(screen.getByText('Bilal Omar')).toBeTruthy();
+    expect(screen.queryByRole('columnheader', { name: 'Hifz' })).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Tajweed' })).toBeNull();
+
+    // rank order is unaffected by the component gating — still score-driven.
+    const rows = screen.getAllByRole('row');
+    const aminaRowIdx = rows.findIndex((r) => within(r).queryByText('Amina Noor'));
+    const bilalRowIdx = rows.findIndex((r) => within(r).queryByText('Bilal Omar'));
+    expect(aminaRowIdx).toBeGreaterThan(-1);
+    expect(bilalRowIdx).toBeGreaterThan(-1);
+    expect(aminaRowIdx).toBeLessThan(bilalRowIdx);
+  });
+
+  it('shows the Hifz/Tajweed columns under the percent-family systems (weighted-v3/escalating-v3)', async () => {
+    for (const model of ['weighted-v3', 'escalating-v3'] as const) {
+      const backend = seededBackend();
+      backend.seed('orgs/ik/competitions/2026/config/scoring', { ...DEFAULT_SCORING_CONFIG, model });
+      const { unmount } = render(
+        <DbProvider backend={backend}>
+          <TenantProvider orgId="ik" compId="2026">
+            <LeaderboardPage />
+          </TenantProvider>
+        </DbProvider>,
+      );
+
+      expect(await screen.findByText('Amina Noor')).toBeTruthy();
+      expect(screen.getByRole('columnheader', { name: 'Hifz' })).toBeTruthy();
+      expect(screen.getByRole('columnheader', { name: 'Tajweed' })).toBeTruthy();
+      unmount();
+    }
   });
 });

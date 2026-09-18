@@ -3,6 +3,7 @@ export type {
   QuestionEvent,
   Question,
   Session,
+  ScoringModel,
   ScoringConfig,
   EventCounts,
   ComponentMeans,
@@ -10,14 +11,16 @@ export type {
 } from './types';
 export { KNOWN_MODELS } from './types';
 
-export { DEFAULT_SCORING_CONFIG, weightsSum, validateScoringConfig } from './config';
+export {
+  DEFAULT_SCORING_CONFIG,
+  weightsSum,
+  validateScoringConfig,
+  validateScoringConfigFor,
+  resolveScoringConfig,
+} from './config';
 export {
   countEvents,
-  hifzDeduction,
-  hifzQuestionScore,
   hifzFraction,
-  tajweedDeduction,
-  tajweedQuestionScore,
   tajweedFraction,
   voiceFraction,
   questionScore,
