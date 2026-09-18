@@ -74,7 +74,7 @@ async function main() {
   await db.doc(p('config/structure')).set(STRUCTURE);
   await db.doc(p('config/scoring')).set(SCORING);
   await db.doc(p('config/zeffy')).set({ eventTitle: '2026 Ibn Katheer Quran Competition' });
-  await db.doc(p('config/questions')).set({ passage_lines: 15 });
+  await db.doc(p('config/questions')).set({ passage_lines: 7 });
 
   // ── question pools + one hand-written set (category 5) ───────────────────
   // Pool rows are PoolRow shape ({surah, ayah, ref, text}); the set's rows also

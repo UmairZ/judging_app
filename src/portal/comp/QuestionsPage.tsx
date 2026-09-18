@@ -60,8 +60,14 @@ interface QuestionsConfig {
   passage_lines: number;
 }
 
-/** Default passage length: one full Madani mushaf page (15 lines). */
-const DEFAULT_PASSAGE_LINES = 15;
+interface QuestionSetDoc {
+  enrollmentId: string;
+  begin?: PoolRow[];
+  end?: PoolRow[];
+}
+
+/** Default passage length (spec §1 / Decision 5): 7 mushaf lines. */
+const DEFAULT_PASSAGE_LINES = 7;
 
 function clamp(val: number, min: number, max: number) {
   return Math.max(min, Math.min(max, val));
@@ -93,7 +99,7 @@ export function QuestionsPage() {
   const { data: questionsCfg, loading: cfgLoading } = useDocData<QuestionsConfig>(tp('config/questions'));
   const pools = useCollection<PoolDoc>(tp('questionPools'));
   const enrollments = useCollection<EnrollmentDoc>(tp('enrollments'));
-  const sets = useCollection<{ enrollmentId: string }>(tp('questionSets'));
+  const sets = useCollection<QuestionSetDoc>(tp('questionSets'));
   const contestants = useCollection<ContestantDoc>(tp('contestants'));
   const sessions = useCollection<{ judgeId: string }>(tp('sessions'));
 
@@ -103,6 +109,7 @@ export function QuestionsPage() {
   const [preview, setPreview] = useState<ParsedSheet[] | null>(null);
   const [importing, setImporting] = useState(false);
   const [importedCount, setImportedCount] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // ── passage length (ScoringPage save pattern: seed once, explicit Save) ──
   const [passageLines, setPassageLines] = useState(DEFAULT_PASSAGE_LINES);
@@ -134,10 +141,20 @@ export function QuestionsPage() {
     const input = ev.target;
     const file = input.files?.[0];
     if (!file) return;
-    const buf = await file.arrayBuffer();
-    input.value = ''; // allow re-choosing the same file
     setImportedCount(null);
-    setPreview(parseWorkbook(buf, categories));
+    setUploadError(null);
+    // Without the catch, a corrupt/non-xlsx file would throw into a voided
+    // promise and the operator would see nothing happen at all.
+    try {
+      const buf = await file.arrayBuffer();
+      input.value = ''; // allow re-choosing the same file
+      setPreview(parseWorkbook(buf, categories));
+    } catch (err) {
+      setPreview(null);
+      setUploadError(
+        `Could not read that file — choose the question workbook (.xlsx). (${err instanceof Error ? err.message : String(err)})`,
+      );
+    }
   }
 
   const matchedSheets = (preview ?? []).filter((s) => s.categoryId !== null && s.side !== null);
@@ -178,13 +195,39 @@ export function QuestionsPage() {
   // ── assignment ──────────────────────────────────────────────────────────
   async function runAssign(includeAssigned: boolean) {
     if (assigning) return;
+    // Reshuffle race guard: a session created while the confirm dialog sat open
+    // must not get every contestant's questions wiped — re-check at run time
+    // (the confirm button is also disabled, but state can move between renders).
+    if (includeAssigned && judgingStarted) return;
     setAssigning(true);
     setAssignErrors([]);
     try {
       const dataset = await loadDataset();
+      // Crossing flags must match what the judge reveal will render, so enrich
+      // with the SAVED config value — never an unsaved field edit.
+      const effectiveLines = clamp(questionsCfg?.passage_lines ?? DEFAULT_PASSAGE_LINES, 1, 15);
       const targets = includeAssigned ? enrollments : unassigned;
       const errors: string[] = [];
       const writes: { path: string; data: Record<string, unknown> }[] = [];
+
+      // No-reuse across draws: an incremental assign must not hand a late
+      // enrollment a row some existing set of the same category already holds
+      // (assignPool only guarantees no reuse WITHIN one call). Reshuffle
+      // rewrites everyone, so nothing is "held" there.
+      const enrollById = new Map(enrollments.map((e) => [e.id, e]));
+      const heldByCategory = new Map<string, Set<string>>();
+      if (!includeAssigned) {
+        for (const s of sets) {
+          const category = enrollById.get(s.id)?.category;
+          if (!category) continue;
+          let held = heldByCategory.get(category);
+          if (!held) {
+            held = new Set();
+            heldByCategory.set(category, held);
+          }
+          for (const r of [...(s.begin ?? []), ...(s.end ?? [])]) held.add(`${r.surah}:${r.ayah}`);
+        }
+      }
 
       const byCategory = new Map<string, typeof targets>();
       for (const e of targets) {
@@ -224,7 +267,7 @@ export function QuestionsPage() {
               continue;
             }
             const juz = getJuz(dataset, row.surah, row.ayah);
-            const passage = getPassage(dataset, row.surah, row.ayah, passageLines);
+            const passage = getPassage(dataset, row.surah, row.ayah, effectiveLines);
             const crosses = passage.lines.some((l) => l.surah !== row.surah);
             rows.push({ ...row, juz, crosses });
           }
@@ -232,6 +275,14 @@ export function QuestionsPage() {
             errors.push(`${cat.label} · ${side}: invalid reference${invalid.length === 1 ? '' : 's'} — ${invalid.join(', ')}`);
             blocked = true;
             continue;
+          }
+          // Drop rows already held by this category's existing sets (see above)
+          // BEFORE the exhaustion check, so "available" is what can be drawn.
+          const held = heldByCategory.get(categoryId);
+          if (held && held.size > 0) {
+            const remaining = rows.filter((r) => !held.has(`${r.surah}:${r.ayah}`));
+            rows.length = 0;
+            rows.push(...remaining);
           }
           if (rows.length < needed) {
             // Pre-checked here (assignPool would throw the same up front) so BOTH
@@ -323,6 +374,7 @@ export function QuestionsPage() {
               onChange={(e) => void handleFile(e)}
               className="mt-4 block text-sm/6 text-zinc-500 file:mr-3 file:rounded-lg file:border file:border-zinc-950/10 file:bg-white file:px-3 file:py-1.5 file:text-sm/6 file:font-medium file:text-zinc-950 dark:text-zinc-400 dark:file:border-white/15 dark:file:bg-zinc-800 dark:file:text-white"
             />
+            {uploadError && <Text className="mt-3 text-sm text-red-600 dark:text-red-500">{uploadError}</Text>}
             {importedCount !== null && (
               <Text className="mt-3 text-sm text-green-700 dark:text-green-400">
                 ✓ Imported {importedCount} pool{importedCount === 1 ? '' : 's'}.
@@ -512,7 +564,19 @@ export function QuestionsPage() {
                     <TableCell className="font-medium">{contestantName(e)}</TableCell>
                     <TableCell className="text-zinc-500">{catLabel(e.category)}</TableCell>
                     <TableCell>
-                      {setIds.has(e.id) ? <Badge color="green">Assigned</Badge> : <Badge color="zinc">Not assigned</Badge>}
+                      {(() => {
+                        const set = sets.find((s) => s.id === e.id);
+                        return set ? (
+                          <span className="inline-flex items-center gap-2">
+                            <Badge color="green">Assigned</Badge>
+                            <span className="text-zinc-500">
+                              {set.begin?.length ?? 0} + {set.end?.length ?? 0}
+                            </span>
+                          </span>
+                        ) : (
+                          <Badge color="zinc">Not assigned</Badge>
+                        );
+                      })()}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -555,6 +619,7 @@ export function QuestionsPage() {
               </Button>
               <Button
                 color="red"
+                disabled={judgingStarted}
                 onClick={() => {
                   setConfirmReshuffle(false);
                   void runAssign(true);

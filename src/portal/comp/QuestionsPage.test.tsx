@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ParsedSheet, PoolRow } from '../../intake/questionBank';
 
 // Same import-safety pattern as ScoringPage.test.tsx / JudgesPage.test.tsx.
@@ -166,6 +166,18 @@ describe('QuestionsPage — upload flow', () => {
     // No doc for the unmatched sheet.
     expect(calls.every((c) => !(c[0] as string).includes('null'))).toBe(true);
   });
+
+  it('shows a red error instead of dying silently when the workbook cannot be parsed', async () => {
+    parseWorkbookMock.mockImplementation(() => {
+      throw new Error('zip bomb');
+    });
+    renderPage(baseBackend());
+
+    await uploadWorkbook();
+
+    expect(await screen.findByText(/Could not read that file/)).toBeTruthy();
+    expect(writeDocMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('QuestionsPage — pools & capacity', () => {
@@ -175,8 +187,9 @@ describe('QuestionsPage — pools & capacity', () => {
     seedPools(backend, [row(1, 1), row(2, 10), row(3, 5), row(4, 7)], [row(26, 1), row(27, 2)]);
     renderPage(backend);
 
-    // begin: 4 of 6 → short by 2; end: 2 of 6 → short by 4.
+    // begin: 4 of 6 → short by 2; end: 2 of 6 → short by 4. Red = problem (color-is-function).
     expect(await screen.findByText('short by 2')).toBeTruthy();
+    expect(screen.getByText('short by 2').className).toMatch(/red/);
     expect(screen.getByText('short by 4')).toBeTruthy();
     expect(screen.getAllByText('6').length).toBeGreaterThan(0); // the needed column
   });
@@ -231,10 +244,83 @@ describe('QuestionsPage — assignment', () => {
       // juz-ascending within each side (getJuz mock: juz = surah).
       expect(data.begin[0].juz).toBeLessThanOrEqual(data.begin[1].juz);
       expect(data.end[0].juz).toBeLessThanOrEqual(data.end[1].juz);
+      // Side provenance: begin rows come from the BEGIN pool (juz 1–5) and end
+      // rows from the END pool (juz 26+) — kills the swapped-sides mutant.
+      expect(data.begin.every((r) => r.juz <= 5)).toBe(true);
+      expect(data.end.every((r) => r.juz >= 26)).toBe(true);
       // Labels come from the pool ranges, rendered verbatim by Task 5.
       expect(data.beginLabel).toBe('Juz 1–5');
       expect(data.endLabel).toBe('Juz 26–30');
     }
+  });
+
+  it('never re-draws rows already held by existing sets of the category (incremental assign)', async () => {
+    const backend = baseBackend();
+    for (const id of ['a', 'f']) {
+      backend.seed(`${BASE}/contestants/${id}`, { fullName: `Name ${id.toUpperCase()}`, active: true });
+      backend.seed(`${BASE}/enrollments/${id}_5`, { contestantId: id, category: '5', division: 'sisters', round: 'main' });
+    }
+    seedPools(backend, FULL_BEGIN, FULL_END);
+    const enrich = (r: PoolRow) => ({ ...r, juz: r.surah, crosses: false });
+    // a_5 already holds 4 of the 6 rows on each side — only 2 remain per side.
+    backend.seed(`${BASE}/questionSets/a_5`, {
+      enrollmentId: 'a_5',
+      begin: FULL_BEGIN.slice(0, 4).map(enrich),
+      end: FULL_END.slice(0, 4).map(enrich),
+      beginLabel: 'Juz 1–5',
+      endLabel: 'Juz 26–30',
+    });
+    renderPage(backend);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Assign questions' }));
+    await waitFor(() => expect(writeDocMock).toHaveBeenCalledTimes(1));
+
+    const [path, data] = writeDocMock.mock.calls[0] as [string, { begin: PoolRow[]; end: PoolRow[] }];
+    expect(path).toBe(`${BASE}/questionSets/f_5`);
+    // The draw is forced onto exactly the rows a_5 does NOT hold.
+    expect(new Set(data.begin.map((r) => r.ref))).toEqual(new Set([FULL_BEGIN[4].ref, FULL_BEGIN[5].ref]));
+    expect(new Set(data.end.map((r) => r.ref))).toEqual(new Set([FULL_END[4].ref, FULL_END[5].ref]));
+  });
+
+  it('counts only the REMAINING rows in the exhaustion check for an incremental assign', async () => {
+    const backend = baseBackend();
+    for (const id of ['a', 'f']) {
+      backend.seed(`${BASE}/contestants/${id}`, { fullName: `Name ${id.toUpperCase()}`, active: true });
+      backend.seed(`${BASE}/enrollments/${id}_5`, { contestantId: id, category: '5', division: 'sisters', round: 'main' });
+    }
+    seedPools(backend, FULL_BEGIN, FULL_END);
+    const enrich = (r: PoolRow) => ({ ...r, juz: r.surah, crosses: false });
+    // a_5 holds 5 of 6 begin rows — 1 remains, but f_5 needs 2.
+    backend.seed(`${BASE}/questionSets/a_5`, {
+      enrollmentId: 'a_5',
+      begin: FULL_BEGIN.slice(0, 5).map(enrich),
+      end: FULL_END.slice(0, 4).map(enrich),
+      beginLabel: 'Juz 1–5',
+      endLabel: 'Juz 26–30',
+    });
+    renderPage(backend);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Assign questions' }));
+
+    expect(await screen.findByText(/· begin: pool exhausted — 2 needed, only 1 available/)).toBeTruthy();
+    expect(writeDocMock.mock.calls.every((c) => !(c[0] as string).includes('questionSets/'))).toBe(true);
+  });
+
+  it('enriches crossing flags with the SAVED passage length, not unsaved field edits', async () => {
+    const backend = baseBackend();
+    seedEnrollments(backend);
+    seedPools(backend, FULL_BEGIN, FULL_END);
+    backend.seed(`${BASE}/config/questions`, { passage_lines: 4 });
+    renderPage(backend);
+
+    const input = await screen.findByLabelText('Passage length (mushaf lines)');
+    fireEvent.change(input, { target: { value: '9' } }); // edited but NOT saved
+    fireEvent.click(screen.getByRole('button', { name: 'Assign questions' }));
+    await waitFor(() => expect(writeDocMock).toHaveBeenCalled());
+
+    const passageCalls = vi.mocked(quran.getPassage).mock.calls;
+    expect(passageCalls.length).toBeGreaterThan(0);
+    expect(passageCalls.every((c) => c[3] === 4)).toBe(true);
   });
 
   it('refuses to assign from a pool containing an invalid ref — red per-pool error naming the ref', async () => {
@@ -264,17 +350,25 @@ describe('QuestionsPage — assignment', () => {
     expect(writeDocMock.mock.calls.every((c) => !(c[0] as string).includes('questionSets/'))).toBe(true);
   });
 
-  it('lists per-enrollment status: assigned sets vs not-assigned', async () => {
+  it('lists per-enrollment status with side-set lengths: assigned sets vs not-assigned', async () => {
     const backend = baseBackend();
     seedEnrollments(backend);
     seedPools(backend, FULL_BEGIN, FULL_END);
-    backend.seed(`${BASE}/questionSets/a_5`, { enrollmentId: 'a_5', begin: [], end: [], beginLabel: '', endLabel: '' });
+    backend.seed(`${BASE}/questionSets/a_5`, {
+      enrollmentId: 'a_5',
+      begin: [row(1, 1), row(2, 10)],
+      end: [row(26, 1), row(27, 2)],
+      beginLabel: 'Juz 1–5',
+      endLabel: 'Juz 26–30',
+    });
     renderPage(backend);
 
     expect(await screen.findByText('Name A')).toBeTruthy();
     expect(screen.getByText('Name F')).toBeTruthy();
     expect(screen.getAllByText('Assigned')).toHaveLength(1);
     expect(screen.getAllByText('Not assigned')).toHaveLength(2);
+    // Side-set lengths beside the Assigned badge (spec §2).
+    expect(screen.getByText('2 + 2')).toBeTruthy();
   });
 });
 
@@ -309,9 +403,38 @@ describe('QuestionsPage — reshuffle', () => {
     expect(paths).toContain(`${BASE}/questionSets/k_5`);
     expect(paths).toContain(`${BASE}/questionSets/a_5`);
   });
+
+  it('confirm goes inert when a session appears WHILE the dialog is open — no wipe', async () => {
+    const backend = baseBackend();
+    seedEnrollments(backend);
+    seedPools(backend, FULL_BEGIN, FULL_END);
+    renderPage(backend);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reshuffle all questions' }));
+    expect(await screen.findByRole('button', { name: 'Reshuffle everything' })).toHaveProperty('disabled', false);
+
+    // Judging starts while the operator stares at the dialog.
+    await act(async () => {
+      await backend.write(`${BASE}/sessions/f_5__j1`, { enrollmentId: 'f_5', judgeId: 'j1', questions: [] }, false);
+    });
+
+    const confirm = screen.getByRole('button', { name: 'Reshuffle everything' });
+    expect(confirm).toHaveProperty('disabled', true);
+    fireEvent.click(confirm);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(writeDocMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('QuestionsPage — passage length', () => {
+  it('defaults to 7 mushaf lines when config/questions is absent (spec §1)', async () => {
+    renderPage(baseBackend());
+    const input = await screen.findByLabelText('Passage length (mushaf lines)');
+    expect((input as HTMLInputElement).value).toBe('7');
+  });
+
   it('seeds the field from config/questions and persists an edit', async () => {
     const backend = baseBackend();
     backend.seed(`${BASE}/config/questions`, { passage_lines: 4 });
