@@ -78,6 +78,13 @@ describe('assignPool', () => {
       const result = assignPool(rows, ids(3), 7, mulberry32(seed));
       for (const list of result.values()) {
         expect(list.length).toBe(7);
+        // 7 rows over 5 juz guarantees same-juz pairs, so this exercises the
+        // surah/ayah tie-breaks that the distinct-juz test never can.
+        for (let i = 1; i < list.length; i++) {
+          const a = list[i - 1];
+          const b = list[i];
+          expect(a.juz - b.juz || a.surah - b.surah || a.ayah - b.ayah).toBeLessThan(0);
+        }
         const counts = new Map<number, number>();
         for (const r of list) counts.set(r.juz, (counts.get(r.juz) ?? 0) + 1);
         // All 5 juz covered.
@@ -104,6 +111,29 @@ describe('assignPool', () => {
       const min = Math.min(...crossingCounts);
       expect(max - min).toBeLessThanOrEqual(1);
     }
+  });
+
+  it('property (50 seeds): crossing balance holds when crossing rows are scarce per juz', () => {
+    // Discriminating case: perContestant (5) === |J|, so every contestant targets every
+    // juz and the round-robin alone CANNOT balance — only 2 crossing among 5 rows per juz,
+    // so without the quota preference the last contestant in draw order eats every forced
+    // crossing (mutant spread reaches 5). The quota must keep it within ±1.
+    const rows = pool([1, 2, 3, 4, 5], 5, 2);
+    for (const seed of SEEDS) {
+      const result = assignPool(rows, ids(4), 5, mulberry32(seed));
+      const crossingCounts = [...result.values()].map(
+        (list) => list.filter((r) => r.crosses).length,
+      );
+      expect(Math.max(...crossingCounts) - Math.min(...crossingCounts)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('contestant order is shuffled by the rng (juz slices are positional without it)', () => {
+    const rows = pool([1, 2, 3, 4, 5], 12, 4);
+    const orders = new Set(
+      SEEDS.map((seed) => JSON.stringify([...assignPool(rows, ids(10), 4, mulberry32(seed)).keys()])),
+    );
+    expect(orders.size).toBeGreaterThan(1);
   });
 
   it('throws PoolExhaustedError up-front (needed 44 > available 40) with no partial output', () => {
