@@ -162,23 +162,38 @@ export function QuestionsPage() {
   async function handleImport() {
     if (importing || matchedSheets.length === 0) return;
     setImporting(true);
-    for (const s of matchedSheets) {
-      await writeDoc(
-        tp(`questionPools/${poolId(s.categoryId!, s.side!)}`),
-        {
-          categoryId: s.categoryId,
-          side: s.side,
-          range: s.range,
-          rows: s.rows,
-          uploadedAt: now(),
-          uploadedBy: auth.currentUser?.uid ?? null,
-        },
-        false,
+    setUploadError(null);
+    // A rejected write must never leave the page silently stuck mid-import:
+    // surface the failure (naming the sheet) and keep the preview so the
+    // operator can simply press Import again — rewriting a pool is idempotent.
+    let written = 0;
+    try {
+      for (const s of matchedSheets) {
+        await writeDoc(
+          tp(`questionPools/${poolId(s.categoryId!, s.side!)}`),
+          {
+            categoryId: s.categoryId,
+            side: s.side,
+            range: s.range,
+            rows: s.rows,
+            uploadedAt: now(),
+            uploadedBy: auth.currentUser?.uid ?? null,
+          },
+          false,
+        );
+        written += 1;
+      }
+      setImportedCount(matchedSheets.length);
+      setPreview(null);
+    } catch (err) {
+      const failed = matchedSheets[written];
+      setUploadError(
+        `Import failed at “${failed?.sheetName ?? '?'}” — ${written} of ${matchedSheets.length} pools written. ` +
+          `Press Import again to retry. (${err instanceof Error ? err.message : String(err)})`,
       );
+    } finally {
+      setImporting(false);
     }
-    setImporting(false);
-    setImportedCount(matchedSheets.length);
-    setPreview(null);
   }
 
   // ── capacity rows (per category × side) ─────────────────────────────────
@@ -326,8 +341,22 @@ export function QuestionsPage() {
       }
 
       setAssignErrors(errors);
-      for (const w of writes) {
-        await writeDoc(w.path, w.data, false);
+      // A rejected write must never resolve the busy state with no visible error:
+      // sets already written keep (writes are per-enrollment and complete docs),
+      // and the incremental assign covers the remainder on the next click.
+      let saved = 0;
+      try {
+        for (const w of writes) {
+          await writeDoc(w.path, w.data, false);
+          saved += 1;
+        }
+      } catch (err) {
+        setAssignErrors([
+          ...errors,
+          `Saving question sets failed after ${saved} of ${writes.length} — ` +
+            `contestants already saved keep their sets; press Assign questions again to draw the rest. ` +
+            `(${err instanceof Error ? err.message : String(err)})`,
+        ]);
       }
     } finally {
       setAssigning(false);

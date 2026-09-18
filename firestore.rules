@@ -24,6 +24,13 @@ service cloud.firestore {
       return isOrgStaff(orgId) || isCompMember(orgId, compId);
     }
 
+    // The secret question bank: staff and JUDGE seats only. The 'display' seat is a
+    // contestant-facing hall device (projector) — it must never read the questions,
+    // and its surface never subscribes these collections anyway.
+    function canReadQuestions(orgId, compId) {
+      return isOrgStaff(orgId) || (isCompMember(orgId, compId) && compMember(orgId, compId).role == 'judge');
+    }
+
     match /orgs/{orgId} {
       // Org docs are staff-only; creation flows land in Phase 2 (onboarding).
       allow read: if isOrgStaff(orgId);
@@ -75,8 +82,9 @@ service cloud.firestore {
         match /tiebreaks/{id}    { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
         // Question banks (per-category/side pools) and per-enrollment assigned sets:
         // staff manage them from the portal; judges read them for the reveal screen.
-        match /questionPools/{doc} { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
-        match /questionSets/{doc}  { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
+        // NOT canReadComp: the display seat is a comp member but must never read these.
+        match /questionPools/{doc} { allow read: if canReadQuestions(orgId, compId); allow write: if isOrgStaff(orgId); }
+        match /questionSets/{doc}  { allow read: if canReadQuestions(orgId, compId); allow write: if isOrgStaff(orgId); }
 
         // Immutable master: staff may create; no one updates or deletes via client.
         match /registrations/{id} {

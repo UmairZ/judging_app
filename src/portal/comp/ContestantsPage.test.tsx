@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, cleanup } from '@testing-library/react';
+import { fireEvent, render, screen, cleanup, waitFor, within } from '@testing-library/react';
 
 // Same import-safety pattern as CompShell.test.tsx.
 vi.mock('../../firebase/app', () => ({ app: {}, db: {}, auth: { currentUser: null } }));
+
+// writeDoc/removeDoc (src/data/db.ts) write straight to the real Firestore SDK —
+// spy on them; the subscription hooks keep their real (backend-aware) implementations.
+vi.mock('../../data/db', async () => {
+  const actual = await vi.importActual<typeof import('../../data/db')>('../../data/db');
+  return { ...actual, writeDoc: vi.fn(() => Promise.resolve()), removeDoc: vi.fn(() => Promise.resolve()) };
+});
 
 // Headless UI's anchored DropdownMenu measures its trigger with ResizeObserver,
 // which jsdom does not implement — a no-op stub is enough for these tests.
@@ -17,8 +24,13 @@ globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObse
 const { InMemoryBackend, DbProvider } = await import('../../data/backend');
 const { TenantProvider } = await import('../../tenant/TenantContext');
 const { ContestantsPage } = await import('./ContestantsPage');
+const { removeDoc } = await import('../../data/db');
+const removeDocMock = vi.mocked(removeDoc);
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  removeDocMock.mockClear();
+});
 
 function seededBackend() {
   const backend = new InMemoryBackend();
@@ -127,5 +139,53 @@ describe('ContestantsPage', () => {
     expect(screen.getByText('Zeffy event filter')).toBeTruthy();
     expect(screen.getByPlaceholderText('e.g. 2026 Ibn Katheer Quran Competition')).toBeTruthy();
     expect(screen.getByText('Zeffy webhook')).toBeTruthy();
+  });
+});
+
+describe('ContestantsPage — deleting an enrollment also deletes its questionSet (no orphans)', () => {
+  const BASE = 'orgs/ik/competitions/2026';
+
+  /** Seeded backend + an enrollment for c1 with an assigned questionSet, and the
+   * roster edit panel opened on c1. removeDoc is mocked (it hits the real SDK), so
+   * the assertion that the set doc "is gone" is: removeDoc was called on its path. */
+  async function openC1WithEnrollment() {
+    const backend = seededBackend();
+    backend.seed(`${BASE}/enrollments/c1_1`, { contestantId: 'c1', category: '1', division: 'sisters', round: 'main' });
+    backend.seed(`${BASE}/questionSets/c1_1`, { enrollmentId: 'c1_1', begin: [], end: [], beginLabel: 'Juz 1', endLabel: 'Juz 30' });
+    render(
+      <DbProvider backend={backend}>
+        <TenantProvider orgId="ik" compId="2026">
+          <ContestantsPage />
+        </TenantProvider>
+      </DbProvider>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Contestants' }));
+    // roster row → edit panel (the enrollment chip carries the × remove button)
+    fireEvent.click(await screen.findByText('Aisha Siddiqua'));
+    await screen.findByTitle('Remove enrollment');
+    return backend;
+  }
+
+  it('removing a single enrollment (× chip) deletes the matching questionSet doc too', async () => {
+    await openC1WithEnrollment();
+    fireEvent.click(screen.getByTitle('Remove enrollment'));
+
+    const paths = removeDocMock.mock.calls.map((c) => c[0]);
+    expect(paths).toContain(`${BASE}/enrollments/c1_1`);
+    expect(paths).toContain(`${BASE}/questionSets/c1_1`);
+  });
+
+  it('removing a contestant cascades enrollments AND their questionSet docs', async () => {
+    await openC1WithEnrollment();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => {
+      const paths = removeDocMock.mock.calls.map((c) => c[0]);
+      expect(paths).toContain(`${BASE}/enrollments/c1_1`);
+      expect(paths).toContain(`${BASE}/questionSets/c1_1`);
+      expect(paths).toContain(`${BASE}/contestants/c1`);
+    });
   });
 });

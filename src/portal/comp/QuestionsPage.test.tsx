@@ -167,6 +167,24 @@ describe('QuestionsPage — upload flow', () => {
     expect(calls.every((c) => !(c[0] as string).includes('null'))).toBe(true);
   });
 
+  it('surfaces a mid-import write failure as a red error and clears the busy state', async () => {
+    parseWorkbookMock.mockReturnValue(PARSED);
+    // First pool write rejects, any further writes would resolve — the loop stops
+    // at the failure and names the sheet it died on.
+    writeDocMock.mockRejectedValueOnce(new Error('firestore unavailable'));
+    renderPage(baseBackend());
+
+    await uploadWorkbook();
+    fireEvent.click(await screen.findByRole('button', { name: /Import 2 pools/ }));
+
+    const err = await screen.findByText(/Import failed at “Juz 1-5”/);
+    expect(err.className).toMatch(/red/);
+    expect(screen.getByText(/0 of 2 pools written/)).toBeTruthy();
+    // Busy cleared and the preview kept — the operator can just press Import again.
+    const retry = screen.getByRole('button', { name: /Import 2 pools/ });
+    expect(retry).toHaveProperty('disabled', false);
+  });
+
   it('shows a red error instead of dying silently when the workbook cannot be parsed', async () => {
     parseWorkbookMock.mockImplementation(() => {
       throw new Error('zip bomb');
@@ -348,6 +366,25 @@ describe('QuestionsPage — assignment', () => {
     expect(await screen.findByText(/· end: pool exhausted/)).toBeTruthy();
     expect(screen.getByText(/6 needed, only 3 available/)).toBeTruthy();
     expect(writeDocMock.mock.calls.every((c) => !(c[0] as string).includes('questionSets/'))).toBe(true);
+  });
+
+  it('surfaces a mid-assign write failure as a red error and clears the busy state (remainder self-heals)', async () => {
+    const backend = baseBackend();
+    seedEnrollments(backend); // f, k, a — all unassigned → 3 questionSets writes
+    seedPools(backend, FULL_BEGIN, FULL_END);
+    // Second write rejects: one set landed, two did not.
+    writeDocMock
+      .mockImplementationOnce(() => Promise.resolve())
+      .mockImplementationOnce(() => Promise.reject(new Error('firestore unavailable')));
+    renderPage(backend);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Assign questions' }));
+
+    const err = await screen.findByText(/Saving question sets failed after 1 of 3/);
+    expect(err.className).toMatch(/red/);
+    expect(screen.getByText(/Assign questions again/)).toBeTruthy(); // self-healing hint
+    // Busy cleared: the assign button is live again for the incremental retry.
+    expect(screen.getByRole('button', { name: 'Assign questions' })).toHaveProperty('disabled', false);
   });
 
   it('lists per-enrollment status with side-set lengths: assigned sets vs not-assigned', async () => {

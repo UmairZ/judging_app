@@ -275,6 +275,11 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
           endLabel={questionSet.endLabel}
           lang={lang}
           onPick={(s) => { setSide(s); setSideOpen(false); }}
+          // No-write escape: initial prompt (side null) exits to the queue via
+          // saveAndExit (nothing dirty → nothing persisted, no session doc);
+          // a pill-reopened re-choice just closes the overlay.
+          onBack={side == null ? saveAndExit : () => setSideOpen(false)}
+          backLabel={side == null ? 'backToQueue' : 'cancel'}
         />
       )}
     </div>

@@ -251,6 +251,35 @@ describe('side selector overlay (phase E, spec §4)', () => {
     expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('end'); // unchanged
   });
 
+  it('initial overlay offers a back-to-queue escape that exits WITHOUT writing anything', async () => {
+    mockPhone();
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    const onEnd = vi.fn();
+    renderScreen(backend, 5, onEnd);
+    await screen.findByText('Which side is the recitation from?');
+    // The overlay covers the header back arrow — the escape lives inside the overlay
+    // (visible text, distinct from the header arrow's aria-label).
+    fireEvent.click(screen.getByText('Back to queue'));
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    // No session doc was created: judgingStarted stays false, Reshuffle stays live.
+    expect(readDoc(backend, SESSION_PATH)).toBeNull();
+  });
+
+  it('reopened-via-pill overlay dismisses cleanly: Cancel closes it, side and doc untouched', async () => {
+    mockPhone();
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    renderScreen(backend, 5);
+    fireEvent.click(await screen.findByText('Beginning · Juz 1–5'));
+    await screen.findByText('Which side is the recitation from?');
+    fireEvent.click(screen.getByText('Cancel'));
+    expect(screen.queryByText('Which side is the recitation from?')).toBeNull();
+    expect(screen.getByText('Beginning · Juz 1–5')).toBeTruthy(); // still on the grading screen
+    expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('begin'); // unchanged
+  });
+
   it('tie-break: no side pill, no side overlay — the recorded main-round side cannot be rewritten', async () => {
     mockPhone();
     const backend = new InMemoryBackend();

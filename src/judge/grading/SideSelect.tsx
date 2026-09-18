@@ -6,12 +6,21 @@ import type { SideChoice } from '../useGradingSession';
  * shown only while the contestant has a questionSet and the session carries no
  * side yet. Beginning is the green-filled primary, End the outlined secondary;
  * each is subtitled with the set's begin/end label rendered VERBATIM (written by
- * the portal — e.g. 'Juz 1–5'). No dismiss affordance: the judge must choose. */
-export default function SideSelect({ beginLabel, endLabel, lang, onPick }: {
+ * the portal — e.g. 'Juz 1–5').
+ *
+ * `onBack` is the no-write escape hatch: the overlay covers the header's back
+ * button, and a judge who opened the WRONG contestant must be able to leave
+ * without picking a side (picking one persists the session doc, which flips
+ * judgingStarted and permanently disables Reshuffle). `backLabel` picks the
+ * wording: 'backToQueue' for the initial prompt (the handler exits the screen),
+ * 'cancel' for the pill-reopened re-choice (the handler just closes the overlay). */
+export default function SideSelect({ beginLabel, endLabel, lang, onPick, onBack, backLabel = 'backToQueue' }: {
   beginLabel: string;
   endLabel: string;
   lang: JudgeLang;
   onPick: (s: SideChoice) => void;
+  onBack?: () => void;
+  backLabel?: 'backToQueue' | 'cancel';
 }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,41,38,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 45, padding: 20 }}>
@@ -38,6 +47,15 @@ export default function SideSelect({ beginLabel, endLabel, lang, onPick }: {
         <div style={{ marginTop: 16, fontSize: 12, color: C.muted }}>
           <L k="sideNote" lang={lang} />
         </div>
+        {onBack && (
+          <button
+            onClick={onBack}
+            style={{ marginTop: 12, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: C.sub, padding: 4, textDecoration: 'underline', textUnderlineOffset: 3 }}
+          >
+            {backLabel === 'backToQueue' && <span aria-hidden="true">← </span>}
+            <L k={backLabel} lang={lang} />
+          </button>
+        )}
       </div>
     </div>
   );

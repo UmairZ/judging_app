@@ -149,6 +149,15 @@ describe('question pools & sets — staff write, comp members read', () => {
     await assertFails(setDoc(doc(as('uJudgeA'), `${P1}/questionSets/e1`), SET));
   });
 
+  it('a display seat (contestant-facing hall device) cannot read either collection', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `${P1}/questionPools/5_begin`), POOL);
+      await setDoc(doc(ctx.firestore(), `${P1}/questionSets/e1`), SET);
+    });
+    await assertFails(getDoc(doc(as('uDisplay1'), `${P1}/questionPools/5_begin`)));
+    await assertFails(getDoc(doc(as('uDisplay1'), `${P1}/questionSets/e1`)));
+  });
+
   it('foreign staff and anon cannot read or write either collection', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), `${P1}/questionSets/e1`), SET);
