@@ -15,6 +15,7 @@ import { Text } from './portal/vendor/text';
 import { Button } from './portal/vendor/button';
 import JoinScreen from './onboarding/JoinScreen';
 import JudgeApp from './judge/JudgeApp';
+import MockQuestions from './judge/mock-questions';
 import Projector from './admin/Projector';
 import { C, serif } from './ui/theme';
 
@@ -23,6 +24,8 @@ function Routed() {
   // All hooks run unconditionally, before any conditional return — the /portal
   // branch below must never sit between hook calls (Rules of Hooks).
   const route = useMemo(() => parseRoute(window.location.pathname), []);
+  // THROWAWAY steering mockup (?qmock=1) — deleted after the pick.
+  if (new URLSearchParams(window.location.search).get('qmock') === '1') return <MockQuestions />;
   // Portal auth gating — Phase C work-in-progress. Exact '/portal' or a
   // '/portal/...' subpath only — a bare startsWith would also claim '/portalfoo'.
   const path = window.location.pathname;
