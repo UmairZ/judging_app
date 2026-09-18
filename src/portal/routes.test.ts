@@ -18,6 +18,10 @@ describe('parsePortalRoute', () => {
     expect(parsePortalRoute('/portal/c/2026')).toEqual({ kind: 'comp', compId: '2026', section: 'contestants' });
   });
 
+  it('parses /portal/c/2026/questions as comp with questions section', () => {
+    expect(parsePortalRoute('/portal/c/2026/questions')).toEqual({ kind: 'comp', compId: '2026', section: 'questions' });
+  });
+
   it('parses /portal/c/2026/scoring as comp with scoring section', () => {
     expect(parsePortalRoute('/portal/c/2026/scoring')).toEqual({ kind: 'comp', compId: '2026', section: 'scoring' });
   });

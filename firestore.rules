@@ -73,6 +73,10 @@ service cloud.firestore {
         match /contestants/{id}  { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
         match /enrollments/{id}  { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
         match /tiebreaks/{id}    { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
+        // Question banks (per-category/side pools) and per-enrollment assigned sets:
+        // staff manage them from the portal; judges read them for the reveal screen.
+        match /questionPools/{doc} { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
+        match /questionSets/{doc}  { allow read: if canReadComp(orgId, compId); allow write: if isOrgStaff(orgId); }
 
         // Immutable master: staff may create; no one updates or deletes via client.
         match /registrations/{id} {

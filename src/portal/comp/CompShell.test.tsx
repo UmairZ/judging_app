@@ -22,6 +22,7 @@ afterEach(cleanup);
 const SECTION_LABELS = [
   'Contestants',
   'Categories & Divisions',
+  'Questions',
   'Judges & Panels',
   'Scoring',
   'Rules',
