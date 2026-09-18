@@ -94,6 +94,22 @@ export const JUDGE_LABELS = {
   dqAbbrev:        { en: '0',                            ar: '0' },
   // DQ overlay body (count-based auto-flag)
   dqBody:          { en: 'This question has reached the limit of {n} hifz mistakes. Score the question as zero, or keep it and retain the remaining points.', ar: 'بلغ هذا السؤال حدّ {n} من أخطاء الحفظ. صفِّر السؤال، أو أبقِه واحتسب النقاط المتبقية.' },
+  // question reveal (phase E): side selector + passage panel
+  sideQuestion:    { en: 'Which side is the recitation from?', ar: 'من أي جهة ستكون التلاوة؟' },
+  beginningSide:   { en: 'Beginning',                  ar: 'البداية' },
+  endSide:         { en: 'End',                        ar: 'النهاية' },
+  sideNote:        { en: 'Asked once per contestant — changeable until the first mark.', ar: 'يُسأل مرة واحدة لكل متسابق — يمكن تغييره حتى أول علامة.' },
+  viewPassage:     { en: 'View passage',               ar: 'عرض المقطع' },
+  pageN:           { en: 'page {n}',                   ar: 'صفحة {n}' },
+  ownQuestion:     { en: "Judge's own question",       ar: 'سؤال من اختيار الحكم' },
+  passage:         { en: 'Passage',                    ar: 'المقطع' },
+  loadingPassage:  { en: 'Loading passage…',           ar: 'جارٍ تحميل المقطع…' },
+  textSmaller:     { en: 'Smaller text',               ar: 'تصغير الخط' },
+  textLarger:      { en: 'Larger text',                ar: 'تكبير الخط' },
+  questionReplaced:{ en: 'Question replaced — judge asked a different one', ar: 'تم استبدال السؤال — طرح الحكم سؤالًا آخر' },
+  // desktop icon-rail sidebar (task 6)
+  expandSidebar:   { en: 'Expand sidebar',             ar: 'توسيع الشريط الجانبي' },
+  collapseSidebar: { en: 'Collapse sidebar',           ar: 'طيّ الشريط الجانبي' },
   // per-deduction ⓘ popover (live model-aware costs)
   moreInfo:        { en: 'About this mistake',           ar: 'عن هذا الخطأ' },
   noPenalty:       { en: 'No penalty — tracked only',    ar: 'لا خصم — يُسجَّل فقط' },

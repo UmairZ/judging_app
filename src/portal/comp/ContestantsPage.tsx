@@ -562,6 +562,12 @@ export function ContestantsPage() {
     // deletion (grading history stays immutable), and they become unreachable once the
     // enrollment is gone since every reader joins sessions via enrollment.
     removeDoc(tp('enrollments/' + enrId));
+    // The assigned question set must go WITH the enrollment: an orphaned
+    // questionSets/{enrollmentId} escapes the incremental no-reuse filter (its
+    // rows could be re-drawn for someone else) and resurrects if the enrollment
+    // is re-added. Deleting a nonexistent doc is a no-op, so this is safe even
+    // before assignment.
+    removeDoc(tp('questionSets/' + enrId));
   }
 
   function handleAddEnrollment() {
@@ -623,12 +629,16 @@ export function ContestantsPage() {
 
   async function handleRemove() {
     if (!selectedId) return;
-    // cascade: enrollments → contestant. Their sessions are left in place: firestore.rules
-    // forbids session deletion (grading history stays immutable), and they become
-    // unreachable once the enrollment is gone since every reader joins via enrollment.
+    // cascade: enrollments (+ their assigned question sets — an orphaned
+    // questionSets/{enrollmentId} escapes the incremental no-reuse filter and
+    // resurrects on re-add) → contestant. Their sessions are left in place:
+    // firestore.rules forbids session deletion (grading history stays immutable),
+    // and they become unreachable once the enrollment is gone since every reader
+    // joins via enrollment. Deleting a nonexistent questionSet doc is a no-op.
     const myEnrollments = enrollments.filter((e) => e.contestantId === selectedId);
     await Promise.all([
       ...myEnrollments.map((e) => removeDoc(tp('enrollments/' + e.id))),
+      ...myEnrollments.map((e) => removeDoc(tp('questionSets/' + e.id))),
       removeDoc(tp('contestants/' + selectedId)),
     ]);
     setSelectedId(null);

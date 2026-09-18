@@ -16,6 +16,9 @@ export interface Question {
   isTieBreak?: boolean;
   /** judge chose "Keep it" at the mistake limit — UI-only, engine ignores */
   flagDismissed?: boolean;
+  /** judge swapped the assigned question for one of their own — audit-only, engine ignores;
+   * the reveal shows the own-question copy instead of the abandoned passage */
+  replaced?: boolean;
   disqualified?: boolean;
   /** Per-question voice rating, 0..voice_max; null until rated. */
   voice?: number | null;

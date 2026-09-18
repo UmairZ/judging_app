@@ -8,6 +8,8 @@ import StepperCard, { HIFZ_KEYS, TAJWEED_KEYS } from './StepperCard';
 import VoiceScale from './VoiceScale';
 import DQOverlay from './DQOverlay';
 import RulesModal from './RulesModal';
+import SideSelect from './SideSelect';
+import PassagePanel, { usePassage, pageText } from './PassagePanel';
 
 /** The phone grading layout (spec §6, DemoMobile shape) — pure presentation over
  * useGradingSession; the same brain object DesktopShell consumes. */
@@ -17,10 +19,25 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
     sync, notes, setNotes, canFinish, voiceNudge, showPrompt,
     inc, dec, setVoice, manualDQ, restoreDQ, resetQ, dismissPrompt, confirmDQ,
     addQuestion, removeQuestion, finalize, reopen, submitTieBreak, saveAndExit, needsVoice,
+    questionSet, side, setSide, sideLocked, revealRow, hasAssignedRow, toggleReplaced, passageLines,
   } = s;
   const { lang, setLang } = useJudgeLang();
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [passageOpen, setPassageOpen] = useState(false);
+  const [sideOpen, setSideOpen] = useState(false); // pill-reopened side re-choice (until sideLocked)
   const startedCount = meta.startedCount;
+
+  // Question reveal (phase E): the active question's drawn row (null → judge's own
+  // question) + its page for the pill. usePassage only loads the dataset once a
+  // set exists AND a side is chosen — sessions without a set never pull the chunk.
+  const activeRow = questionSet && side ? revealRow(active) : null;
+  const pillPassage = usePassage(activeRow, passageLines);
+  const pillPage = pillPassage && pillPassage !== 'loading' && pillPassage !== 'invalid'
+    ? pageText(lang, pillPassage.startPage, pillPassage.endPage)
+    : '';
+  const sidePillText = questionSet && side
+    ? `${t(side === 'begin' ? 'beginningSide' : 'endSide', lang)} · ${side === 'begin' ? questionSet.beginLabel : questionSet.endLabel}`
+    : '';
 
   // Pre-seed: no interactive elements — patching an empty questions array must be unreachable.
   if (!questions.length) {
@@ -76,6 +93,19 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
           <span style={{ width: 7, height: 7, borderRadius: 999, background: status.dot, boxShadow: `0 0 8px ${status.dot}`, display: 'inline-block' }} />
           <L k={status.key} lang={lang} />
         </span>
+        {/* Side pill (phase E) — reopens the two-button side selector (an explicit
+            re-choice; a bare toggle was ruled too risky live) until the first mark,
+            then static. Never rendered in tie-break mode: the shared session doc
+            carries the MAIN round's side, which a tie-break must not rewrite. */}
+        {questionSet && side && !tieBreak && (
+          sideLocked || locked ? (
+            <span style={{ ...rulesPillStyle, cursor: 'default' }}>{sidePillText}</span>
+          ) : (
+            <button onClick={() => setSideOpen(true)} style={{ ...rulesPillStyle, fontFamily: 'inherit' }}>
+              {sidePillText}
+            </button>
+          )
+        )}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
           {rulesText && (
             <span style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>
@@ -131,6 +161,12 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '2px 0 8px', minHeight: 44 }}>
           <span style={{ fontFamily: serif, fontSize: 22, fontWeight: 600, color: C.greenDeep }}>{`${t('question', lang)} ${active + 1}`}</span>
           <span style={{ fontSize: 12.5, color: C.muted }}>{aq.isAdded ? t('addedQuestion', lang) : `${t('of', lang)} ${questions.length}`}</span>
+          {/* View-passage pill (phase E) — only once a set exists and a side is chosen. */}
+          {questionSet && side && (
+            <button onClick={() => setPassageOpen(true)} style={{ ...rulesPillStyle, flex: 'none', fontFamily: 'inherit' }}>
+              {`${t('viewPassage', lang)}${pillPage ? ` · ${pillPage}` : ''}`}
+            </button>
+          )}
           {aq.isAdded && !locked && (
             <button onClick={() => removeQuestion(active)} title={t('removeQuestion', lang)} style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, lineHeight: 1, color: C.fail, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flex: 'none' }}>×</button>
           )}
@@ -194,6 +230,14 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
             <div onClick={manualDQ} style={{ marginLeft: 'auto', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', minHeight: 44, background: '#fff', border: '1.5px solid #E0B6AA', borderRadius: 8, padding: '11px 16px', fontSize: 14, fontWeight: 600, color: C.fail }}><L k="disqualifyQ" lang={lang} /></div>
           )}
         </div>
+        {/* Audit checkbox (phase E follow-up): judge swapped this assigned question
+            for their own — reveal pill hides, scoring untouched, flag persisted. */}
+        {hasAssignedRow(active) && (
+          <label style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: C.sub, cursor: locked ? 'default' : 'pointer', userSelect: 'none' }}>
+            <input type="checkbox" checked={!!aq.replaced} onChange={toggleReplaced} disabled={locked} style={{ width: 16, height: 16, accentColor: C.greenDeep }} />
+            <L k="questionReplaced" lang={lang} />
+          </label>
+        )}
       </div>
 
       {/* ---- sticky bottom action bar (banners directly above it) ---- */}
@@ -225,6 +269,27 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
       )}
 
       {rulesOpen && rulesText && <RulesModal text={rulesText} lang={lang} onClose={() => setRulesOpen(false)} />}
+
+      {/* ---- question reveal (phase E) ---- */}
+      {passageOpen && questionSet && side && (
+        <PassagePanel row={activeRow} passageLines={passageLines} lang={lang} variant="overlay" onClose={() => setPassageOpen(false)} />
+      )}
+      {/* Side prompt: on open when the session carries no side yet, or reopened
+          from the strip pill for an explicit re-choice. Locked/tie-break sessions
+          are never interrogated. */}
+      {questionSet && (side == null || sideOpen) && !locked && !tieBreak && (
+        <SideSelect
+          beginLabel={questionSet.beginLabel}
+          endLabel={questionSet.endLabel}
+          lang={lang}
+          onPick={(s) => { setSide(s); setSideOpen(false); }}
+          // No-write escape: initial prompt (side null) exits to the queue via
+          // saveAndExit (nothing dirty → nothing persisted, no session doc);
+          // a pill-reopened re-choice just closes the overlay.
+          onBack={side == null ? saveAndExit : () => setSideOpen(false)}
+          backLabel={side == null ? 'backToQueue' : 'cancel'}
+        />
+      )}
     </div>
   );
 }

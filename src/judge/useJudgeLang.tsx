@@ -25,6 +25,23 @@ export function useJudgeLang(): { lang: JudgeLang; setLang: (l: JudgeLang) => vo
   return { lang, setLang };
 }
 
+const prefListeners = new Set<() => void>();
+
+/** Tiny per-device localStorage preference (useJudgeLang's pattern, generalized) —
+ * e.g. the desktop sidebar collapse state ('judge-rail', default 'collapsed').
+ * Storage access is best-effort: a throwing/absent localStorage falls back. */
+export function useLocalPref(key: string, fallback: string): [string, (v: string) => void] {
+  const value = useSyncExternalStore(
+    (cb) => { prefListeners.add(cb); return () => prefListeners.delete(cb); },
+    () => { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } },
+  );
+  const set = useCallback((v: string) => {
+    try { localStorage.setItem(key, v); } catch { /* per-device convenience only */ }
+    prefListeners.forEach((cb) => cb());
+  }, [key]);
+  return [value, set];
+}
+
 /** Shared light pill family (Option C) — Rules affordance on cream/white ground.
  * Every call site sits on a light background now, so one style covers all of them. */
 export const rulesPillStyle: React.CSSProperties = {

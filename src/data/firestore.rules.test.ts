@@ -126,6 +126,48 @@ describe('staff-only collections', () => {
   });
 });
 
+describe('question pools & sets — staff write, comp members read', () => {
+  const POOL = { categoryId: '5', side: 'begin', range: [1, 5], rows: [{ surah: 1, ayah: 1, ref: '1:1', text: 'x' }] };
+  const SET = { enrollmentId: 'e1', begin: [], end: [], beginLabel: 'Juz 1–5', endLabel: 'Juz 26–30' };
+
+  it('staff can write questionPools and questionSets', async () => {
+    await assertSucceeds(setDoc(doc(as('staff1'), `${P1}/questionPools/5_begin`), POOL));
+    await assertSucceeds(setDoc(doc(as('staff1'), `${P1}/questionSets/e1`), SET));
+  });
+
+  it('a judge can read both (the reveal needs the set AND config)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `${P1}/questionPools/5_begin`), POOL);
+      await setDoc(doc(ctx.firestore(), `${P1}/questionSets/e1`), SET);
+    });
+    await assertSucceeds(getDoc(doc(as('uJudgeA'), `${P1}/questionPools/5_begin`)));
+    await assertSucceeds(getDoc(doc(as('uJudgeA'), `${P1}/questionSets/e1`)));
+  });
+
+  it('a judge cannot write either collection', async () => {
+    await assertFails(setDoc(doc(as('uJudgeA'), `${P1}/questionPools/5_begin`), POOL));
+    await assertFails(setDoc(doc(as('uJudgeA'), `${P1}/questionSets/e1`), SET));
+  });
+
+  it('a display seat (contestant-facing hall device) cannot read either collection', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `${P1}/questionPools/5_begin`), POOL);
+      await setDoc(doc(ctx.firestore(), `${P1}/questionSets/e1`), SET);
+    });
+    await assertFails(getDoc(doc(as('uDisplay1'), `${P1}/questionPools/5_begin`)));
+    await assertFails(getDoc(doc(as('uDisplay1'), `${P1}/questionSets/e1`)));
+  });
+
+  it('foreign staff and anon cannot read or write either collection', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `${P1}/questionSets/e1`), SET);
+    });
+    await assertFails(getDoc(doc(as('staff2'), `${P1}/questionSets/e1`)));
+    await assertFails(setDoc(doc(as('staff2'), `${P1}/questionPools/5_begin`), POOL));
+    await assertFails(getDoc(doc(anon(), `${P1}/questionSets/e1`)));
+  });
+});
+
 describe('registrations — immutable master', () => {
   it('aggregate count is governed by list rules (staff yes, anon no)', async () => {
     await assertSucceeds(getCountFromServer(collection(as('staff1'), `${P1}/registrations`)));
