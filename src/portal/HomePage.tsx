@@ -137,6 +137,13 @@ function OrgHomePage({ orgId, firstName }: { orgId: string; firstName: string })
   );
 }
 
+/** Tile monogram: a year in the name reads best ("2026"); else the name's first letter. */
+function compMonogram(name: string): string {
+  const year = name.match(/\b(19|20)\d{2}\b/);
+  if (year) return year[0];
+  return (name.trim()[0] ?? '?').toUpperCase();
+}
+
 function CompetitionRow({ orgId, comp, isFirst }: { orgId: string; comp: WithId<CompDoc>; isFirst: boolean }) {
   const base = compBasePath(orgId, comp.id);
   // The roster reads the `contestants` collection — count what the label says.
@@ -153,7 +160,7 @@ function CompetitionRow({ orgId, comp, isFirst }: { orgId: string; comp: WithId<
       <div className="flex items-center justify-between">
         <div className="flex gap-6 py-6">
           <div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-zinc-100 font-semibold text-zinc-600 shadow-sm dark:bg-zinc-800 dark:text-zinc-300">
-            {comp.id}
+            {compMonogram(comp.name)}
           </div>
           <div className="space-y-1.5">
             <div className="text-base/6 font-semibold">
