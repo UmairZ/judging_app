@@ -19,6 +19,9 @@ interface Row {
   panelSize: number;
 }
 
+/** Reveal stages per slot: 0 = all hidden, 1 = 3rd shown, 2 = +2nd, 3 = +1st. */
+const STEPS_PER_SLOT = 4;
+
 export default function Projector() {
   const { tp } = useTenant();
   const enrollments = useCollection<EnrollmentDoc>(tp('enrollments'));
@@ -30,26 +33,23 @@ export default function Projector() {
   const cfg: ScoringConfig = resolveScoringConfig(useDocData<ScoringConfig>(tp('config/scoring')).data);
 
   const slots = generateSlots(structure);
-  const [slotIdx, setSlotIdx] = useState(0);
 
-  // Slideshow controls: ← / → step between slots like PowerPoint.
+  // Award-ceremony walk: one global step counter, arrows only (no auto-advance,
+  // no wrap — an accidental key at the end must not jump back to the start).
+  // Each slot spends STEPS_PER_SLOT steps: enter hidden, then 3rd → 2nd → 1st.
+  const [step, setStep] = useState(0);
+  const lastStep = Math.max(0, slots.length * STEPS_PER_SLOT - 1);
   useEffect(() => {
-    if (slots.length <= 1) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') setSlotIdx((p) => (p + 1) % slots.length);
-      else if (e.key === 'ArrowLeft') setSlotIdx((p) => (p - 1 + slots.length) % slots.length);
+      if (e.key === 'ArrowRight') setStep((p) => Math.min(p + 1, lastStep));
+      else if (e.key === 'ArrowLeft') setStep((p) => Math.max(p - 1, 0));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [slots.length]);
+  }, [lastStep]);
 
-  // Auto-advance 12s after the last change (manual arrow nav resets the timer).
-  useEffect(() => {
-    if (slots.length <= 1) return;
-    const id = setTimeout(() => setSlotIdx((p) => (p + 1) % slots.length), 12_000);
-    return () => clearTimeout(id);
-  }, [slotIdx, slots.length]);
-
+  const slotIdx = Math.min(Math.floor(step / STEPS_PER_SLOT), Math.max(0, slots.length - 1));
+  const stage = step - slotIdx * STEPS_PER_SLOT; // 0..3 within the slot
   const slot = slots[slotIdx] ?? slots[0];
 
   const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
@@ -76,9 +76,11 @@ export default function Projector() {
 
   // ── derived display values ──────────────────────────────────────────────────
 
-  // Projector shows the top 5 only: gold podium (1–3) + at most 2 more below.
-  const [first, second, third, ...others] = rows;
-  const rest = others.slice(0, 2);
+  // Ceremony board: top 3 only, revealed 3rd → 2nd → 1st by the arrow walk.
+  const [first, second, third] = rows;
+  const showThird = stage >= 1;
+  const showSecond = stage >= 2;
+  const showFirst = stage >= 3;
 
   // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -102,10 +104,42 @@ export default function Projector() {
   const BORDER_CARD = '#2A5249';
   const TEXT_MUTED = '#9DBDB4';
   const TEXT_DIM = '#7FA59C';
-  const TEXT_RANKED = '#6E8C84';
-  const TEXT_RANKED_NAME = '#DCEAE6';
-  const TEXT_RANKED_SCORE = '#C7D6D0';
   const DIVIDER = '#3A6258';
+
+  /** Silver/bronze card, or its silhouette while unrevealed (rank stays visible). */
+  const medalCard = (r: Row | undefined, rank: number, revealed: boolean) => {
+    if (!r) return <div key={rank} style={{ flex: 1 }} />;
+    return (
+      <div
+        key={rank}
+        style={{
+          flex: 1,
+          background: BG_CARD,
+          border: `1px solid ${BORDER_CARD}`,
+          borderRadius: 14,
+          padding: '28px 34px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 22,
+          opacity: revealed ? 1 : 0.55,
+          transition: 'opacity .5s ease',
+        }}
+      >
+        <span style={{ fontFamily: serif, fontSize: 46, fontWeight: 700, color: TEXT_MUTED, lineHeight: 1 }}>{rank}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: serif, fontSize: 30, fontWeight: 600, color: revealed ? '#fff' : TEXT_DIM }}>
+            {revealed ? r.name : '· · ·'}
+          </div>
+          {revealed && percentFamily && (
+            <div style={{ fontSize: 14, color: TEXT_DIM }}>{subLine(r)}</div>
+          )}
+        </div>
+        <span style={{ fontFamily: serif, fontSize: 40, fontWeight: 700, color: revealed ? C.gold : TEXT_DIM }}>
+          {revealed ? scoreStr(r) : '—'}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -115,7 +149,7 @@ export default function Projector() {
         background: `radial-gradient(circle at 50% 0%, ${BG_INNER}, ${BG_OUTER})`,
         display: 'flex',
         flexDirection: 'column',
-        padding: '44px 56px',
+        padding: '44px 64px',
         boxSizing: 'border-box',
         position: 'relative',
         overflow: 'hidden',
@@ -123,16 +157,7 @@ export default function Projector() {
       }}
     >
       {/* decorative motif – top-right */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 28,
-          right: 40,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-        }}
-      >
+      <div style={{ position: 'absolute', top: 28, right: 40, display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ width: 8, height: 8, background: C.brass, transform: 'rotate(45deg)', display: 'inline-block' }} />
         <span style={{ width: 60, height: 1, background: DIVIDER, display: 'inline-block' }} />
       </div>
@@ -152,258 +177,82 @@ export default function Projector() {
             flexShrink: 0,
           }}
         >
-          <img
-            src="/ibn-katheer-logo.svg"
-            alt=""
-            style={{ width: 30, height: 30, objectFit: 'contain' }}
-          />
+          <img src="/ibn-katheer-logo.svg" alt="" style={{ width: 30, height: 30, objectFit: 'contain' }} />
         </div>
 
         {/* Title block */}
         <div style={{ flex: 1 }}>
-          <div
-            style={{
-              fontSize: 13,
-              letterSpacing: '.22em',
-              textTransform: 'uppercase',
-              color: C.gold,
-              fontWeight: 600,
-              marginBottom: 2,
-            }}
-          >
+          <div style={{ fontSize: 13, letterSpacing: '.22em', textTransform: 'uppercase', color: C.gold, fontWeight: 600, marginBottom: 2 }}>
             2026 Ibn Katheer Qur'an Competition
           </div>
-          <div
-            style={{
-              fontFamily: serif,
-              fontSize: 38,
-              fontWeight: 600,
-              color: '#fff',
-              lineHeight: 1.1,
-            }}
-          >
+          <div style={{ fontFamily: serif, fontSize: 42, fontWeight: 600, color: '#fff', lineHeight: 1.1 }}>
             {slot ? `${catLabel(slot.category)} · ${divLabel(slot.division)}` : '—'}
           </div>
         </div>
 
         {/* Standings badge */}
         <div style={{ textAlign: 'right' }}>
-          <div
-            style={{
-              fontSize: 12,
-              letterSpacing: '.14em',
-              textTransform: 'uppercase',
-              color: TEXT_MUTED,
-              fontWeight: 600,
-            }}
-          >
-            Standings
+          <div style={{ fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: TEXT_MUTED, fontWeight: 600 }}>
+            Final standings
           </div>
           <div style={{ fontSize: 13, color: TEXT_DIM }}>
-            {rows.length === 0 ? 'No contestants' : `Top ${Math.min(5, rows.length)}`}
+            {rows.length === 0 ? 'No contestants' : 'Top 3'}
           </div>
         </div>
       </div>
 
       {/* divider */}
-      <div
-        style={{
-          height: 1,
-          background: `linear-gradient(90deg, ${DIVIDER}, transparent)`,
-          margin: '18px 0 26px',
-        }}
-      />
+      <div style={{ height: 1, background: `linear-gradient(90deg, ${DIVIDER}, transparent)`, margin: '18px 0 0' }} />
 
-      {/* ── GOLD PODIUM – #1 ──────────────────────────────────────────────── */}
-      {first && (
-        <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>
-          <div
-            key={first.contestantId}
-            style={{
-              flex: 1,
-              background: `linear-gradient(160deg, ${C.gold}, ${C.brass})`,
-              borderRadius: 14,
-              padding: '22px 26px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 20,
-            }}
-          >
-            <span
+      {/* ── CEREMONY BOARD — fills the rest of the screen ─────────────────── */}
+      {rows.length > 0 ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 26 }}>
+          {/* #1 — gold podium */}
+          {first && (
+            <div
               style={{
-                fontFamily: serif,
-                fontSize: 56,
-                fontWeight: 700,
-                color: '#06211C',
-                lineHeight: 1,
+                background: showFirst ? `linear-gradient(160deg, ${C.gold}, ${C.brass})` : BG_CARD,
+                border: showFirst ? 'none' : `1px solid ${BORDER_CARD}`,
+                borderRadius: 16,
+                padding: '34px 40px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 26,
+                opacity: showFirst ? 1 : 0.55,
+                transition: 'opacity .5s ease',
               }}
             >
-              1
-            </span>
-            <div style={{ flex: 1 }}>
-              <div
-                style={{
-                  fontFamily: serif,
-                  fontSize: 26,
-                  fontWeight: 600,
-                  color: C.ink,
-                }}
-              >
-                {first.name}
-              </div>
-              {percentFamily && (
-                <div style={{ fontSize: 13, color: '#5A4A1C', fontWeight: 600 }}>
-                  {subLine(first)}
+              <span style={{ fontFamily: serif, fontSize: 76, fontWeight: 700, color: showFirst ? '#06211C' : TEXT_MUTED, lineHeight: 1 }}>1</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: serif, fontSize: 40, fontWeight: 600, color: showFirst ? C.ink : TEXT_DIM }}>
+                  {showFirst ? first.name : '· · ·'}
                 </div>
-              )}
+                {showFirst && percentFamily && (
+                  <div style={{ fontSize: 15, color: '#5A4A1C', fontWeight: 600 }}>{subLine(first)}</div>
+                )}
+              </div>
+              <span style={{ fontFamily: serif, fontSize: 60, fontWeight: 700, color: showFirst ? '#06211C' : TEXT_DIM }}>
+                {showFirst ? scoreStr(first) : '—'}
+              </span>
             </div>
-            <span
-              style={{
-                fontFamily: serif,
-                fontSize: 44,
-                fontWeight: 700,
-                color: '#06211C',
-              }}
-            >
-              {scoreStr(first)}
-            </span>
+          )}
+
+          {/* #2 and #3 */}
+          <div style={{ display: 'flex', gap: 26 }}>
+            {medalCard(second, 2, showSecond)}
+            {medalCard(third, 3, showThird)}
           </div>
         </div>
-      )}
-
-      {/* ── MEDAL CARDS – #2 and #3 ───────────────────────────────────────── */}
-      {(second || third) && (
-        <div style={{ display: 'flex', gap: 20, marginBottom: 18 }}>
-          {[second, third].map((r, idx) => {
-            if (!r) return <div key={idx} style={{ flex: 1 }} />;
-            const rank = idx + 2;
-            return (
-              <div
-                key={r.contestantId}
-                style={{
-                  flex: 1,
-                  background: BG_CARD,
-                  border: `1px solid ${BORDER_CARD}`,
-                  borderRadius: 12,
-                  padding: '18px 24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 18,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: serif,
-                    fontSize: 34,
-                    fontWeight: 700,
-                    color: TEXT_MUTED,
-                  }}
-                >
-                  {rank}
-                </span>
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontFamily: serif,
-                      fontSize: 22,
-                      fontWeight: 600,
-                      color: '#fff',
-                    }}
-                  >
-                    {r.name}
-                  </div>
-                  {percentFamily && (
-                    <div style={{ fontSize: 12.5, color: TEXT_DIM }}>
-                      {subLine(r)}
-                    </div>
-                  )}
-                </div>
-                <span
-                  style={{
-                    fontFamily: serif,
-                    fontSize: 30,
-                    fontWeight: 700,
-                    color: C.gold,
-                  }}
-                >
-                  {scoreStr(r)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── PLAIN RANKED LIST – #4+ ───────────────────────────────────────── */}
-      {rest.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {rest.map((r, idx) => {
-            const rank = idx + 4;
-            return (
-              <div
-                key={r.contestantId}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 18,
-                  padding: '12px 24px',
-                  background: 'rgba(255,255,255,.03)',
-                  borderRadius: 10,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: serif,
-                    fontSize: 22,
-                    fontWeight: 700,
-                    color: TEXT_RANKED,
-                    width: 30,
-                  }}
-                >
-                  {rank}
-                </span>
-                <span
-                  style={{
-                    fontSize: 19,
-                    fontWeight: 600,
-                    color: TEXT_RANKED_NAME,
-                    flex: 1,
-                  }}
-                >
-                  {r.name}
-                </span>
-                <span
-                  style={{
-                    fontFamily: serif,
-                    fontSize: 24,
-                    fontWeight: 700,
-                    color: TEXT_RANKED_SCORE,
-                  }}
-                >
-                  {scoreStr(r)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {rows.length === 0 && (
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: TEXT_DIM,
-            fontSize: 18,
-            fontStyle: 'italic',
-          }}
-        >
+      ) : (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: TEXT_DIM, fontSize: 18, fontStyle: 'italic' }}>
           No contestants in this slot yet.
         </div>
       )}
 
+      {/* control hint — subtle, bottom-right */}
+      <div style={{ position: 'absolute', bottom: 20, right: 40, fontSize: 12.5, color: TEXT_DIM, opacity: 0.7 }}>
+        → reveal · ← back
+      </div>
     </div>
   );
 }
