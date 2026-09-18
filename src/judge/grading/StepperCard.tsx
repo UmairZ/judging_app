@@ -22,7 +22,9 @@ export default function StepperCard({ def, count, lang, cfg, onInc, onDec, compa
     <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 10 : 16, background: '#fff', border: `1px solid ${C.cardLine}`, borderRadius: 12, padding: compact ? '10px 10px 10px 14px' : '12px 14px 12px 18px', position: 'relative' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <L k={def.type} lang={lang} style={{ fontSize: compact ? 15 : 18, fontWeight: 600, color: C.ink, ...(compact ? {} : { whiteSpace: 'nowrap' as const }) }} />
+          {/* No nowrap: long labels ("لم يستطع المواصلة", "Unable to continue")
+              must wrap instead of colliding with the − control at mid widths. */}
+          <L k={def.type} lang={lang} style={{ fontSize: compact ? 15 : 18, fontWeight: 600, color: C.ink, minWidth: 0 }} />
           <InfoPopover type={def.type} cfg={cfg} lang={lang} />
         </div>
         <div style={{ fontSize: compact ? 12 : 13, color: C.muted, marginTop: 2, ...(compact ? { lineHeight: 1.35 } : {}) }}><L k={`${def.type}_desc`} lang={lang} /></div>
