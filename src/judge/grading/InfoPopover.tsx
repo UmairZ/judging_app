@@ -3,26 +3,11 @@ import { C } from '../../ui/theme';
 import type { DeductionEventType, ScoringConfig } from '../../scoring';
 import { t, type JudgeLang, type LabelKey } from '../labels';
 
-/** "Costs {n} point(s)" -> "Costs 1 point" / "Costs 0.5 points" (en only pluralizes). */
-function pointsPhrase(n: number, lang: JudgeLang): string {
-  const template = t('costsPoints', lang);
-  return lang === 'en'
-    ? template.replace('point(s)', n === 1 ? 'point' : 'points').replace('{n}', String(n))
-    : template.replace('{n}', String(n));
-}
-
-/** The ONLY cost-copy source for deduction types. Hifz prompted types escalate
- * under `escalating-v2`; tajweed stays flat regardless of model; self-corrected is free. */
-export function costLine(type: DeductionEventType, cfg: ScoringConfig, lang: JudgeLang): string {
-  // temporary copy hold — operator is re-finalizing scoring weights, 2026-09-18
-  if (lang === 'en') return t('scoringValue', lang);
-  if (type === 'self_corrected') return t('noPenalty', lang);
-  if (type === 'tajweed_major' || type === 'tajweed_minor') {
-    const n = type === 'tajweed_major' ? cfg.tajweed_deductions.major : cfg.tajweed_deductions.minor;
-    return pointsPhrase(n, lang);
-  }
-  const base = pointsPhrase(cfg.hifz_deductions[type], lang);
-  return cfg.model === 'escalating-v2' ? `${base} ${t('escalates', lang)}` : base;
+/** The ONLY cost-copy source for deduction types. Holds the [SCORING VALUE] / [قيمة الخصم]
+ * placeholder in both languages while the operator finalizes scoring v3, 2026-09-18 — the
+ * computed cost composition lives in git history and scoring v3 rebuilds this line anyway. */
+export function costLine(_type: DeductionEventType, _cfg: ScoringConfig, lang: JudgeLang): string {
+  return t('scoringValue', lang);
 }
 
 export default function InfoPopover({ type, cfg, lang }: { type: DeductionEventType; cfg: ScoringConfig; lang: JudgeLang }) {

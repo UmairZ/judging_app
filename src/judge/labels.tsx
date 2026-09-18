@@ -1,29 +1,29 @@
 /** Every judge-facing string. One language renders at a time (spec §2).
- * Arabic strings are operator-correctable drafts (2026-09-16) — the judges' own
- * terms win; correct here in one place. Numerals stay western via {n} slots. */
+ * Arabic now tracks the operator's 2026-09-18 English framing; still operator-correctable —
+ * the judges' own terms win; correct here in one place. Numerals stay western via {n} slots. */
 export const JUDGE_LABELS = {
   // sections
   hifz:            { en: 'Hifz · Memorization',        ar: 'الحفظ' },
   tajweed:         { en: 'Tajweed · Recitation',       ar: 'التجويد' },
   voice:           { en: "Sawt wal-Adā' · Voice & Delivery", ar: 'الصوت والأداء' },
   // deduction names
-  self_corrected:  { en: 'Hesitation',                 ar: 'صحّح نفسه' },
+  self_corrected:  { en: 'Hesitation',                 ar: 'تردُّد' },
   prompted_fixed:  { en: 'Prompted',                   ar: 'لُقِّن' },
-  prompted_failed: { en: 'Unable to continue',         ar: 'لُقِّن ولم يُكمل' },
+  prompted_failed: { en: 'Unable to continue',         ar: 'لم يستطع المواصلة' },
   tajweed_major:   { en: 'Tajweed major',              ar: 'لحن جليّ' },
   tajweed_minor:   { en: 'Tajweed minor',              ar: 'لحن خفيّ' },
   // deduction descriptions (cards + popover)
-  self_corrected_desc:  { en: 'Corrected without prompting. No deduction.', ar: 'أخطأ ثم صحّح نفسه بنفسه — لا خصم، يُسجَّل فقط.' },
-  prompted_fixed_desc:  { en: 'Needed a prompt, then continued reciting.', ar: 'احتاج إلى تلقين ليتذكّر الكلمة التالية ثم واصل.' },
-  prompted_failed_desc: { en: 'Unable to continue after being prompted.', ar: 'لُقِّن ومع ذلك لم يستطع المواصلة.' },
-  tajweed_major_desc:   { en: 'Clear error in pronunciation or application of a tajweed rule.', ar: 'خطأ واضح في أحكام التجويد (كترك مدّ أو حكم نون).' },
-  tajweed_minor_desc:   { en: 'Minor imperfection in pronunciation or application of a tajweed rule.', ar: 'خلل يسير في النطق أو الأداء.' },
+  self_corrected_desc:  { en: 'Corrected without prompting. No deduction.', ar: 'صحّح نفسه دون تلقين. لا خصم.' },
+  prompted_fixed_desc:  { en: 'Needed a prompt, then continued reciting.', ar: 'احتاج إلى تلقين ثم واصل التلاوة.' },
+  prompted_failed_desc: { en: 'Unable to continue after being prompted.', ar: 'لم يستطع المواصلة بعد التلقين.' },
+  tajweed_major_desc:   { en: 'Clear error in pronunciation or application of a tajweed rule.', ar: 'خطأ واضح في النطق أو في تطبيق حكم من أحكام التجويد.' },
+  tajweed_minor_desc:   { en: 'Minor imperfection in pronunciation or application of a tajweed rule.', ar: 'خلل يسير في النطق أو في تطبيق حكم من أحكام التجويد.' },
   // header / status
   sessionScore:    { en: 'Average score',              ar: 'متوسط الدرجات' },
   tieBreakScore:   { en: 'Tie-break score',            ar: 'درجة كسر التعادل' },
   saved:           { en: 'Saved',                      ar: 'تم الحفظ' },
   saving:          { en: 'Saving…',                    ar: 'جارٍ الحفظ…' },
-  offlineSaved:    { en: 'Offline · saved on this device', ar: 'غير متصل · محفوظ على الجهاز' },
+  offlineSaved:    { en: 'Offline · saved on this device', ar: 'غير متصل · محفوظ على هذا الجهاز' },
   gradedLocked:    { en: 'Graded · locked',            ar: 'مُقيَّم · مقفل' },
   // actions
   finish:          { en: 'Finish',                     ar: 'إنهاء' },
@@ -32,8 +32,8 @@ export const JUDGE_LABELS = {
   reopenEdit:      { en: 'Reopen for editing',         ar: 'إعادة فتح للتعديل' },
   cancel:          { en: 'Cancel',                     ar: 'إلغاء' },
   submitTieBreak:  { en: 'Submit tie-break',           ar: 'إرسال كسر التعادل' },
-  resetPoints:     { en: 'Reset scores',               ar: 'إعادة تصفير' },
-  disqualifyQ:     { en: 'Score question as zero',     ar: 'إلغاء السؤال' },
+  resetPoints:     { en: 'Reset scores',               ar: 'إعادة تصفير الدرجات' },
+  disqualifyQ:     { en: 'Score question as zero',     ar: 'تصفير السؤال' },
   restoreQ:        { en: 'Restore question',           ar: 'استرجاع السؤال' },
   addQuestion:     { en: '+ Add question',             ar: '+ أضف سؤالًا' },
   addChip:         { en: '+ Add',                      ar: '+ أضف' },
@@ -43,41 +43,41 @@ export const JUDGE_LABELS = {
   questions:       { en: 'Questions',                  ar: 'الأسئلة' },
   question:        { en: 'Question',                   ar: 'السؤال' },
   addedQuestion:   { en: 'Added question',             ar: 'سؤال مضاف' },
-  marks:           { en: 'points',                     ar: 'علامات' },
+  marks:           { en: 'points',                     ar: 'نقاط' },
   notRated:        { en: 'not rated',                  ar: 'لم يُقيَّم' },
-  voiceNotRatedDot:{ en: 'Voice & delivery not rated', ar: 'الصوت لم يُقيَّم بعد' },
+  voiceNotRatedDot:{ en: 'Voice & delivery not rated', ar: 'لم يُقيَّم الصوت والأداء' },
   removeQuestion:  { en: 'Remove question',            ar: 'حذف السؤال' },
   // DQ
-  dqTitle:         { en: 'Hifz mistake limit reached', ar: 'أتحسمها؟' },
-  dqKeep:          { en: 'Keep question',              ar: 'أبقِه' },
-  dqConfirm:       { en: 'Score as zero',              ar: 'ألغِ السؤال' },
-  dqBanner:        { en: 'Question scored as zero',    ar: 'سؤال ملغى' },
-  dqBannerDetail:  { en: 'All scores for this question have been set to zero.', ar: 'صُفِّرت جميع المكوّنات — شُطب السؤال.' },
+  dqTitle:         { en: 'Hifz mistake limit reached', ar: 'بلغ حدّ أخطاء الحفظ' },
+  dqKeep:          { en: 'Keep question',              ar: 'إبقاء السؤال' },
+  dqConfirm:       { en: 'Score as zero',              ar: 'صفِّر السؤال' },
+  dqBanner:        { en: 'Question scored as zero',    ar: 'سؤال مُصفَّر' },
+  dqBannerDetail:  { en: 'All scores for this question have been set to zero.', ar: 'صُفِّرت جميع درجات هذا السؤال.' },
   // side panel
   scoreBreakdown:  { en: 'Score breakdown',            ar: 'تفصيل الدرجات' },
   notes:           { en: 'Notes',                      ar: 'ملاحظات' },
   notesPlaceholder:{ en: 'Private notes for this contestant…', ar: 'ملاحظات خاصة بهذا المتسابق…' },
   panelCompleteness:{ en: 'Panel completeness',        ar: 'اكتمال اللجنة' },
   judgesStarted:   { en: 'judges started',             ar: 'من الحكام بدأوا' },
-  rateAsYouGo:     { en: 'Beauty, flow & delivery',    ar: 'قيّم أولًا بأول' },
+  rateAsYouGo:     { en: 'Beauty, flow & delivery',    ar: 'الجمال والانسياب وحسن الأداء' },
   // banners
-  lockedBanner:    { en: '✓ This session is graded and locked. Reopen it to make changes.', ar: '✓ هذه الجلسة مُقيَّمة ومقفلة — الدرجات للقراءة فقط. اضغط «إعادة فتح للتعديل» لأي تغيير.' },
-  voiceNudge:      { en: "Voice & delivery is still unrated. We've taken you to the next unrated question.", ar: 'قيّم الصوت في كل سؤال قبل الإنهاء — نقلناك إلى أول سؤال غير مقيَّم.' },
-  tieBreakHeader:  { en: '⚖︎ Sudden-death tie-break · 1 question', ar: '⚖︎ جولة حاسمة لكسر التعادل — قيّم سؤالًا واحدًا' },
+  lockedBanner:    { en: '✓ This session is graded and locked. Reopen it to make changes.', ar: '✓ هذه الجلسة مُقيَّمة ومقفلة. أعد فتحها لإجراء التغييرات.' },
+  voiceNudge:      { en: "Voice & delivery is still unrated. We've taken you to the next unrated question.", ar: 'لم يُقيَّم الصوت والأداء بعد. نقلناك إلى أول سؤال غير مقيَّم.' },
+  tieBreakHeader:  { en: '⚖︎ Sudden-death tie-break · 1 question', ar: '⚖︎ جولة حاسمة لكسر التعادل · سؤال واحد' },
   // dashboard
   queue:           { en: 'Queue',                      ar: 'القائمة' },
   tieBreaks:       { en: 'Tie-breaks',                 ar: 'كسر التعادل' },
-  toGrade:         { en: 'remaining',                  ar: 'للتقييم' },
+  toGrade:         { en: 'remaining',                  ar: 'متبقٍّ' },
   graded:          { en: 'graded',                     ar: 'تم تقييمهم' },
   gradedStatus:    { en: 'Graded',                     ar: 'تم التقييم' },
   inProgress:      { en: 'In progress',                ar: 'قيد التقييم' },
   notStarted:      { en: 'Not started',                ar: 'لم يبدأ' },
   notYetGraded:    { en: 'Not yet graded',             ar: 'لم يُقيَّم بعد' },
-  emptyQueue:      { en: 'No contestants have been assigned to your panel yet.', ar: 'لا يوجد متسابقون معيّنون للجنتك بعد.' },
+  emptyQueue:      { en: 'No contestants have been assigned to your panel yet.', ar: 'لم يُعيَّن أي متسابق للجنتك بعد.' },
   gradeArrow:      { en: 'Grade →',                    ar: 'قيِّم ←' },
   suddenDeath:     { en: 'sudden-death',               ar: 'جولة حاسمة' },
   noTieBreaks:     { en: 'No tie-breaks right now.',   ar: 'لا يوجد كسر تعادل حاليًا.' },
-  noTieBreaksDetail:{ en: 'Tied contestants will appear here when the admin starts a sudden-death round.', ar: 'عند بدء المشرف جولةً حاسمة، يظهر المتعادلون هنا لإعادة تقييمهم.' },
+  noTieBreaksDetail:{ en: 'Tied contestants will appear here when the admin starts a sudden-death round.', ar: 'سيظهر المتعادلون هنا عند بدء المشرف جولةً حاسمة.' },
   getStarted:      { en: 'Get started',                ar: 'ابدأ' },
   welcomeGreeting: { en: 'Welcome, {name}',             ar: 'مرحبًا، {name}' },
   judgeFallback:   { en: 'Judge',                       ar: 'الحكم' },
@@ -91,16 +91,16 @@ export const JUDGE_LABELS = {
   addOne:          { en: 'Add one',                     ar: 'أضف واحدًا' },
   voiceDelivery:   { en: 'Voice & delivery',            ar: 'الصوت والأداء' },
   pending:         { en: 'pending',                     ar: 'قيد الانتظار' },
-  dqAbbrev:        { en: 'DQ',                           ar: 'ملغى' },
+  dqAbbrev:        { en: '0',                            ar: '0' },
   // DQ overlay body (count-based auto-flag)
-  dqBody:          { en: 'This question has reached the limit of {n} hifz mistakes. Score the question as zero, or keep it and retain the remaining points.', ar: 'هذه {n} أخطاء حفظ في هذا السؤال — وهو حدّ هذه الفئة. أتشطب السؤال كاملًا (حفظًا وتجويدًا وصوتًا) أم تُبقيه وتحتسب النقاط المتبقية؟' },
+  dqBody:          { en: 'This question has reached the limit of {n} hifz mistakes. Score the question as zero, or keep it and retain the remaining points.', ar: 'بلغ هذا السؤال حدّ {n} من أخطاء الحفظ. صفِّر السؤال، أو أبقِه واحتسب النقاط المتبقية.' },
   // per-deduction ⓘ popover (live model-aware costs)
-  moreInfo:        { en: 'About this mistake',           ar: 'مزيد من التفاصيل' },
+  moreInfo:        { en: 'About this mistake',           ar: 'عن هذا الخطأ' },
   costsPoints:     { en: 'Costs {n} point(s)',           ar: 'يُخصم {n} من النقاط' },
   escalates:       { en: '— repeats in the same question cost 1 more each time', ar: '— يزيد الخصم نقطة مع كل تكرار في السؤال نفسه' },
   noPenalty:       { en: 'No penalty — tracked only',    ar: 'لا خصم — يُسجَّل فقط' },
   // temporary copy hold — operator is re-finalizing scoring weights, 2026-09-18
-  scoringValue:    { en: '[SCORING VALUE]',               ar: '[SCORING VALUE]' },
+  scoringValue:    { en: '[SCORING VALUE]',               ar: '[قيمة الخصم]' },
 } as const;
 
 export type LabelKey = keyof typeof JUDGE_LABELS;

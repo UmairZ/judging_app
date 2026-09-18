@@ -8,8 +8,8 @@ import StepperCard, { HIFZ_KEYS } from './StepperCard';
 afterEach(cleanup);
 
 describe('costLine', () => {
-  // English is held on a placeholder while the operator re-finalizes scoring
-  // weights (2026-09-18) — see InfoPopover.tsx costLine.
+  // Both languages are held on a placeholder while the operator finalizes
+  // scoring v3 (2026-09-18) — see InfoPopover.tsx costLine.
   it('holds English on the [SCORING VALUE] placeholder regardless of deduction or model', () => {
     expect(costLine('prompted_fixed', DEFAULT_SCORING_CONFIG, 'en')).toBe('[SCORING VALUE]');
     expect(costLine('tajweed_minor', DEFAULT_SCORING_CONFIG, 'en')).toBe('[SCORING VALUE]');
@@ -18,14 +18,13 @@ describe('costLine', () => {
     expect(costLine('tajweed_major', v2, 'en')).toBe('[SCORING VALUE]');
     expect(costLine('self_corrected', DEFAULT_SCORING_CONFIG, 'en')).toBe('[SCORING VALUE]');
   });
-  it('Arabic keeps the computed cost composition, unaffected by the English hold', () => {
-    expect(costLine('prompted_fixed', DEFAULT_SCORING_CONFIG, 'ar')).toBe('يُخصم 1 من النقاط');
-    expect(costLine('tajweed_minor', DEFAULT_SCORING_CONFIG, 'ar')).toBe('يُخصم 0.5 من النقاط');
+  it('holds Arabic on the [قيمة الخصم] placeholder regardless of deduction or model', () => {
+    expect(costLine('prompted_fixed', DEFAULT_SCORING_CONFIG, 'ar')).toBe('[قيمة الخصم]');
+    expect(costLine('tajweed_minor', DEFAULT_SCORING_CONFIG, 'ar')).toBe('[قيمة الخصم]');
     const v2 = { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v2' };
-    expect(costLine('prompted_failed', v2, 'ar')).toBe('يُخصم 2 من النقاط — يزيد الخصم نقطة مع كل تكرار في السؤال نفسه');
-    // tajweed stays flat even under v2
-    expect(costLine('tajweed_major', v2, 'ar')).toBe('يُخصم 1 من النقاط');
-    expect(costLine('self_corrected', DEFAULT_SCORING_CONFIG, 'ar')).toBe('لا خصم — يُسجَّل فقط');
+    expect(costLine('prompted_failed', v2, 'ar')).toBe('[قيمة الخصم]');
+    expect(costLine('tajweed_major', v2, 'ar')).toBe('[قيمة الخصم]');
+    expect(costLine('self_corrected', DEFAULT_SCORING_CONFIG, 'ar')).toBe('[قيمة الخصم]');
   });
 });
 
