@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { C, serif } from '../../ui/theme';
 import { L, t, type JudgeLang } from '../labels';
+import { useLocalPref } from '../useJudgeLang';
 import { loadDataset, getPassage, type MushafLine, type QuranDataset } from '../../quran';
 import type { PoolRow } from '../../intake/questionBank';
 
 /** Quran text stack (transcribed from the steering mock — the mock file is throwaway). */
 export const QURAN_FONT = "'KFGQPC Uthmanic Script HAFS', 'Scheherazade New', 'Amiri Quran', serif";
+
+/** Quran text sizes the A−/A+ header controls step through (px; 22 = the original fixed size). */
+export const QURAN_SIZES = [18, 22, 26, 30, 34];
 
 /** 'page 3' / 'صفحة 3' — or 'page 3 → 4' when the passage crosses a page turn. */
 export function pageText(lang: JudgeLang, startPage: number, endPage: number): string {
@@ -45,17 +49,52 @@ export function usePassage(
   }, [row, ds, lineCount]);
 }
 
-/** Small-caps "Al-Baqarah 2:8 · page 3" meta row (mock's PassageMeta). */
-function MetaRow({ children }: { children: React.ReactNode }) {
+const sizeBtnStyle = (enabled: boolean): React.CSSProperties => ({
+  width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  background: '#fff', border: `1px solid ${C.line}`, borderRadius: 7, padding: 0,
+  fontFamily: 'inherit', fontSize: 12, fontWeight: 600, lineHeight: 1,
+  color: enabled ? C.sub : C.line, cursor: enabled ? 'pointer' : 'default',
+});
+
+/** Header bar over the Quran text: small-caps ref/page meta + A−/A+ size stepper.
+ * A bottom rule visually separates the heading from the passage itself. */
+function MetaHeader({ meta, lang, sizeIdx, setSizeIdx }: {
+  meta: string;
+  lang: JudgeLang;
+  sizeIdx: number;
+  setSizeIdx: (i: number) => void;
+}) {
   return (
-    <div style={{ fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, marginBottom: 10 }}>
-      {children}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${C.line}`, paddingBottom: 9, marginBottom: 12 }}>
+      <div style={{ fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, minWidth: 0 }}>
+        {meta}
+      </div>
+      <div style={{ marginLeft: 'auto', display: 'flex', gap: 5, flex: 'none' }}>
+        <button
+          aria-label={t('textSmaller', lang)}
+          title={t('textSmaller', lang)}
+          disabled={sizeIdx === 0}
+          onClick={() => setSizeIdx(sizeIdx - 1)}
+          style={sizeBtnStyle(sizeIdx > 0)}
+        >
+          A−
+        </button>
+        <button
+          aria-label={t('textLarger', lang)}
+          title={t('textLarger', lang)}
+          disabled={sizeIdx === QURAN_SIZES.length - 1}
+          onClick={() => setSizeIdx(sizeIdx + 1)}
+          style={sizeBtnStyle(sizeIdx < QURAN_SIZES.length - 1)}
+        >
+          A+
+        </button>
+      </div>
     </div>
   );
 }
 
-const lineStyle = (highlight: boolean): React.CSSProperties => ({
-  fontFamily: QURAN_FONT, fontSize: 22, lineHeight: 2, textAlign: 'right', color: C.ink,
+const lineStyle = (highlight: boolean, fontSize: number): React.CSSProperties => ({
+  fontFamily: QURAN_FONT, fontSize, lineHeight: 2, textAlign: 'right', color: C.ink,
   background: highlight ? C.pill : 'transparent', borderRadius: 6, padding: '1px 8px',
 });
 
@@ -79,6 +118,14 @@ export default function PassagePanel({ row, passageLines, lang, variant, onClose
 }) {
   const passage = usePassage(row, passageLines);
 
+  // Quran text size — per-device preference (like judge-lang / judge-rail),
+  // shared by the desktop pane and the mobile overlay.
+  const [sizePref, setSizePref] = useLocalPref('judge-passage-size', '22');
+  const storedIdx = QURAN_SIZES.indexOf(Number(sizePref));
+  const sizeIdx = storedIdx === -1 ? QURAN_SIZES.indexOf(22) : storedIdx;
+  const setSizeIdx = (i: number) => setSizePref(String(QURAN_SIZES[i]));
+  const fontSize = QURAN_SIZES[sizeIdx];
+
   useEffect(() => {
     if (variant !== 'overlay' || !onClose) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -97,18 +144,23 @@ export default function PassagePanel({ row, passageLines, lang, variant, onClose
     // own cell text, or (when that too is blank) the own-question copy, never an empty line.
     row.text ? (
       <>
-        <MetaRow>{row.ref}</MetaRow>
-        <div dir="rtl" style={lineStyle(true)}>{row.text}</div>
+        <MetaHeader meta={row.ref} lang={lang} sizeIdx={sizeIdx} setSizeIdx={setSizeIdx} />
+        <div dir="rtl" style={lineStyle(true, fontSize)}>{row.text}</div>
       </>
     ) : (
       ownQuestionBody
     )
   ) : (
     <>
-      <MetaRow>{`${row.ref} · ${pageText(lang, passage.startPage, passage.endPage)}`}</MetaRow>
+      <MetaHeader
+        meta={`${row.ref} · ${pageText(lang, passage.startPage, passage.endPage)}`}
+        lang={lang}
+        sizeIdx={sizeIdx}
+        setSizeIdx={setSizeIdx}
+      />
       <div dir="rtl">
         {passage.lines.map((line, i) => (
-          <div key={i} style={lineStyle(i === 0)}>{line.text}</div>
+          <div key={i} style={lineStyle(i === 0, fontSize)}>{line.text}</div>
         ))}
       </div>
     </>

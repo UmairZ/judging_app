@@ -104,6 +104,8 @@ export const JUDGE_LABELS = {
   ownQuestion:     { en: "Judge's own question",       ar: 'سؤال من اختيار الحكم' },
   passage:         { en: 'Passage',                    ar: 'المقطع' },
   loadingPassage:  { en: 'Loading passage…',           ar: 'جارٍ تحميل المقطع…' },
+  textSmaller:     { en: 'Smaller text',               ar: 'تصغير الخط' },
+  textLarger:      { en: 'Larger text',                ar: 'تكبير الخط' },
   // desktop icon-rail sidebar (task 6)
   expandSidebar:   { en: 'Expand sidebar',             ar: 'توسيع الشريط الجانبي' },
   collapseSidebar: { en: 'Collapse sidebar',           ar: 'طيّ الشريط الجانبي' },

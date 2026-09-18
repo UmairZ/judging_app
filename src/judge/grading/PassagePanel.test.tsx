@@ -18,7 +18,7 @@ vi.mock('../../quran', () => ({
 const quran = await import('../../quran');
 const { default: PassagePanel } = await import('./PassagePanel');
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); localStorage.clear(); });
 
 const ROW = { surah: 2, ayah: 8, ref: 'Al-Baqarah 2:8', text: 'وَمِنَ النَّاسِ', juz: 1, crosses: false };
 
@@ -73,6 +73,70 @@ describe('PassagePanel — pane variant', () => {
     render(<PassagePanel row={null} passageLines={7} lang="en" variant="pane" />);
     expect(screen.getByText("Judge's own question")).toBeTruthy();
     expect(vi.mocked(quran.loadDataset)).not.toHaveBeenCalled();
+  });
+});
+
+describe('PassagePanel — font size header', () => {
+  it('meta header carries A−/A+ steppers; A+ enlarges the passage lines, clamped at the largest step', async () => {
+    render(<PassagePanel row={ROW} passageLines={2} lang="en" variant="pane" />);
+    const line = await screen.findByText('LINE-1');
+    expect(line.style.fontSize).toBe('22px'); // default
+    const larger = screen.getByLabelText('Larger text');
+    fireEvent.click(larger);
+    expect(screen.getByText('LINE-1').style.fontSize).toBe('26px');
+    fireEvent.click(larger);
+    fireEvent.click(larger); // 30 → 34 (max)
+    expect(screen.getByText('LINE-1').style.fontSize).toBe('34px');
+    expect((screen.getByLabelText('Larger text') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText('Larger text')); // disabled — no change
+    expect(screen.getByText('LINE-1').style.fontSize).toBe('34px');
+  });
+
+  it('A− shrinks and clamps at the smallest step', async () => {
+    render(<PassagePanel row={ROW} passageLines={2} lang="en" variant="pane" />);
+    await screen.findByText('LINE-1');
+    const smaller = screen.getByLabelText('Smaller text');
+    fireEvent.click(smaller); // 22 → 18 (min)
+    expect(screen.getByText('LINE-1').style.fontSize).toBe('18px');
+    expect((screen.getByLabelText('Smaller text') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('size persists across remount via localStorage (per-device preference)', async () => {
+    render(<PassagePanel row={ROW} passageLines={2} lang="en" variant="pane" />);
+    await screen.findByText('LINE-1');
+    fireEvent.click(screen.getByLabelText('Larger text'));
+    cleanup();
+    render(<PassagePanel row={ROW} passageLines={2} lang="en" variant="overlay" onClose={() => {}} />);
+    expect((await screen.findByText('LINE-1')).style.fontSize).toBe('26px');
+  });
+
+  it('a stored value outside the size list falls back to the default', async () => {
+    localStorage.setItem('judge-passage-size', '999');
+    render(<PassagePanel row={ROW} passageLines={2} lang="en" variant="pane" />);
+    expect((await screen.findByText('LINE-1')).style.fontSize).toBe('22px');
+  });
+
+  it('own-question and loading states show no size controls; Arabic labels present on the passage state', async () => {
+    render(<PassagePanel row={null} passageLines={7} lang="en" variant="pane" />);
+    expect(screen.queryByLabelText('Larger text')).toBeNull();
+    cleanup();
+    vi.mocked(quran.loadDataset).mockImplementationOnce(() => new Promise(() => {}));
+    render(<PassagePanel row={ROW} passageLines={2} lang="en" variant="pane" />);
+    expect(screen.queryByLabelText('Larger text')).toBeNull();
+    cleanup();
+    render(<PassagePanel row={ROW} passageLines={2} lang="ar" variant="pane" />);
+    await screen.findByText('LINE-1');
+    expect(screen.getByLabelText('تكبير الخط')).toBeTruthy();
+    expect(screen.getByLabelText('تصغير الخط')).toBeTruthy();
+  });
+
+  it('invalid-ref fallback text also gets the header and obeys the size', async () => {
+    vi.mocked(quran.getPassage).mockImplementationOnce(() => { throw new Error('No such ayah in dataset: 2:8'); });
+    render(<PassagePanel row={ROW} passageLines={3} lang="en" variant="pane" />);
+    const cell = await screen.findByText(ROW.text);
+    expect(cell.style.fontSize).toBe('22px');
+    fireEvent.click(screen.getByLabelText('Larger text'));
+    expect(screen.getByText(ROW.text).style.fontSize).toBe('26px');
   });
 });
 
