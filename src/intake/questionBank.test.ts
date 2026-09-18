@@ -4,6 +4,9 @@ import { parseWorkbook, poolId } from './questionBank';
 import type { Category } from '../domain/structure';
 
 const categories: Category[] = [
+  // '15' listed FIRST: naive substring matching would hit "15" when looking for
+  // "1" or "5", so these fixtures prove standalone-integer (word-boundary) matching.
+  { id: '15', label: "15 Ajzā'", minQuestions: 2, divisions: ['brothers', 'sisters'] },
   { id: '5', label: "5 Ajzā'", minQuestions: 4, divisions: ['brothers', 'sisters'] },
   { id: '1', label: "1 Juz'", minQuestions: 3, divisions: ['brothers', 'sisters'] },
 ];
@@ -25,7 +28,8 @@ const workbook = buildWorkbook({
     ['Al-Baqarah 2:255', ''], // blank-text row: kept, text === ''
     ['Al-Baqarah', 'some text'], // bad ref: no trailing "surah:ayah" — must land in errors
   ],
-  'Juz 26-30': [['Al-Baqarah 2:1', 't']],
+  'Juz 1-15': [['Al-Baqarah 2:1', 't']],
+  'Juz 26 - 30': [['Al-Baqarah 2:1', 't']], // whitespace around the dash: regex must tolerate it
   'Juz 1': [['Al-Fatihah 1:1', 't']],
   'Juz 30': [["An-Nas 114:1", 't']],
   'Juz 7-9': [['Al-Araf 7:1', 't']],
@@ -54,8 +58,15 @@ describe('parseWorkbook', () => {
     ]);
   });
 
-  it("parses 'Juz 26-30': ends at 30 -> side 'end', size 5 -> category '5'", () => {
-    const sheet = bySheet('Juz 26-30');
+  it("parses 'Juz 1-15': size 15 -> category '15'", () => {
+    const sheet = bySheet('Juz 1-15');
+    expect(sheet.range).toEqual([1, 15]);
+    expect(sheet.side).toBe('begin');
+    expect(sheet.categoryId).toBe('15');
+  });
+
+  it("parses 'Juz 26 - 30' (spaces around the dash): ends at 30 -> side 'end', size 5 -> category '5' (not '15')", () => {
+    const sheet = bySheet('Juz 26 - 30');
     expect(sheet.range).toEqual([26, 30]);
     expect(sheet.side).toBe('end');
     expect(sheet.categoryId).toBe('5');
