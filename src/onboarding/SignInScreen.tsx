@@ -44,10 +44,16 @@ export default function SignInScreen() {
       <div style={{ fontSize: 13.5, color: C.sub, marginBottom: 24 }}>Run Quran competitions — judging, live scores, leaderboards.</div>
 
       <div style={{ width: '100%', maxWidth: 360 }}>
-        <button onClick={google} disabled={busy} style={{ width: '100%', background: '#fff', color: C.ink, fontSize: 14.5, fontWeight: 600, padding: 13, borderRadius: 8, border: '1px solid #D8D0BE', cursor: busy ? 'default' : 'pointer', marginBottom: 18 }}>
-          Continue with Google
-        </button>
-        <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>— or with email —</div>
+        {/* VITE_HIDE_GOOGLE_AUTH: set in .env.production while the prod OAuth client's
+            redirect URIs are unsettled — email+password carries the competition. */}
+        {!import.meta.env.VITE_HIDE_GOOGLE_AUTH && (
+          <>
+            <button onClick={google} disabled={busy} style={{ width: '100%', background: '#fff', color: C.ink, fontSize: 14.5, fontWeight: 600, padding: 13, borderRadius: 8, border: '1px solid #D8D0BE', cursor: busy ? 'default' : 'pointer', marginBottom: 18 }}>
+              Continue with Google
+            </button>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>— or with email —</div>
+          </>
+        )}
         <form onSubmit={submit}>
           <input style={field} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
           <input style={field} type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} />
