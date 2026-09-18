@@ -95,6 +95,12 @@ export function LeaderboardPage() {
   const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
   const cfg: ScoringConfig = resolveScoringConfig(useDocData<ScoringConfig>(tp('config/scoring')).data);
 
+  // raw-v3 has no hifz/tajweed components (spec §1) — the Hifz/Tajweed columns
+  // (board + CSV) only make sense for the percent-family systems (weighted-v3/escalating-v3).
+  const percentFamily = cfg.model !== 'raw-v3';
+  // Rank, Contestant, Score, Panel — plus Hifz/Tajweed when they render.
+  const colCount = percentFamily ? 6 : 4;
+
   const slots = generateSlots(structure);
   const [sel, setSel] = useState(0);
   const [adjusting, setAdjusting] = useState<Adjusting | null>(null);
@@ -227,14 +233,15 @@ export function LeaderboardPage() {
   };
 
   const exportResults = () => {
-    const out: string[][] = [['Category', 'Division', 'Rank', 'Contestant', 'Score', 'Hifz %', 'Tajweed %', 'Finalized', 'Status']];
+    const header = ['Category', 'Division', 'Rank', 'Contestant', 'Score', ...(percentFamily ? ['Hifz %', 'Tajweed %'] : []), 'Finalized', 'Status'];
+    const out: string[][] = [header];
     for (const s of slots) {
       rankRowsForSlot(s).forEach((r, i) => {
         const allFinal = r.panelSize > 0 && r.finalizedCount >= r.panelSize;
         out.push([
           catLabel(s.category), divLabel(s.division), String(i + 1), r.name,
           r.summary.score == null ? '' : r.summary.score.toFixed(1),
-          String(Math.round(r.summary.hBar * 100)), String(Math.round(r.summary.tBar * 100)),
+          ...(percentFamily ? [String(Math.round(r.summary.hBar * 100)), String(Math.round(r.summary.tBar * 100))] : []),
           `${r.finalizedCount}/${r.panelSize}`, allFinal ? 'Final' : r.summary.startedCount > 0 ? 'In progress' : 'Not started',
         ]);
       });
@@ -374,15 +381,15 @@ export function LeaderboardPage() {
             <TableHeader>Rank</TableHeader>
             <TableHeader>Contestant</TableHeader>
             <TableHeader>Score</TableHeader>
-            <TableHeader>Hifz</TableHeader>
-            <TableHeader>Tajweed</TableHeader>
+            {percentFamily && <TableHeader>Hifz</TableHeader>}
+            {percentFamily && <TableHeader>Tajweed</TableHeader>}
             <TableHeader>Panel</TableHeader>
           </TableRow>
         </TableHead>
         <TableBody>
           {rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6}>
+              <TableCell colSpan={colCount}>
                 <Text>No contestants in this slot yet.</Text>
               </TableCell>
             </TableRow>
@@ -415,15 +422,15 @@ export function LeaderboardPage() {
                     {r.summary.score == null ? '—' : r.summary.score.toFixed(1)}
                     {partial && r.summary.score != null ? <span className="text-zinc-400">*</span> : null}
                   </TableCell>
-                  <TableCell>{pct(r.summary.hBar)}</TableCell>
-                  <TableCell>{pct(r.summary.tBar)}</TableCell>
+                  {percentFamily && <TableCell>{pct(r.summary.hBar)}</TableCell>}
+                  {percentFamily && <TableCell>{pct(r.summary.tBar)}</TableCell>}
                   <TableCell>
                     <Badge color={statusColor}>{statusText}</Badge>
                   </TableCell>
                 </TableRow>
                 {open && (
                   <TableRow>
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={colCount}>
                       <Text className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
                         Judge scores — Edit to correct a judge&apos;s marks
                       </Text>

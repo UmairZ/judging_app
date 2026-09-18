@@ -255,3 +255,59 @@ describe('useGradingSession hook contract (spec §7)', () => {
     expect(doc.questions.some((q) => q.isTieBreak)).toBe(true);
   });
 });
+
+describe('per-system session scoring (task 4 integration sweep)', () => {
+  // Fixed replayed interaction, identical across all three systems: two Prompted
+  // taps on Q1 (the harness seeds minQuestions=3, so Q1/Q2/Q3 exist from mount),
+  // then voice rated 5 on every question. Only the live config's model changes.
+  async function playFixedSession() {
+    const promptedLabel = await screen.findByText('Prompted');
+    const card = promptedLabel.parentElement!.parentElement!.parentElement as HTMLElement;
+    fireEvent.click(within(card).getByTitle('Add one'));
+    fireEvent.click(within(card).getByTitle('Add one'));
+
+    // Voice bars render a bare "5" text node (voice_max defaults to 5 and is
+    // untouched by these configs) — scoped queries aren't needed since no other
+    // element on the screen has that exact text at any point in this sequence.
+    const rail = screen.getByText('Questions').parentElement!.parentElement as HTMLElement;
+    fireEvent.click(screen.getByText('5', { exact: true })); // rate Q1
+    fireEvent.click(within(rail).getByText(/Question 2/));
+    fireEvent.click(screen.getByText('5', { exact: true })); // rate Q2
+    fireEvent.click(within(rail).getByText(/Question 3/));
+    fireEvent.click(screen.getByText('5', { exact: true })); // rate Q3
+  }
+
+  it('weighted-v3 defaults: header average matches the hand-computed session score', async () => {
+    const backend = new InMemoryBackend();
+    backend.seed('orgs/demo/competitions/demo/config/scoring', { ...DEFAULT_SCORING_CONFIG, model: 'weighted-v3' });
+    renderScreen(backend, 5);
+    await playFixedSession();
+    // Q1 hifz = (100 − 2·10)/100 = 0.8 → 70·0.8 + 25·1 + 5·1 = 56 + 25 + 5 = 86
+    // Q2 = Q3 (no mistakes) = 70·1 + 25·1 + 5·1 = 100
+    // avg = (86 + 100 + 100) / 3 = 95.333... → '95.3'
+    expect(await screen.findByText('95.3')).toBeTruthy();
+  });
+
+  it('escalating-v3 (step 10): header average matches the hand-computed session score', async () => {
+    const backend = new InMemoryBackend();
+    backend.seed('orgs/demo/competitions/demo/config/scoring', { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v3' });
+    renderScreen(backend, 5);
+    await playFixedSession();
+    // Q1 hifz deduction = 2·10 + escalation_step·K(K−1)/2 = 20 + 10·(2·1/2) = 30
+    //   → (100 − 30)/100 = 0.7 → 70·0.7 + 25·1 + 5·1 = 49 + 25 + 5 = 79
+    // Q2 = Q3 (no mistakes, no escalation) = 100
+    // avg = (79 + 100 + 100) / 3 = 279 / 3 = 93.0
+    expect(await screen.findByText('93.0')).toBeTruthy();
+  });
+
+  it('raw-v3 defaults (voice_worth 5, prompted 10): header average matches the hand-computed session score', async () => {
+    const backend = new InMemoryBackend();
+    backend.seed('orgs/demo/competitions/demo/config/scoring', { ...DEFAULT_SCORING_CONFIG, model: 'raw-v3' });
+    renderScreen(backend, 5);
+    await playFixedSession();
+    // Q1 = max(0, (100 − voice_worth 5) − 2·10) + voice_worth·(5/5) = max(0, 75) + 5 = 80
+    // Q2 = Q3 (no mistakes) = (100 − 5) − 0 + 5·(5/5) = 95 + 5 = 100
+    // avg = (80 + 100 + 100) / 3 = 280 / 3 = 93.333... → '93.3'
+    expect(await screen.findByText('93.3')).toBeTruthy();
+  });
+});
