@@ -3,7 +3,7 @@ import { useCollection, useDocData, writeDoc, removeDoc, now } from '../../data/
 import { useTenant } from '../../tenant/TenantContext';
 import type { EnrollmentDoc, ContestantDoc, SessionDoc, PanelDoc, AssignmentDoc, TiebreakDoc, JudgeDoc } from '../../data/types';
 import {
-  DEFAULT_SCORING_CONFIG,
+  resolveScoringConfig,
   enrollmentSummary,
   compareForLeaderboard,
   sessionScore,
@@ -81,7 +81,7 @@ interface Editing {
  *
  * Neither `structure` nor `cfg` (config/scoring) is gated on `.loading` here —
  * the source doesn't gate them either, it falls straight back to
- * DEFAULT_STRUCTURE_CONFIG / DEFAULT_SCORING_CONFIG. Nothing to preserve there.
+ * DEFAULT_STRUCTURE_CONFIG / resolveScoringConfig's defaults. Nothing to preserve there.
  */
 export function LeaderboardPage() {
   const { tp } = useTenant();
@@ -93,7 +93,7 @@ export function LeaderboardPage() {
   const tiebreaks = useCollection<TiebreakDoc>(tp('tiebreaks'));
   const judges = useCollection<JudgeDoc>(tp('judges'));
   const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
-  const cfg: ScoringConfig = useDocData<ScoringConfig>(tp('config/scoring')).data ?? DEFAULT_SCORING_CONFIG;
+  const cfg: ScoringConfig = resolveScoringConfig(useDocData<ScoringConfig>(tp('config/scoring')).data);
 
   const slots = generateSlots(structure);
   const [sel, setSel] = useState(0);

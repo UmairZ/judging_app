@@ -4,7 +4,7 @@ import { useDb } from '../data/backend';
 import { useTenant } from '../tenant/TenantContext';
 import type { SessionDoc } from '../data/types';
 import {
-  DEFAULT_SCORING_CONFIG,
+  resolveScoringConfig,
   sessionScore,
   componentMeans,
   questionScore,
@@ -48,7 +48,7 @@ export function useGradingSession({ enrollmentId, judgeId, minQuestions, mistake
   const { data: sessionDoc, loading } = useDocData<SessionDoc>(tp(`sessions/${sessionId}`));
   const sync = useSyncState(tp(`sessions/${sessionId}`));
   const { write } = useDb();
-  const cfg = useDocData<ScoringConfig>(tp('config/scoring')).data ?? DEFAULT_SCORING_CONFIG;
+  const cfg = resolveScoringConfig(useDocData<ScoringConfig>(tp('config/scoring')).data);
   const rulesText = useDocData<{ rulesText?: string }>(tp('config/policies')).data?.rulesText ?? '';
   const [questions, setQuestions] = useState<Question[]>([]);
   const [active, setActive] = useState(0);

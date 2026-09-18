@@ -89,7 +89,7 @@ describe('ScoringPage', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Scoring' })).toBeTruthy();
-    expect(await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.weights.hifz))).toBeTruthy();
+    expect(await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz))).toBeTruthy();
   });
 
   it('shows a validateScoringConfig error when weights no longer sum to 100', async () => {
@@ -102,7 +102,7 @@ describe('ScoringPage', () => {
       </DbProvider>,
     );
 
-    const hifzInput = (await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.weights.hifz))) as HTMLInputElement;
+    const hifzInput = (await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz))) as HTMLInputElement;
     fireEvent.change(hifzInput, { target: { value: '60' } });
 
     expect(await screen.findByText('weights must sum to 100 (got 90)')).toBeTruthy();
@@ -110,7 +110,10 @@ describe('ScoringPage', () => {
 
   it('gates the form (and Save) behind the config load, and seeds from the resolved doc — never from defaults', async () => {
     const path = 'orgs/ik/competitions/2026/config/scoring';
-    const seededConfig = { ...DEFAULT_SCORING_CONFIG, weights: { hifz: 55, tajweed: 40, voice: 5 } };
+    const seededConfig = {
+      ...DEFAULT_SCORING_CONFIG,
+      percent: { ...DEFAULT_SCORING_CONFIG.percent, weights: { hifz: 55, tajweed: 40, voice: 5 } },
+    };
     const inner = new InMemoryBackend();
     inner.seed(path, seededConfig);
     const backend = new DelayedDocBackend(inner, path);
@@ -129,13 +132,13 @@ describe('ScoringPage', () => {
     expect(screen.getByRole('heading', { name: 'Scoring' })).toBeTruthy();
     expect(screen.getByText('Loading config…')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    expect(screen.queryByDisplayValue(String(DEFAULT_SCORING_CONFIG.weights.hifz))).toBeNull();
-    expect(screen.queryByDisplayValue(String(seededConfig.weights.hifz))).toBeNull();
+    expect(screen.queryByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz))).toBeNull();
+    expect(screen.queryByDisplayValue(String(seededConfig.percent.weights.hifz))).toBeNull();
 
     // Doc resolves: the form appears, seeded with the SEEDED config, not the defaults.
     act(() => backend.release());
 
-    expect(await screen.findByDisplayValue(String(seededConfig.weights.hifz))).toBeTruthy();
+    expect(await screen.findByDisplayValue(String(seededConfig.percent.weights.hifz))).toBeTruthy();
     expect(screen.queryByText('Loading config…')).toBeNull();
     expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
   });
@@ -149,17 +152,17 @@ describe('ScoringPage', () => {
         </TenantProvider>
       </DbProvider>,
     );
-    await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.weights.hifz));
+    await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz));
 
     fireEvent.click(await screen.findByText('Escalating penalties'));
     expect(screen.getByRole('radio', { name: /escalating penalties/i }).getAttribute('aria-checked')).toBe('true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(writeDocSpy).toHaveBeenCalled());
-    expect(writeDocSpy.mock.calls.at(-1)![1]).toMatchObject({ model: 'escalating-v2' });
+    expect(writeDocSpy.mock.calls.at(-1)![1]).toMatchObject({ model: 'escalating-v3' });
   });
 
-  it('shows the escalation caption only when v2 is selected', async () => {
+  it('shows the escalation caption only when escalating-v3 is selected', async () => {
     const backend = seededBackend();
     render(
       <DbProvider backend={backend}>
@@ -168,11 +171,11 @@ describe('ScoringPage', () => {
         </TenantProvider>
       </DbProvider>,
     );
-    await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.weights.hifz));
+    await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz));
 
-    expect(screen.queryByText(/costs one more point than the last/)).toBeNull();
+    expect(screen.queryByText(/more\s+percentage points than the last/)).toBeNull();
     fireEvent.click(await screen.findByText('Escalating penalties'));
-    expect(screen.getByText(/costs one more point than the last/)).toBeTruthy();
+    expect(screen.getByText(/more\s+percentage points than the last/)).toBeTruthy();
   });
 
   it('surfaces an unknown-model error from a hand-edited doc', async () => {
@@ -203,7 +206,7 @@ describe('ScoringPage', () => {
     expect(screen.queryByText(/memorization points hit zero/)).toBeNull();
   });
 
-  it('recomputes the cost caption from the live config when a weight changes', async () => {
+  it('recomputes the cost caption from the live config when the Prompted cost changes', async () => {
     const backend = seededBackend();
     render(
       <DbProvider backend={backend}>
@@ -213,13 +216,13 @@ describe('ScoringPage', () => {
       </DbProvider>,
     );
 
-    // Defaults: hifz weight 70, prompted cost 1, rail 10 → round(70·1/10) = 7.
-    const hifzInput = (await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.weights.hifz))) as HTMLInputElement;
-    expect(screen.getByText(/one Prompted mistake ≈ 7 off the final 100/)).toBeTruthy();
+    // Default: percent.costs.prompted = 10.
+    await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz));
+    expect(screen.getByText(/One Prompted mistake costs 10% of that question's memorization\./)).toBeTruthy();
 
-    // Change the hifz weight → the example must recompute: round(60·1/10) = 6.
-    fireEvent.change(hifzInput, { target: { value: '60' } });
-    expect(await screen.findByText(/one Prompted mistake ≈ 6 off the final 100/)).toBeTruthy();
-    expect(screen.queryByText(/one Prompted mistake ≈ 7 off the final 100/)).toBeNull();
+    // Change the Prompted cost → the sentence must recompute.
+    fireEvent.change(screen.getByLabelText('Prompted cost'), { target: { value: '15' } });
+    expect(await screen.findByText(/One Prompted mistake costs 15% of that question's memorization\./)).toBeTruthy();
+    expect(screen.queryByText(/One Prompted mistake costs 10% of that question's memorization\./)).toBeNull();
   });
 });

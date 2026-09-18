@@ -13,7 +13,7 @@ describe('costLine', () => {
   it('holds English on the [SCORING VALUE] placeholder regardless of deduction or model', () => {
     expect(costLine('prompted_fixed', DEFAULT_SCORING_CONFIG, 'en')).toBe('[SCORING VALUE]');
     expect(costLine('tajweed_minor', DEFAULT_SCORING_CONFIG, 'en')).toBe('[SCORING VALUE]');
-    const v2 = { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v2' };
+    const v2 = { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v3' };
     expect(costLine('prompted_failed', v2, 'en')).toBe('[SCORING VALUE]');
     expect(costLine('tajweed_major', v2, 'en')).toBe('[SCORING VALUE]');
     expect(costLine('self_corrected', DEFAULT_SCORING_CONFIG, 'en')).toBe('[SCORING VALUE]');
@@ -21,7 +21,7 @@ describe('costLine', () => {
   it('holds Arabic on the [قيمة الخصم] placeholder regardless of deduction or model', () => {
     expect(costLine('prompted_fixed', DEFAULT_SCORING_CONFIG, 'ar')).toBe('[قيمة الخصم]');
     expect(costLine('tajweed_minor', DEFAULT_SCORING_CONFIG, 'ar')).toBe('[قيمة الخصم]');
-    const v2 = { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v2' };
+    const v2 = { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v3' };
     expect(costLine('prompted_failed', v2, 'ar')).toBe('[قيمة الخصم]');
     expect(costLine('tajweed_major', v2, 'ar')).toBe('[قيمة الخصم]');
     expect(costLine('self_corrected', DEFAULT_SCORING_CONFIG, 'ar')).toBe('[قيمة الخصم]');
@@ -32,7 +32,7 @@ describe('StepperCard ⓘ popover', () => {
   const promptedFailed = HIFZ_KEYS.find((k) => k.type === 'prompted_failed')!;
 
   it('shows the description and the escalation cost line on click, and closes on outside click', () => {
-    const v2 = { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v2' };
+    const v2 = { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v3' };
     render(
       <div>
         <StepperCard def={promptedFailed} count={0} lang="en" cfg={v2} onInc={() => {}} onDec={() => {}} />

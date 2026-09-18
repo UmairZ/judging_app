@@ -18,50 +18,45 @@ export function hifzMistakeCount(q: Question): number {
   return c.prompted_fixed + c.prompted_failed;
 }
 
-export function hifzDeduction(q: Question, cfg: ScoringConfig): number {
-  const c = countEvents(q);
-  const linear =
-    c.prompted_fixed * cfg.hifz_deductions.prompted_fixed +
-    c.prompted_failed * cfg.hifz_deductions.prompted_failed;
-  if (cfg.model === 'escalating-v2') {
-    // k-th hifz mistake in a question costs its base + (k−1) — order-independent
-    // closed form: Σbases + K(K−1)/2 (program spec §D+, simulated 2026-09-04).
-    const K = hifzMistakeCount(q);
-    return linear + (K * (K - 1)) / 2;
-  }
-  // 'deduction-v1' and any unknown model id fall back to linear.
-  return linear;
-}
-
 /** Auto-flag trigger: the category's mistake limit reached on this question. */
 export function mistakeLimitReached(q: Question, limit: number): boolean {
   return !q.disqualified && hifzMistakeCount(q) >= limit;
 }
 
-export function hifzQuestionScore(q: Question, cfg: ScoringConfig): number {
-  if (q.disqualified) return 0;
-  return Math.max(0, cfg.hifz_base - hifzDeduction(q, cfg));
-}
+/*
+ * Event → v3 cost-key mapping (part of the engine, not the UI):
+ *   self_corrected → hesitation, prompted_fixed → prompted,
+ *   prompted_failed → unable, tajweed_major/minor → themselves.
+ */
 
+/**
+ * Percent-family hifz fraction 0..1: costs are percentages of the question's
+ * memorization. escalating-v3 adds `escalation_step · K(K−1)/2` (the k-th
+ * counted hifz mistake costs its base percent + (k−1)·step — order-independent
+ * closed form, program spec §D+ simulated 2026-09-04). Hesitation is hardwired
+ * free here; tajweed never escalates.
+ */
 export function hifzFraction(q: Question, cfg: ScoringConfig): number {
-  return hifzQuestionScore(q, cfg) / cfg.hifz_base;
-}
-
-export function tajweedDeduction(q: Question, cfg: ScoringConfig): number {
-  const c = countEvents(q);
-  return (
-    c.tajweed_major * cfg.tajweed_deductions.major +
-    c.tajweed_minor * cfg.tajweed_deductions.minor
-  );
-}
-
-export function tajweedQuestionScore(q: Question, cfg: ScoringConfig): number {
   if (q.disqualified) return 0;
-  return Math.max(0, cfg.tajweed_base - tajweedDeduction(q, cfg));
+  const c = countEvents(q);
+  let deduction =
+    c.prompted_fixed * cfg.percent.costs.prompted +
+    c.prompted_failed * cfg.percent.costs.unable;
+  if (cfg.model === 'escalating-v3') {
+    const K = hifzMistakeCount(q);
+    deduction += cfg.percent.escalation_step * ((K * (K - 1)) / 2);
+  }
+  return Math.max(0, 100 - deduction) / 100;
 }
 
+/** Percent-family tajweed fraction 0..1 — always linear. */
 export function tajweedFraction(q: Question, cfg: ScoringConfig): number {
-  return tajweedQuestionScore(q, cfg) / cfg.tajweed_base;
+  if (q.disqualified) return 0;
+  const c = countEvents(q);
+  const deduction =
+    c.tajweed_major * cfg.percent.costs.tajweed_major +
+    c.tajweed_minor * cfg.percent.costs.tajweed_minor;
+  return Math.max(0, 100 - deduction) / 100;
 }
 
 /** null = unrated, non-DQ (callers count it as 0). 0 when disqualified. */
@@ -71,12 +66,33 @@ export function voiceFraction(q: Question, cfg: ScoringConfig): number | null {
   return q.voice / cfg.voice_max;
 }
 
-/** Blended 0..100 score for a single question (unrated voice counts as 0). */
+/** raw-v3: one recitation pool of (100 − voice_worth), every mistake priced from it. */
+function rawQuestionScore(q: Question, cfg: ScoringConfig): number {
+  const c = countEvents(q);
+  const pool = 100 - cfg.raw.voice_worth;
+  const deduction =
+    c.self_corrected * cfg.raw.costs.hesitation +
+    c.prompted_fixed * cfg.raw.costs.prompted +
+    c.prompted_failed * cfg.raw.costs.unable +
+    c.tajweed_major * cfg.raw.costs.tajweed_major +
+    c.tajweed_minor * cfg.raw.costs.tajweed_minor;
+  const voice = q.voice == null ? 0 : q.voice / cfg.voice_max;
+  return Math.max(0, pool - deduction) + cfg.raw.voice_worth * voice;
+}
+
+/**
+ * 0..100 score for a single question, dispatched on cfg.model. A zeroed
+ * (disqualified) question scores 0 in every system; unrated voice counts as 0.
+ * Callers resolve unknown/legacy configs via resolveScoringConfig first; any
+ * model id that is not 'raw-v3'/'escalating-v3' scores as weighted here.
+ */
 export function questionScore(q: Question, cfg: ScoringConfig): number {
+  if (q.disqualified) return 0;
+  if (cfg.model === 'raw-v3') return rawQuestionScore(q, cfg);
   const v = voiceFraction(q, cfg);
   return (
-    cfg.weights.hifz * hifzFraction(q, cfg) +
-    cfg.weights.tajweed * tajweedFraction(q, cfg) +
-    cfg.weights.voice * (v == null ? 0 : v)
+    cfg.percent.weights.hifz * hifzFraction(q, cfg) +
+    cfg.percent.weights.tajweed * tajweedFraction(q, cfg) +
+    cfg.percent.weights.voice * (v == null ? 0 : v)
   );
 }

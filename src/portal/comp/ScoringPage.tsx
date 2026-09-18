@@ -117,7 +117,19 @@ export function ScoringPage() {
   const valid = errors.length === 0;
 
   function setWeight(key: 'hifz' | 'tajweed' | 'voice', v: number) {
-    setEdited((prev) => ({ ...prev, weights: { ...prev.weights, [key]: clamp(v, 0, 100) } }));
+    setEdited((prev) => ({
+      ...prev,
+      percent: { ...prev.percent, weights: { ...prev.percent.weights, [key]: clamp(v, 0, 100) } },
+    }));
+    setSaved(false);
+  }
+
+  // TEMPORARY (Task 2 rebuilds this page): percent-cost writer for the v3 shape.
+  function setPercentCost(key: 'prompted' | 'unable' | 'tajweed_major' | 'tajweed_minor', v: number) {
+    setEdited((prev) => ({
+      ...prev,
+      percent: { ...prev.percent, costs: { ...prev.percent.costs, [key]: clamp(v, 0, 100) } },
+    }));
     setSaved(false);
   }
 
@@ -129,7 +141,7 @@ export function ScoringPage() {
   async function handleSave() {
     if (!valid || saving) return;
     setSaving(true);
-    await writeDoc(tp('config/scoring'), { ...edited, model: edited.model ?? 'deduction-v1' }, false);
+    await writeDoc(tp('config/scoring'), { ...edited, model: edited.model ?? 'weighted-v3' }, false);
     setSaving(false);
     setSaved(true);
   }
@@ -138,10 +150,6 @@ export function ScoringPage() {
     const n = parseFloat(v);
     return isNaN(n) ? fallback : n;
   }
-
-  // Example line under the mistake table, computed from the live config:
-  // one Prompted mistake off the hifz rail, expressed on the final 100 scale.
-  const promptedExample = Math.round((edited.weights.hifz * edited.hifz_deductions.prompted_fixed) / edited.hifz_base);
 
   return (
     <>
@@ -166,23 +174,19 @@ export function ScoringPage() {
           <div>
             <Subheading>Scoring system</Subheading>
             <div role="radiogroup" aria-label="Scoring system" className="mt-4 flex flex-col gap-4 sm:flex-row">
-              {/* The default option — maps to `model: 'deduction-v1'`. Selecting
-                  it changes nothing: handleSave already coalesces model to
-                  'deduction-v1', so the click is a deliberate no-op. */}
+              {/* TEMPORARY wiring (Task 2 rebuilds this page with all three v3
+                  cards): the two existing cards write the v3 model ids. */}
               <SystemCard
-                selected={(edited.model ?? 'deduction-v1') === 'deduction-v1'}
+                selected={(edited.model ?? 'weighted-v3') === 'weighted-v3'}
                 title="Standard deductions"
-                onSelect={() => setField('model', 'deduction-v1')}
+                onSelect={() => setField('model', 'weighted-v3')}
               >
                 Each mistake costs a fixed amount. Simple and predictable — the system used by Ibn Katheer since 2025.
               </SystemCard>
-              {/* Scoring model v2 — escalating penalties, per the program spec's
-                  §D+ (docs/superpowers/specs/2026-08-18-saas-launch-program.md,
-                  DECIDED 2026-09-04). Shipped. */}
               <SystemCard
-                selected={edited.model === 'escalating-v2'}
+                selected={edited.model === 'escalating-v3'}
                 title="Escalating penalties"
-                onSelect={() => setField('model', 'escalating-v2')}
+                onSelect={() => setField('model', 'escalating-v3')}
               >
                 Repeated mistakes in the same question cost progressively more, spreading scores across skill levels.
               </SystemCard>
@@ -205,8 +209,8 @@ export function ScoringPage() {
                     type="number"
                     min={0}
                     max={100}
-                    value={edited.weights.hifz}
-                    onChange={(e) => setWeight('hifz', num(e.target.value, edited.weights.hifz))}
+                    value={edited.percent.weights.hifz}
+                    onChange={(e) => setWeight('hifz', num(e.target.value, edited.percent.weights.hifz))}
                   />
                 </Field>
                 <Field>
@@ -215,8 +219,8 @@ export function ScoringPage() {
                     type="number"
                     min={0}
                     max={100}
-                    value={edited.weights.tajweed}
-                    onChange={(e) => setWeight('tajweed', num(e.target.value, edited.weights.tajweed))}
+                    value={edited.percent.weights.tajweed}
+                    onChange={(e) => setWeight('tajweed', num(e.target.value, edited.percent.weights.tajweed))}
                   />
                 </Field>
                 <Field>
@@ -225,8 +229,8 @@ export function ScoringPage() {
                     type="number"
                     min={0}
                     max={100}
-                    value={edited.weights.voice}
-                    onChange={(e) => setWeight('voice', num(e.target.value, edited.weights.voice))}
+                    value={edited.percent.weights.voice}
+                    onChange={(e) => setWeight('voice', num(e.target.value, edited.percent.weights.voice))}
                   />
                 </Field>
               </div>
@@ -275,15 +279,10 @@ export function ScoringPage() {
                       className="ml-auto max-w-24"
                       type="number"
                       min={0}
-                      max={10}
+                      max={100}
                       step={0.5}
-                      value={edited.hifz_deductions.prompted_fixed}
-                      onChange={(e) =>
-                        setField('hifz_deductions', {
-                          ...edited.hifz_deductions,
-                          prompted_fixed: clamp(num(e.target.value, edited.hifz_deductions.prompted_fixed), 0, 10),
-                        })
-                      }
+                      value={edited.percent.costs.prompted}
+                      onChange={(e) => setPercentCost('prompted', num(e.target.value, edited.percent.costs.prompted))}
                     />
                   </TableCell>
                 </TableRow>
@@ -296,15 +295,10 @@ export function ScoringPage() {
                       className="ml-auto max-w-24"
                       type="number"
                       min={0}
-                      max={10}
+                      max={100}
                       step={0.5}
-                      value={edited.hifz_deductions.prompted_failed}
-                      onChange={(e) =>
-                        setField('hifz_deductions', {
-                          ...edited.hifz_deductions,
-                          prompted_failed: clamp(num(e.target.value, edited.hifz_deductions.prompted_failed), 0, 10),
-                        })
-                      }
+                      value={edited.percent.costs.unable}
+                      onChange={(e) => setPercentCost('unable', num(e.target.value, edited.percent.costs.unable))}
                     />
                   </TableCell>
                 </TableRow>
@@ -317,15 +311,10 @@ export function ScoringPage() {
                       className="ml-auto max-w-24"
                       type="number"
                       min={0}
-                      max={10}
+                      max={100}
                       step={0.5}
-                      value={edited.tajweed_deductions.major}
-                      onChange={(e) =>
-                        setField('tajweed_deductions', {
-                          ...edited.tajweed_deductions,
-                          major: clamp(num(e.target.value, edited.tajweed_deductions.major), 0, 10),
-                        })
-                      }
+                      value={edited.percent.costs.tajweed_major}
+                      onChange={(e) => setPercentCost('tajweed_major', num(e.target.value, edited.percent.costs.tajweed_major))}
                     />
                   </TableCell>
                 </TableRow>
@@ -338,54 +327,24 @@ export function ScoringPage() {
                       className="ml-auto max-w-24"
                       type="number"
                       min={0}
-                      max={10}
+                      max={100}
                       step={0.5}
-                      value={edited.tajweed_deductions.minor}
-                      onChange={(e) =>
-                        setField('tajweed_deductions', {
-                          ...edited.tajweed_deductions,
-                          minor: clamp(num(e.target.value, edited.tajweed_deductions.minor), 0, 10),
-                        })
-                      }
+                      value={edited.percent.costs.tajweed_minor}
+                      onChange={(e) => setPercentCost('tajweed_minor', num(e.target.value, edited.percent.costs.tajweed_minor))}
                     />
                   </TableCell>
                 </TableRow>
               </TableBody>
             </Table>
             <Text className="mt-3 text-sm text-zinc-500">
-              Costs come off a {edited.hifz_base}-point rail inside each component, then weighted — e.g. one Prompted
-              mistake ≈ {promptedExample} off the final 100.
+              One Prompted mistake costs {edited.percent.costs.prompted}% of that question&apos;s memorization.
             </Text>
-            {edited.model === 'escalating-v2' && (
+            {edited.model === 'escalating-v3' && (
               <Text className="mt-1 text-sm text-zinc-500">
-                Each repeated hifz mistake in the same question costs one more point than the last
-                (2nd mistake +1 extra, 3rd +2 extra…). Tajweed costs stay flat.
+                Each repeated memorization mistake in the same question costs {edited.percent.escalation_step} more
+                percentage points than the last. Tajweed costs stay flat.
               </Text>
             )}
-            <Fieldset className="mt-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field>
-                  <Label>Memorization points per question</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={edited.hifz_base}
-                    onChange={(e) => setField('hifz_base', clamp(num(e.target.value, edited.hifz_base), 1, 20))}
-                  />
-                </Field>
-                <Field>
-                  <Label>Tajweed points per question</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={edited.tajweed_base}
-                    onChange={(e) => setField('tajweed_base', clamp(num(e.target.value, edited.tajweed_base), 1, 20))}
-                  />
-                </Field>
-              </div>
-            </Fieldset>
           </div>
 
           <Divider className="my-8" />

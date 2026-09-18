@@ -3,7 +3,7 @@ import { useCollection, useDocData } from '../data/db';
 import { useTenant } from '../tenant/TenantContext';
 import type { EnrollmentDoc, ContestantDoc, SessionDoc, PanelDoc, AssignmentDoc } from '../data/types';
 import {
-  DEFAULT_SCORING_CONFIG,
+  resolveScoringConfig,
   enrollmentSummary,
   compareForLeaderboard,
   type ScoringConfig,
@@ -27,7 +27,7 @@ export default function Projector() {
   const panels = useCollection<PanelDoc>(tp('panels'));
   const assignments = useCollection<AssignmentDoc>(tp('assignments'));
   const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
-  const cfg: ScoringConfig = useDocData<ScoringConfig>(tp('config/scoring')).data ?? DEFAULT_SCORING_CONFIG;
+  const cfg: ScoringConfig = resolveScoringConfig(useDocData<ScoringConfig>(tp('config/scoring')).data);
 
   const slots = generateSlots(structure);
   const [slotIdx, setSlotIdx] = useState(0);
