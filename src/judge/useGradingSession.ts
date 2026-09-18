@@ -210,9 +210,12 @@ export function useGradingSession({ enrollmentId, judgeId, minQuestions, mistake
     persist({ side: s });
   };
   /** The drawn row behind question `index` on the chosen side — null for an
-   * added/tie-break question (or while no set/side exists): judge's own question. */
+   * added/tie-break question (or while no set/side exists): judge's own question.
+   * Tie-break sessions share the main round's doc (same sessionId), so the gate
+   * must live HERE: a tie-break question is always the judge's own, never the
+   * main round's assigned passage. */
   const revealRow = (index: number): PoolRow | null =>
-    (side && questionSet ? questionSet[side]?.[index] : undefined) ?? null;
+    (!tieBreak && side && questionSet ? questionSet[side]?.[index] : undefined) ?? null;
 
   return {
     questionSet, side, setSide, sideLocked, revealRow, passageLines,

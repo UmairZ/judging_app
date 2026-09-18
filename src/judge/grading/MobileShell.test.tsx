@@ -42,7 +42,7 @@ function mockDesktop() {
   })) as unknown as typeof window.matchMedia;
 }
 
-function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimit: number, onEnd: () => void = () => {}) {
+function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimit: number, onEnd: () => void = () => {}, tieBreak = false) {
   return render(
     <DbProvider backend={backend}>
       <TenantProvider orgId="demo" compId="demo">
@@ -54,6 +54,7 @@ function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimi
           mistakeLimit={mistakeLimit}
           meta={{ position: 1, total: 1, panelName: '', judgeIndex: 0, panelSize: 0, startedCount: 0 }}
           onEnd={onEnd}
+          tieBreak={tieBreak}
         />
       </TenantProvider>
     </DbProvider>,
@@ -224,22 +225,52 @@ describe('side selector overlay (phase E, spec §4)', () => {
     expect(screen.queryByText(/Beginning/)).toBeNull();
   });
 
-  it('strip pill toggles the side until the first mark, then is static', async () => {
+  it('strip pill reopens the side selector (explicit re-choice, no direct toggle) until the first mark, then is static', async () => {
     mockPhone();
     const backend = new InMemoryBackend();
     seedQuestionSet(backend);
     backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
     renderScreen(backend, 5);
+    // one tap must NOT change the side — it reopens the two-button overlay instead
     fireEvent.click(await screen.findByText('Beginning · Juz 1–5'));
+    expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('begin');
+    expect(await screen.findByText('Which side is the recitation from?')).toBeTruthy();
+    fireEvent.click(screen.getByText('End'));
     expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('end');
+    expect(screen.queryByText('Which side is the recitation from?')).toBeNull();
     expect(await screen.findByText('End · Juz 26–30')).toBeTruthy();
-    // first mark → sideLocked → the pill goes static
+    // first mark → sideLocked → the pill goes static: no overlay, no change
     const label = await screen.findByText('Prompted');
     const card = label.parentElement!.parentElement!.parentElement as HTMLElement;
     fireEvent.click(within(card).getByTitle('Add one'));
     fireEvent.click(screen.getByText('End · Juz 26–30'));
+    expect(screen.queryByText('Which side is the recitation from?')).toBeNull();
     expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('end'); // unchanged
-    expect(screen.getByText('End · Juz 26–30')).toBeTruthy();
+  });
+
+  it('tie-break: no side pill, no side overlay — the recorded main-round side cannot be rewritten', async () => {
+    mockPhone();
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    renderScreen(backend, 5, () => {}, true);
+    await screen.findByText('Q1'); // the single tie-break question chip
+    expect(screen.queryByText('Beginning · Juz 1–5')).toBeNull();
+    expect(screen.queryByText('Which side is the recitation from?')).toBeNull();
+    expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('begin'); // untouched
+  });
+
+  it('tie-break: passage path shows the own-question copy, never the assigned row', async () => {
+    mockPhone();
+    vi.mocked(quran.loadDataset).mockClear();
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    renderScreen(backend, 5, () => {}, true);
+    fireEvent.click(await screen.findByText('View passage')); // no page suffix — no row behind a tie-break question
+    expect(await screen.findByText("Judge's own question")).toBeTruthy();
+    expect(screen.queryByText(/Al-Fatihah 1:1/)).toBeNull();
+    expect(vi.mocked(quran.loadDataset)).not.toHaveBeenCalled(); // dataset never pulled for a null row
   });
 
   it('Arabic smoke: البداية renders under ع', async () => {

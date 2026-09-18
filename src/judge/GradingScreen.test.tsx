@@ -315,6 +315,17 @@ describe('useGradingSession hook contract (spec §7)', () => {
     expect(result.current.revealRow(0)?.ref).toBe('Al-Mulk 67:1');
   });
 
+  it('tie-break: revealRow is null even with a set and a recorded side (no passage leak)', async () => {
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed('orgs/demo/competitions/demo/sessions/e1__j1', { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    const { result } = renderHookWithProviders(backend, { tieBreak: true });
+    await waitFor(() => expect(result.current.questions.length).toBe(1));
+    expect(result.current.side).toBe('begin');
+    expect(result.current.questionSet).not.toBeNull();
+    expect(result.current.revealRow(0)).toBeNull(); // tie-break question is always the judge's own
+  });
+
   it('sideLocked flips once any event or voice mark exists', async () => {
     const backend = new InMemoryBackend();
     seedQuestionSet(backend);

@@ -56,6 +56,19 @@ describe('PassagePanel — pane variant', () => {
     expect(await screen.findByText('Al-Baqarah 2:8 · page 3 → 4')).toBeTruthy();
   });
 
+  it('invalid ref with bank text → falls back to the bank cell text under the ref meta', async () => {
+    vi.mocked(quran.getPassage).mockImplementationOnce(() => { throw new Error('No such ayah in dataset: 2:8'); });
+    render(<PassagePanel row={ROW} passageLines={3} lang="en" variant="pane" />);
+    expect(await screen.findByText(ROW.text)).toBeTruthy();
+    expect(screen.getByText('Al-Baqarah 2:8')).toBeTruthy();
+  });
+
+  it('invalid ref AND blank bank text → own-question copy, never an empty line', async () => {
+    vi.mocked(quran.getPassage).mockImplementationOnce(() => { throw new Error('No such ayah in dataset: 2:8'); });
+    render(<PassagePanel row={{ ...ROW, text: '' }} passageLines={3} lang="en" variant="pane" />);
+    expect(await screen.findByText("Judge's own question")).toBeTruthy();
+  });
+
   it('null row (added/tie-break question) → own-question copy, dataset never loaded', () => {
     render(<PassagePanel row={null} passageLines={7} lang="en" variant="pane" />);
     expect(screen.getByText("Judge's own question")).toBeTruthy();

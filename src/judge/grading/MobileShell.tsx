@@ -24,6 +24,7 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
   const { lang, setLang } = useJudgeLang();
   const [rulesOpen, setRulesOpen] = useState(false);
   const [passageOpen, setPassageOpen] = useState(false);
+  const [sideOpen, setSideOpen] = useState(false); // pill-reopened side re-choice (until sideLocked)
   const startedCount = meta.startedCount;
 
   // Question reveal (phase E): the active question's drawn row (null → judge's own
@@ -92,12 +93,15 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
           <span style={{ width: 7, height: 7, borderRadius: 999, background: status.dot, boxShadow: `0 0 8px ${status.dot}`, display: 'inline-block' }} />
           <L k={status.key} lang={lang} />
         </span>
-        {/* Side pill (phase E) — toggles the side until the first mark, then static. */}
-        {questionSet && side && (
+        {/* Side pill (phase E) — reopens the two-button side selector (an explicit
+            re-choice; a bare toggle was ruled too risky live) until the first mark,
+            then static. Never rendered in tie-break mode: the shared session doc
+            carries the MAIN round's side, which a tie-break must not rewrite. */}
+        {questionSet && side && !tieBreak && (
           sideLocked || locked ? (
             <span style={{ ...rulesPillStyle, cursor: 'default' }}>{sidePillText}</span>
           ) : (
-            <button onClick={() => setSide(side === 'begin' ? 'end' : 'begin')} style={{ ...rulesPillStyle, fontFamily: 'inherit' }}>
+            <button onClick={() => setSideOpen(true)} style={{ ...rulesPillStyle, fontFamily: 'inherit' }}>
               {sidePillText}
             </button>
           )
@@ -262,10 +266,16 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
       {passageOpen && questionSet && side && (
         <PassagePanel row={activeRow} passageLines={passageLines} lang={lang} variant="overlay" onClose={() => setPassageOpen(false)} />
       )}
-      {/* One-time side prompt: only when this contestant has a drawn set and the
-          session carries no side yet. Locked/tie-break sessions are never interrogated. */}
-      {questionSet && side == null && !locked && !tieBreak && (
-        <SideSelect beginLabel={questionSet.beginLabel} endLabel={questionSet.endLabel} lang={lang} onPick={setSide} />
+      {/* Side prompt: on open when the session carries no side yet, or reopened
+          from the strip pill for an explicit re-choice. Locked/tie-break sessions
+          are never interrogated. */}
+      {questionSet && (side == null || sideOpen) && !locked && !tieBreak && (
+        <SideSelect
+          beginLabel={questionSet.beginLabel}
+          endLabel={questionSet.endLabel}
+          lang={lang}
+          onPick={(s) => { setSide(s); setSideOpen(false); }}
+        />
       )}
     </div>
   );

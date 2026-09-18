@@ -86,16 +86,23 @@ export default function PassagePanel({ row, passageLines, lang, variant, onClose
     return () => window.removeEventListener('keydown', onKey);
   }, [variant, onClose]);
 
+  const ownQuestionBody = <div style={{ fontSize: 14.5, color: C.sub, lineHeight: 1.55 }}><L k="ownQuestion" lang={lang} /></div>;
+
   const body = row == null ? (
-    <div style={{ fontSize: 14.5, color: C.sub, lineHeight: 1.55 }}><L k="ownQuestion" lang={lang} /></div>
+    ownQuestionBody
   ) : passage == null || passage === 'loading' ? (
     <div style={{ fontSize: 13.5, color: C.muted }}><L k="loadingPassage" lang={lang} /></div>
   ) : passage === 'invalid' ? (
-    // Ref not in the dataset — never crash the grading screen; fall back to the bank's own cell text.
-    <>
-      <MetaRow>{row.ref}</MetaRow>
-      <div dir="rtl" style={lineStyle(true)}>{row.text}</div>
-    </>
+    // Ref not in the dataset — never crash the grading screen; fall back to the bank's
+    // own cell text, or (when that too is blank) the own-question copy, never an empty line.
+    row.text ? (
+      <>
+        <MetaRow>{row.ref}</MetaRow>
+        <div dir="rtl" style={lineStyle(true)}>{row.text}</div>
+      </>
+    ) : (
+      ownQuestionBody
+    )
   ) : (
     <>
       <MetaRow>{`${row.ref} · ${pageText(lang, passage.startPage, passage.endPage)}`}</MetaRow>
