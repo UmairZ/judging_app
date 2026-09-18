@@ -106,6 +106,7 @@ export const JUDGE_LABELS = {
   loadingPassage:  { en: 'Loading passage…',           ar: 'جارٍ تحميل المقطع…' },
   textSmaller:     { en: 'Smaller text',               ar: 'تصغير الخط' },
   textLarger:      { en: 'Larger text',                ar: 'تكبير الخط' },
+  questionReplaced:{ en: 'Question replaced — judge asked a different one', ar: 'تم استبدال السؤال — طرح الحكم سؤالًا آخر' },
   // desktop icon-rail sidebar (task 6)
   expandSidebar:   { en: 'Expand sidebar',             ar: 'توسيع الشريط الجانبي' },
   collapseSidebar: { en: 'Collapse sidebar',           ar: 'طيّ الشريط الجانبي' },

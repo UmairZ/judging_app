@@ -19,7 +19,7 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
     sync, notes, setNotes, canFinish, voiceNudge, showPrompt,
     inc, dec, setVoice, manualDQ, restoreDQ, resetQ, dismissPrompt, confirmDQ,
     addQuestion, removeQuestion, finalize, reopen, submitTieBreak, saveAndExit, needsVoice,
-    questionSet, side, setSide, sideLocked, revealRow, passageLines,
+    questionSet, side, setSide, sideLocked, revealRow, hasAssignedRow, toggleReplaced, passageLines,
   } = s;
   const { lang, setLang } = useJudgeLang();
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -230,6 +230,14 @@ export default function MobileShell({ contestant, mistakeLimit, meta, s }: Gradi
             <div onClick={manualDQ} style={{ marginLeft: 'auto', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box', minHeight: 44, background: '#fff', border: '1.5px solid #E0B6AA', borderRadius: 8, padding: '11px 16px', fontSize: 14, fontWeight: 600, color: C.fail }}><L k="disqualifyQ" lang={lang} /></div>
           )}
         </div>
+        {/* Audit checkbox (phase E follow-up): judge swapped this assigned question
+            for their own — reveal pill hides, scoring untouched, flag persisted. */}
+        {hasAssignedRow(active) && (
+          <label style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: C.sub, cursor: locked ? 'default' : 'pointer', userSelect: 'none' }}>
+            <input type="checkbox" checked={!!aq.replaced} onChange={toggleReplaced} disabled={locked} style={{ width: 16, height: 16, accentColor: C.greenDeep }} />
+            <L k="questionReplaced" lang={lang} />
+          </label>
+        )}
       </div>
 
       {/* ---- sticky bottom action bar (banners directly above it) ---- */}

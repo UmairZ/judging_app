@@ -233,16 +233,22 @@ export function LeaderboardPage() {
   };
 
   const exportResults = () => {
-    const header = ['Category', 'Division', 'Rank', 'Contestant', 'Score', ...(percentFamily ? ['Hifz %', 'Tajweed %'] : []), 'Finalized', 'Status'];
+    const header = ['Category', 'Division', 'Rank', 'Contestant', 'Score', ...(percentFamily ? ['Hifz %', 'Tajweed %'] : []), 'Finalized', 'Status', 'Replaced questions'];
     const out: string[][] = [header];
     for (const s of slots) {
       rankRowsForSlot(s).forEach((r, i) => {
         const allFinal = r.panelSize > 0 && r.finalizedCount >= r.panelSize;
+        // Audit: any question a judge flagged as replaced, per judge (e.g. "Q2 (Ustadha Maryam)").
+        const replaced = sessions
+          .filter((sess) => sess.enrollmentId === r.enrollmentId)
+          .flatMap((sess) => (sess.questions ?? []).filter((q) => q.replaced).map((q) =>
+            `Q${q.index + 1} (${judges.find((j) => j.id === sess.judgeId)?.name ?? sess.judgeId})`));
         out.push([
           catLabel(s.category), divLabel(s.division), String(i + 1), r.name,
           r.summary.score == null ? '' : r.summary.score.toFixed(1),
           ...(percentFamily ? [String(Math.round(r.summary.hBar * 100)), String(Math.round(r.summary.tBar * 100))] : []),
           `${r.finalizedCount}/${r.panelSize}`, allFinal ? 'Final' : r.summary.startedCount > 0 ? 'In progress' : 'Not started',
+          replaced.join('; '),
         ]);
       });
     }
@@ -445,9 +451,11 @@ export function LeaderboardPage() {
                             const has = !!sess && (sess.questions?.length ?? 0) > 0;
                             const js = has ? sessionScore({ enrollmentId: r.enrollmentId, judgeId: jid, questions: sess!.questions }, cfg) : null;
                             const finalized = sess?.finalizedAt != null;
+                            const replacedQs = (sess?.questions ?? []).filter((q) => q.replaced).map((q) => `Q${q.index + 1}`);
                             return (
                               <div key={jid} className="flex items-center gap-3 rounded-lg border border-zinc-950/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
                                 <span className="flex-1 text-sm font-semibold">{judges.find((j) => j.id === jid)?.name ?? jid}</span>
+                                {replacedQs.length > 0 && <Badge color="amber">Replaced: {replacedQs.join(', ')}</Badge>}
                                 <Badge color={finalized ? 'green' : has ? 'amber' : 'zinc'}>{finalized ? 'Graded' : has ? 'In progress' : 'Not started'}</Badge>
                                 <span className="min-w-[50px] text-right text-sm font-bold">{js == null ? '—' : js.toFixed(1)}</span>
                                 <Button onClick={() => openEdit(r, jid)}>Edit</Button>

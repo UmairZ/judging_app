@@ -209,16 +209,24 @@ export function useGradingSession({ enrollmentId, judgeId, minQuestions, mistake
     setSideState(s);
     persist({ side: s });
   };
+  /** Whether an assigned drawn row exists behind question `index` at all —
+   * independent of the replaced flag (drives the replaced checkbox visibility). */
+  const hasAssignedRow = (index: number): boolean =>
+    !tieBreak && side != null && (questionSet?.[side]?.[index] ?? null) != null;
   /** The drawn row behind question `index` on the chosen side — null for an
    * added/tie-break question (or while no set/side exists): judge's own question.
    * Tie-break sessions share the main round's doc (same sessionId), so the gate
    * must live HERE: a tie-break question is always the judge's own, never the
-   * main round's assigned passage. */
+   * main round's assigned passage. A question the judge marked `replaced` also
+   * reveals nothing: the assigned passage is no longer what is being recited. */
   const revealRow = (index: number): PoolRow | null =>
-    (!tieBreak && side && questionSet ? questionSet[side]?.[index] : undefined) ?? null;
+    hasAssignedRow(index) && !questions[index]?.replaced ? (questionSet![side!]?.[index] ?? null) : null;
+  /** Audit flag: the judge swapped this assigned question for one of their own
+   * (scope-consciously manual for now — no redraw machinery). Engine ignores it. */
+  const toggleReplaced = () => patch(active, (q) => ({ ...q, replaced: !q.replaced }));
 
   return {
-    questionSet, side, setSide, sideLocked, revealRow, passageLines,
+    questionSet, side, setSide, sideLocked, revealRow, hasAssignedRow, toggleReplaced, passageLines,
     cfg, rulesText, loading, locked, tieBreak, questions, active, setActive, aq, counts, score,
     means: { H, T, V }, sync, notes, setNotes, canFinish, voiceNudge, showPrompt,
     inc, dec, setVoice, manualDQ, restoreDQ, resetQ, dismissPrompt, confirmDQ,

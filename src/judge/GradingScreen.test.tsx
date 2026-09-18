@@ -529,6 +529,42 @@ describe('desktop side machinery + scoring/passage split (task 6, phase E)', () 
     expect(await screen.findByText("Judge's own question")).toBeTruthy();
   });
 
+  it('replaced checkbox: swaps the pane to the own-question copy, persists the audit flag, and unchecking restores the passage', async () => {
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    renderScreen(backend, 5);
+    expect(await screen.findByText('Al-Fatihah 1:1 · page 3')).toBeTruthy();
+    const box = screen.getByLabelText('Question replaced — judge asked a different one');
+    fireEvent.click(box);
+    // reveal falls back to the own-question copy; the abandoned passage is gone
+    expect(await screen.findByText("Judge's own question")).toBeTruthy();
+    expect(screen.queryByText('LINE-1')).toBeNull();
+    // audit flag persisted on the session doc's question
+    const doc = readDoc(backend, SESSION_PATH) as { questions: { index: number; replaced?: boolean }[] };
+    expect(doc.questions[0].replaced).toBe(true);
+    // unchecking restores the passage and clears the flag
+    fireEvent.click(screen.getByLabelText('Question replaced — judge asked a different one'));
+    expect(await screen.findByText('Al-Fatihah 1:1 · page 3')).toBeTruthy();
+    const doc2 = readDoc(backend, SESSION_PATH) as { questions: { replaced?: boolean }[] };
+    expect(doc2.questions[0].replaced).toBe(false);
+  });
+
+  it('replaced checkbox is absent for added questions and for sessions without a set', async () => {
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    renderScreen(backend, 5);
+    await screen.findByText('Al-Fatihah 1:1 · page 3');
+    fireEvent.click(screen.getByTitle('+ Add question')); // beyond the drawn set → no assigned row
+    expect(await screen.findByText("Judge's own question")).toBeTruthy();
+    expect(screen.queryByLabelText('Question replaced — judge asked a different one')).toBeNull();
+    cleanup();
+    renderScreen(new InMemoryBackend(), 5); // no set at all
+    await screen.findByLabelText('Expand sidebar');
+    expect(screen.queryByLabelText('Question replaced — judge asked a different one')).toBeNull();
+  });
+
   it('side pill reopens SideSelect (explicit re-choice, never a toggle) until the first mark, then is static', async () => {
     const backend = new InMemoryBackend();
     seedQuestionSet(backend);
