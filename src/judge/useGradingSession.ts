@@ -3,6 +3,7 @@ import { useDocData, now, useSyncState } from '../data/db';
 import { useDb } from '../data/backend';
 import { useTenant } from '../tenant/TenantContext';
 import type { SessionDoc } from '../data/types';
+import type { PoolRow } from '../intake/questionBank';
 import {
   resolveScoringConfig,
   sessionScore,
@@ -32,6 +33,27 @@ export interface GradingScreenProps {
   forcedShell?: 'desktop';
 }
 
+/** Which drawn pool the contestant recites from — persisted on the session doc (spec §4). */
+export type SideChoice = 'begin' | 'end';
+
+/**
+ * `questionSets/{enrollmentId}` as written by the portal (Task 4) — consumed as-is.
+ * Rows are PoolRow plus additive `juz`/`crosses`; arrays are juz-ascending (Q1 = index 0).
+ * `beginLabel`/`endLabel` are display strings rendered VERBATIM, never re-derived.
+ */
+export interface QuestionSetDoc {
+  enrollmentId: string;
+  begin: PoolRow[];
+  end: PoolRow[];
+  beginLabel: string;
+  endLabel: string;
+}
+
+/** `config/questions.passage_lines` — default 7 when the doc/field is absent, clamped 1..15. */
+export function resolvePassageLines(raw: unknown): number {
+  return typeof raw === 'number' && Number.isFinite(raw) ? Math.min(15, Math.max(1, raw)) : 7;
+}
+
 export function freshQuestion(index: number, isAdded = false): Question {
   return { index, events: [], voice: null, disqualified: false, isAdded, isTieBreak: false };
 }
@@ -45,7 +67,12 @@ export function freshQuestion(index: number, isAdded = false): Question {
 export function useGradingSession({ enrollmentId, judgeId, minQuestions, mistakeLimit, onEnd, tieBreak = false }: GradingScreenProps) {
   const { tp } = useTenant();
   const sessionId = `${enrollmentId}__${judgeId}`;
-  const { data: sessionDoc, loading } = useDocData<SessionDoc>(tp(`sessions/${sessionId}`));
+  const { data: sessionDoc, loading } = useDocData<SessionDoc & { side?: SideChoice | null }>(tp(`sessions/${sessionId}`));
+  // Question reveal (phase E): the contestant's drawn set + passage length config.
+  const { data: questionSet } = useDocData<QuestionSetDoc>(tp(`questionSets/${enrollmentId}`));
+  const questionsCfg = useDocData<{ passage_lines?: number }>(tp('config/questions')).data;
+  const passageLines = resolvePassageLines(questionsCfg?.passage_lines);
+  const [side, setSideState] = useState<SideChoice | null>(null);
   const sync = useSyncState(tp(`sessions/${sessionId}`));
   const { write } = useDb();
   const cfg = resolveScoringConfig(useDocData<ScoringConfig>(tp('config/scoring')).data);
@@ -74,6 +101,7 @@ export function useGradingSession({ enrollmentId, judgeId, minQuestions, mistake
       setLocked(sessionDoc?.finalizedAt != null);
     }
     setNotesState(sessionDoc?.notes ?? '');
+    setSideState(sessionDoc?.side ?? null);
     seeded.current = true;
   }, [loading, sessionDoc, minQuestions, tieBreak]);
 
@@ -171,7 +199,23 @@ export function useGradingSession({ enrollmentId, judgeId, minQuestions, mistake
   };
   const saveAndExit = () => { if (!locked && dirty.current) persist(); onEnd(); };
 
+  // ---- question reveal (phase E, spec §4) ----
+  // Locked the moment ANY question of the session carries an event or a voice mark:
+  // the recitation has started, so the side can no longer change.
+  const sideLocked = questions.some((q) => q.events.length > 0 || q.voice != null);
+  // Persists through the SAME session write path as every other session field.
+  const setSide = (s: SideChoice) => {
+    if (sideLocked && side != null) return; // pill gone static — belt and braces
+    setSideState(s);
+    persist({ side: s });
+  };
+  /** The drawn row behind question `index` on the chosen side — null for an
+   * added/tie-break question (or while no set/side exists): judge's own question. */
+  const revealRow = (index: number): PoolRow | null =>
+    (side && questionSet ? questionSet[side]?.[index] : undefined) ?? null;
+
   return {
+    questionSet, side, setSide, sideLocked, revealRow, passageLines,
     cfg, rulesText, loading, locked, tieBreak, questions, active, setActive, aq, counts, score,
     means: { H, T, V }, sync, notes, setNotes, canFinish, voiceNudge, showPrompt,
     inc, dec, setVoice, manualDQ, restoreDQ, resetQ, dismissPrompt, confirmDQ,

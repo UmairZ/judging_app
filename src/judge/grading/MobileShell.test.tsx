@@ -4,6 +4,19 @@ import { render, screen, fireEvent, within, cleanup } from '@testing-library/rea
 
 vi.mock('../../firebase/app', () => ({ db: {}, auth: { currentUser: null } }));
 
+// The quran module lazy-loads a 2MB dataset — jsdom must never touch it (only the
+// question-reveal tests exercise it; the mock keeps loadDataset lazy + tiny).
+vi.mock('../../quran', () => ({
+  loadDataset: vi.fn(() => Promise.resolve({ fake: true })),
+  getPassage: vi.fn((_d: unknown, surah: number, ayah: number, lineCount: number) => ({
+    startPage: 3,
+    endPage: 3,
+    lines: Array.from({ length: lineCount }, (_, i) => ({ page: 3, line: i + 1, text: `LINE-${i + 1}`, surah, ayah })),
+  })),
+  getPage: vi.fn(() => 3),
+}));
+
+const quran = await import('../../quran');
 const { DbProvider, InMemoryBackend } = await import('../../data/backend');
 const { TenantProvider } = await import('../../tenant/TenantContext');
 const { default: GradingScreen } = await import('../GradingScreen');
@@ -130,6 +143,143 @@ describe('shell picker (desktop viewport)', () => {
     expect(await screen.findByText('Questions')).toBeTruthy(); // rail header
     expect(screen.queryByText('3 questions')).toBeNull(); // count dropped from the rail header
     expect(screen.queryByText('Q1')).toBeNull(); // no chips
+  });
+});
+
+/** T4-seed-shaped questionSets doc for enrollment e1 (rows = PoolRow + additive juz/crosses). */
+function seedQuestionSet(backend: InstanceType<typeof InMemoryBackend>) {
+  backend.seed('orgs/demo/competitions/demo/questionSets/e1', {
+    enrollmentId: 'e1',
+    begin: [
+      { surah: 1, ayah: 1, ref: 'Al-Fatihah 1:1', text: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', juz: 1, crosses: false },
+      { surah: 2, ayah: 60, ref: 'Al-Baqarah 2:60', text: 'وَإِذِ اسْتَسْقَىٰ مُوسَىٰ', juz: 1, crosses: false },
+      { surah: 2, ayah: 155, ref: 'Al-Baqarah 2:155', text: 'وَلَنَبْلُوَنَّكُم', juz: 2, crosses: false },
+    ],
+    end: [
+      { surah: 67, ayah: 1, ref: 'Al-Mulk 67:1', text: 'تَبَارَكَ الَّذِي', juz: 29, crosses: false },
+      { surah: 78, ayah: 31, ref: "An-Naba' 78:31", text: 'إِنَّ لِلْمُتَّقِينَ مَفَازًا', juz: 30, crosses: false },
+      { surah: 112, ayah: 1, ref: 'Al-Ikhlas 112:1', text: 'قُلْ هُوَ اللَّهُ أَحَدٌ', juz: 30, crosses: false },
+    ],
+    beginLabel: 'Juz 1–5',
+    endLabel: 'Juz 26–30',
+    assignedAt: 1,
+    assignedBy: null,
+  });
+}
+
+/** InMemoryBackend has no synchronous read — a momentary doc subscription is one. */
+function readDoc(backend: InstanceType<typeof InMemoryBackend>, path: string) {
+  let out: Record<string, unknown> | null = null;
+  const unsub = backend.subscribeDoc(path, (d) => { out = d; });
+  unsub();
+  return out as Record<string, unknown> | null;
+}
+
+const SESSION_PATH = 'orgs/demo/competitions/demo/sessions/e1__j1';
+
+describe('side selector overlay (phase E, spec §4)', () => {
+  it('renders on open when a questionSet exists: labels verbatim, note, both buttons', async () => {
+    mockPhone();
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    renderScreen(backend, 5);
+    expect(await screen.findByText('Which side is the recitation from?')).toBeTruthy();
+    expect(screen.getByText('Beginning')).toBeTruthy();
+    expect(screen.getByText('End')).toBeTruthy();
+    // set labels rendered VERBATIM (en dash), never re-derived
+    expect(screen.getByText('Juz 1–5')).toBeTruthy();
+    expect(screen.getByText('Juz 26–30')).toBeTruthy();
+    expect(screen.getByText('Asked once per contestant — changeable until the first mark.')).toBeTruthy();
+  });
+
+  it('choosing Beginning persists side:"begin" to the session doc and dismisses the overlay', async () => {
+    mockPhone();
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    renderScreen(backend, 5);
+    fireEvent.click(await screen.findByText('Beginning'));
+    expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('begin');
+    expect(screen.queryByText('Which side is the recitation from?')).toBeNull();
+    // the strip pill now shows the chosen side with the verbatim set label
+    expect(screen.getByText('Beginning · Juz 1–5')).toBeTruthy();
+  });
+
+  it('is absent on reopen when the session already carries a side', async () => {
+    mockPhone();
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    renderScreen(backend, 5);
+    await screen.findByText('Q1');
+    expect(screen.queryByText('Which side is the recitation from?')).toBeNull();
+    expect(screen.getByText('Beginning · Juz 1–5')).toBeTruthy();
+  });
+
+  it('no questionSet: no overlay, no side pill, no View passage pill — screen exactly as today', async () => {
+    mockPhone();
+    renderScreen(new InMemoryBackend(), 5);
+    await screen.findByText('Q1');
+    expect(screen.queryByText('Which side is the recitation from?')).toBeNull();
+    expect(screen.queryByText(/View passage/)).toBeNull();
+    expect(screen.queryByText(/Beginning/)).toBeNull();
+  });
+
+  it('strip pill toggles the side until the first mark, then is static', async () => {
+    mockPhone();
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    renderScreen(backend, 5);
+    fireEvent.click(await screen.findByText('Beginning · Juz 1–5'));
+    expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('end');
+    expect(await screen.findByText('End · Juz 26–30')).toBeTruthy();
+    // first mark → sideLocked → the pill goes static
+    const label = await screen.findByText('Prompted');
+    const card = label.parentElement!.parentElement!.parentElement as HTMLElement;
+    fireEvent.click(within(card).getByTitle('Add one'));
+    fireEvent.click(screen.getByText('End · Juz 26–30'));
+    expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('end'); // unchanged
+    expect(screen.getByText('End · Juz 26–30')).toBeTruthy();
+  });
+
+  it('Arabic smoke: البداية renders under ع', async () => {
+    mockPhone();
+    localStorage.setItem('judge-lang', 'ar');
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    renderScreen(backend, 5);
+    expect(await screen.findByText('البداية')).toBeTruthy();
+    expect(screen.getByText('من أي جهة ستكون التلاوة؟')).toBeTruthy();
+  });
+});
+
+describe('mobile view-passage pill + overlay (phase E)', () => {
+  it('pill beside the question heading shows the page and opens the overlay with ref + page + lines', async () => {
+    mockPhone();
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    renderScreen(backend, 5);
+    const pill = await screen.findByText('View passage · page 3');
+    fireEvent.click(pill);
+    expect(await screen.findByText('Al-Fatihah 1:1 · page 3')).toBeTruthy();
+    expect(screen.getByText('LINE-1')).toBeTruthy();
+    // passage_lines default 7 flows through to getPassage
+    expect(vi.mocked(quran.getPassage)).toHaveBeenCalledWith(expect.anything(), 1, 1, 7);
+    fireEvent.click(screen.getByLabelText('Close'));
+    expect(screen.queryByText('LINE-1')).toBeNull();
+  });
+
+  it('added question beyond the set → own-question copy instead of a passage', async () => {
+    mockPhone();
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    renderScreen(backend, 5);
+    await screen.findByText('Q1');
+    fireEvent.click(screen.getByText('+ Add')); // Q4 becomes active — no assigned row
+    fireEvent.click(await screen.findByText('View passage'));
+    expect(await screen.findByText("Judge's own question")).toBeTruthy();
   });
 });
 

@@ -254,6 +254,105 @@ describe('useGradingSession hook contract (spec §7)', () => {
     expect(doc.questions.some((q) => !q.isTieBreak && q.events.length === 1)).toBe(true); // primary preserved
     expect(doc.questions.some((q) => q.isTieBreak)).toBe(true);
   });
+
+  /** T4-seed-shaped questionSets doc for enrollment e1 (rows = PoolRow + additive juz/crosses). */
+  function seedQuestionSet(backend: InstanceType<typeof InMemoryBackend>) {
+    backend.seed('orgs/demo/competitions/demo/questionSets/e1', {
+      enrollmentId: 'e1',
+      begin: [
+        { surah: 1, ayah: 1, ref: 'Al-Fatihah 1:1', text: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', juz: 1, crosses: false },
+        { surah: 2, ayah: 60, ref: 'Al-Baqarah 2:60', text: 'وَإِذِ اسْتَسْقَىٰ مُوسَىٰ', juz: 1, crosses: false },
+        { surah: 2, ayah: 155, ref: 'Al-Baqarah 2:155', text: 'وَلَنَبْلُوَنَّكُم', juz: 2, crosses: false },
+      ],
+      end: [
+        { surah: 67, ayah: 1, ref: 'Al-Mulk 67:1', text: 'تَبَارَكَ الَّذِي', juz: 29, crosses: false },
+        { surah: 78, ayah: 31, ref: "An-Naba' 78:31", text: 'إِنَّ لِلْمُتَّقِينَ مَفَازًا', juz: 30, crosses: false },
+        { surah: 112, ayah: 1, ref: 'Al-Ikhlas 112:1', text: 'قُلْ هُوَ اللَّهُ أَحَدٌ', juz: 30, crosses: false },
+      ],
+      beginLabel: 'Juz 1–5',
+      endLabel: 'Juz 26–30',
+      assignedAt: 1,
+      assignedBy: null,
+    });
+  }
+
+  it('questionSet subscription: doc surfaces with verbatim labels; null without a doc', async () => {
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    const { result } = renderHookWithProviders(backend);
+    await waitFor(() => expect(result.current.questions.length).toBeGreaterThan(0));
+    expect(result.current.questionSet?.beginLabel).toBe('Juz 1–5');
+    expect(result.current.questionSet?.endLabel).toBe('Juz 26–30');
+
+    const bare = renderHookWithProviders(new InMemoryBackend());
+    await waitFor(() => expect(bare.result.current.questions.length).toBeGreaterThan(0));
+    expect(bare.result.current.questionSet).toBeNull();
+    expect(bare.result.current.revealRow(0)).toBeNull();
+  });
+
+  it('side defaults to null; setSide persists to the session doc; revealRow indexes the chosen side', async () => {
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    const { result } = renderHookWithProviders(backend);
+    await waitFor(() => expect(result.current.questions.length).toBeGreaterThan(0));
+    expect(result.current.side).toBeNull();
+    expect(result.current.revealRow(0)).toBeNull(); // no side chosen yet
+    act(() => result.current.setSide('begin'));
+    expect(result.current.side).toBe('begin');
+    expect((readDoc(backend, 'orgs/demo/competitions/demo/sessions/e1__j1') as { side?: string }).side).toBe('begin');
+    expect(result.current.revealRow(0)?.ref).toBe('Al-Fatihah 1:1');
+    expect(result.current.revealRow(2)?.ref).toBe('Al-Baqarah 2:155');
+    expect(result.current.revealRow(7)).toBeNull(); // beyond the drawn set → added/tie-break question
+  });
+
+  it('side seeds from an existing session doc (reopen)', async () => {
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed('orgs/demo/competitions/demo/sessions/e1__j1', { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'end' });
+    const { result } = renderHookWithProviders(backend);
+    await waitFor(() => expect(result.current.questions.length).toBeGreaterThan(0));
+    expect(result.current.side).toBe('end');
+    expect(result.current.revealRow(0)?.ref).toBe('Al-Mulk 67:1');
+  });
+
+  it('sideLocked flips once any event or voice mark exists', async () => {
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    const { result } = renderHookWithProviders(backend);
+    await waitFor(() => expect(result.current.questions.length).toBeGreaterThan(0));
+    expect(result.current.sideLocked).toBe(false);
+    act(() => result.current.inc('prompted_fixed'));
+    expect(result.current.sideLocked).toBe(true);
+
+    const voiced = renderHookWithProviders(new InMemoryBackend()); // fresh: voice mark alone locks too
+    await waitFor(() => expect(voiced.result.current.questions.length).toBeGreaterThan(0));
+    act(() => voiced.result.current.setVoice(3));
+    expect(voiced.result.current.sideLocked).toBe(true);
+  });
+
+  it('passageLines: default 7 without config, follows config/questions, clamps 1..15', async () => {
+    const bare = renderHookWithProviders(new InMemoryBackend());
+    await waitFor(() => expect(bare.result.current.questions.length).toBeGreaterThan(0));
+    expect(bare.result.current.passageLines).toBe(7);
+
+    const b3 = new InMemoryBackend();
+    b3.seed('orgs/demo/competitions/demo/config/questions', { passage_lines: 3 });
+    const r3 = renderHookWithProviders(b3);
+    await waitFor(() => expect(r3.result.current.questions.length).toBeGreaterThan(0));
+    expect(r3.result.current.passageLines).toBe(3);
+
+    const bHigh = new InMemoryBackend();
+    bHigh.seed('orgs/demo/competitions/demo/config/questions', { passage_lines: 99 });
+    const rHigh = renderHookWithProviders(bHigh);
+    await waitFor(() => expect(rHigh.result.current.questions.length).toBeGreaterThan(0));
+    expect(rHigh.result.current.passageLines).toBe(15);
+
+    const bLow = new InMemoryBackend();
+    bLow.seed('orgs/demo/competitions/demo/config/questions', { passage_lines: 0 });
+    const rLow = renderHookWithProviders(bLow);
+    await waitFor(() => expect(rLow.result.current.questions.length).toBeGreaterThan(0));
+    expect(rLow.result.current.passageLines).toBe(1);
+  });
 });
 
 describe('per-system session scoring (task 4 integration sweep)', () => {
