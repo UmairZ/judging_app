@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDocData, writeDoc } from '../../data/db';
 import { useTenant } from '../../tenant/TenantContext';
-import { DEFAULT_SCORING_CONFIG, weightsSum, validateScoringConfig, type ScoringConfig } from '../../scoring';
+import {
+  DEFAULT_SCORING_CONFIG,
+  KNOWN_MODELS,
+  weightsSum,
+  resolveScoringConfig,
+  validateScoringConfig,
+  type ScoringConfig,
+} from '../../scoring';
 import { Badge } from '../vendor/badge';
 import { Button } from '../vendor/button';
 import { Divider } from '../vendor/divider';
@@ -13,13 +20,13 @@ import { Text } from '../vendor/text';
 import { Explainer } from '../Explainer';
 
 /**
- * Scoring page — plain-language rewrite of the config form (approved steering
- * mock, 2026-09-06). All data logic is unchanged from the chrome-only port of
- * src/admin/ScoringConfig.tsx: same hooks, same handler names, same tp()
- * paths, same clamp semantics, same write shape. The scoring ENGINE
- * (src/scoring/*) is untouched — `validateScoringConfig`/`weightsSum`/
- * `DEFAULT_SCORING_CONFIG` are reused exactly as before. Only the framing
- * changed: judge-mirroring language, no engine jargon (design principle 13).
+ * Scoring page — three independent v3 systems (spec 2026-09-18) behind one
+ * chooser: raw-v3 (points from one pool), weighted-v3 (component weights,
+ * percent costs), escalating-v3 (weighted-v3 + repeat penalties, the comp
+ * system). Only the selected system's knobs render; "rail" vocabulary never
+ * appears user-facing. The scoring ENGINE (src/scoring/*) is untouched here —
+ * `validateScoringConfig`/`weightsSum`/`resolveScoringConfig`/
+ * `DEFAULT_SCORING_CONFIG` are reused exactly as shipped in Task 1.
  *
  * The whole form (incl. Save) is gated behind `loading` with a
  * "Loading config…" placeholder, so a Save click during the fetch window
@@ -88,13 +95,18 @@ function SystemCard({
   );
 }
 
-/** Rows mirror the judge's mistake buttons, in the order the judge sees them. */
+/**
+ * Rows mirror the judge's mistake buttons, in the order the judge sees them.
+ * Names match the judge screen exactly (src/judge/labels.tsx) — "Hesitation",
+ * not the old "Self-corrected" — so an organizer recognizes the same word in
+ * both places.
+ */
 const MISTAKE_MEANINGS = {
-  self_corrected: 'caught and fixed it themselves',
-  prompted_fixed: 'needed a hint',
-  prompted_failed: 'hint given, still stuck',
-  tajweed_major: 'a clear recitation error',
-  tajweed_minor: 'a small slip in recitation',
+  hesitation: { label: 'Hesitation', meaning: 'corrected without prompting' },
+  prompted: { label: 'Prompted', meaning: 'needed a hint' },
+  unable: { label: 'Unable to continue', meaning: 'hint given, still stuck' },
+  tajweed_major: { label: 'Tajweed major', meaning: 'a clear recitation error' },
+  tajweed_minor: { label: 'Tajweed minor', meaning: 'a small slip in recitation' },
 } as const;
 
 export function ScoringPage() {
@@ -105,31 +117,37 @@ export function ScoringPage() {
   const [saved, setSaved] = useState(false);
 
   // Seed local state ONCE — re-seeding on every live snapshot would wipe edits.
+  // resolveScoringConfig closes the legacy/unknown-model gap: a hand-edited or
+  // pre-v3 doc seeds the full DEFAULT_SCORING_CONFIG shape instead of crashing
+  // weightsSum on a missing percent sub-object.
   const seeded = useRef(false);
   useEffect(() => {
     if (seeded.current || !data) return;
-    setEdited(data);
+    setEdited(resolveScoringConfig(data));
     seeded.current = true;
   }, [data]);
 
-  const errors = validateScoringConfig(edited);
+  // Live validation covers the user's edits. When the loaded doc itself carries
+  // an unknown/legacy model id, surface that flag too (it describes the SAVED
+  // doc, which the seeded `edited` no longer does after resolveScoringConfig) —
+  // deduped against the live errors so it never doubles up.
+  const editedErrors = validateScoringConfig(edited);
+  const docUnknownModel =
+    data && !(KNOWN_MODELS as readonly string[]).includes(data.model)
+      ? validateScoringConfig(data).find((e) => e.startsWith('unknown scoring system'))
+      : undefined;
+  const errors =
+    docUnknownModel && !editedErrors.includes(docUnknownModel) ? [docUnknownModel, ...editedErrors] : editedErrors;
   const sum = weightsSum(edited);
-  const valid = errors.length === 0;
+  const valid = editedErrors.length === 0;
 
-  function setWeight(key: 'hifz' | 'tajweed' | 'voice', v: number) {
-    setEdited((prev) => ({
-      ...prev,
-      percent: { ...prev.percent, weights: { ...prev.percent.weights, [key]: clamp(v, 0, 100) } },
-    }));
+  function patchRaw(patch: Partial<ScoringConfig['raw']>) {
+    setEdited((prev) => ({ ...prev, raw: { ...prev.raw, ...patch } }));
     setSaved(false);
   }
 
-  // TEMPORARY (Task 2 rebuilds this page): percent-cost writer for the v3 shape.
-  function setPercentCost(key: 'prompted' | 'unable' | 'tajweed_major' | 'tajweed_minor', v: number) {
-    setEdited((prev) => ({
-      ...prev,
-      percent: { ...prev.percent, costs: { ...prev.percent.costs, [key]: clamp(v, 0, 100) } },
-    }));
+  function patchPercent(patch: Partial<ScoringConfig['percent']>) {
+    setEdited((prev) => ({ ...prev, percent: { ...prev.percent, ...patch } }));
     setSaved(false);
   }
 
@@ -141,7 +159,7 @@ export function ScoringPage() {
   async function handleSave() {
     if (!valid || saving) return;
     setSaving(true);
-    await writeDoc(tp('config/scoring'), { ...edited, model: edited.model ?? 'weighted-v3' }, false);
+    await writeDoc(tp('config/scoring'), edited, false);
     setSaving(false);
     setSaved(true);
   }
@@ -174,178 +192,238 @@ export function ScoringPage() {
           <div>
             <Subheading>Scoring system</Subheading>
             <div role="radiogroup" aria-label="Scoring system" className="mt-4 flex flex-col gap-4 sm:flex-row">
-              {/* TEMPORARY wiring (Task 2 rebuilds this page with all three v3
-                  cards): the two existing cards write the v3 model ids. */}
               <SystemCard
-                selected={(edited.model ?? 'weighted-v3') === 'weighted-v3'}
-                title="Standard deductions"
+                selected={edited.model === 'raw-v3'}
+                title="Raw deductions"
+                onSelect={() => setField('model', 'raw-v3')}
+              >
+                Every question is worth 100 points. Each mistake takes a set number of points off; the judge&apos;s
+                voice rating fills its own slice.
+              </SystemCard>
+              <SystemCard
+                selected={edited.model === 'weighted-v3'}
+                title="Percentage weights"
                 onSelect={() => setField('model', 'weighted-v3')}
               >
-                Each mistake costs a fixed amount. Simple and predictable — the system used by Ibn Katheer since 2025.
+                Each part of the recitation is worth a share of the score. Mistakes cost a percentage of their
+                question&apos;s part.
               </SystemCard>
               <SystemCard
                 selected={edited.model === 'escalating-v3'}
-                title="Escalating penalties"
+                title="Percentage weights + escalating penalties"
                 onSelect={() => setField('model', 'escalating-v3')}
               >
-                Repeated mistakes in the same question cost progressively more, spreading scores across skill levels.
+                Like Percentage weights — and each repeated memorization mistake in the same question costs more
+                than the last.
               </SystemCard>
             </div>
           </div>
 
           <Divider className="my-8" />
 
-          <div>
-            <div className="flex items-baseline gap-3">
-              <Subheading>What each part is worth</Subheading>
-              <Badge color={valid && sum === 100 ? 'green' : 'red'}>{`= ${sum}${sum === 100 ? ' ✓' : ` — ${sum < 100 ? 'under' : 'over'}`}`}</Badge>
-            </div>
-            <Text className="mt-1">Out of the 100 points a contestant starts with.</Text>
-            <Fieldset className="mt-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Field>
-                  <Label>Hifz — memorization</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={edited.percent.weights.hifz}
-                    onChange={(e) => setWeight('hifz', num(e.target.value, edited.percent.weights.hifz))}
-                  />
-                </Field>
-                <Field>
-                  <Label>Tajweed — recitation</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={edited.percent.weights.tajweed}
-                    onChange={(e) => setWeight('tajweed', num(e.target.value, edited.percent.weights.tajweed))}
-                  />
-                </Field>
-                <Field>
-                  <Label>Voice &amp; delivery</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={edited.percent.weights.voice}
-                    onChange={(e) => setWeight('voice', num(e.target.value, edited.percent.weights.voice))}
-                  />
-                </Field>
-              </div>
-            </Fieldset>
-            <Fieldset className="mt-4">
-              <Field className="max-w-40">
-                <Label>Voice scale</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={edited.voice_max}
-                  onChange={(e) => setField('voice_max', clamp(num(e.target.value, edited.voice_max), 1, 20))}
-                />
-              </Field>
-              <Text className="mt-2 text-sm">Voice &amp; delivery is rated 0–{edited.voice_max} by the judge.</Text>
-            </Fieldset>
-          </div>
-
-          <Divider className="my-8" />
-
-          <div>
-            <Subheading>What each mistake costs</Subheading>
-            <Text className="mt-1">The same buttons the judge sees, and what each one takes off.</Text>
-            <Table className="mt-4 [--gutter:--spacing(6)]">
-              <TableHead>
-                <TableRow>
-                  <TableHeader>Judge&apos;s button</TableHeader>
-                  <TableHeader>Meaning</TableHeader>
-                  <TableHeader className="text-right">Cost</TableHeader>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">Self-corrected</TableCell>
-                  <TableCell className="text-zinc-500">{MISTAKE_MEANINGS.self_corrected}</TableCell>
-                  {/* Fixed at 0 by the engine — not configurable, so it renders as text. */}
-                  <TableCell className="text-right">0 points</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Prompted</TableCell>
-                  <TableCell className="text-zinc-500">{MISTAKE_MEANINGS.prompted_fixed}</TableCell>
-                  <TableCell className="text-right">
+          {edited.model === 'raw-v3' ? (
+            <div>
+              <Subheading>What each mistake costs</Subheading>
+              <Text className="mt-1">The same buttons the judge sees, and what each one takes off.</Text>
+              <Table className="mt-4 [--gutter:--spacing(6)]">
+                <TableHead>
+                  <TableRow>
+                    <TableHeader>Judge&apos;s button</TableHeader>
+                    <TableHeader>Meaning</TableHeader>
+                    <TableHeader className="text-right">Points off</TableHeader>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(['hesitation', 'prompted', 'unable', 'tajweed_major', 'tajweed_minor'] as const).map((key) => (
+                    <TableRow key={key}>
+                      <TableCell className="font-medium">{MISTAKE_MEANINGS[key].label}</TableCell>
+                      <TableCell className="text-zinc-500">{MISTAKE_MEANINGS[key].meaning}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          aria-label={`${MISTAKE_MEANINGS[key].label} cost`}
+                          className="ml-auto max-w-24"
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.5}
+                          value={edited.raw.costs[key]}
+                          onChange={(e) =>
+                            patchRaw({
+                              costs: { ...edited.raw.costs, [key]: clamp(num(e.target.value, edited.raw.costs[key]), 0, 100) },
+                            })
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <Fieldset className="mt-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <Label>Voice is worth this many of each question&apos;s 100 points</Label>
                     <Input
-                      aria-label="Prompted cost"
-                      className="ml-auto max-w-24"
                       type="number"
-                      min={0}
-                      max={100}
-                      step={0.5}
-                      value={edited.percent.costs.prompted}
-                      onChange={(e) => setPercentCost('prompted', num(e.target.value, edited.percent.costs.prompted))}
+                      min={1}
+                      max={30}
+                      value={edited.raw.voice_worth}
+                      onChange={(e) => patchRaw({ voice_worth: clamp(num(e.target.value, edited.raw.voice_worth), 1, 30) })}
                     />
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Prompted-failed</TableCell>
-                  <TableCell className="text-zinc-500">{MISTAKE_MEANINGS.prompted_failed}</TableCell>
-                  <TableCell className="text-right">
+                  </Field>
+                  <Field>
+                    <Label>Judges rate voice 0–{edited.voice_max}</Label>
                     <Input
-                      aria-label="Prompted-failed cost"
-                      className="ml-auto max-w-24"
                       type="number"
-                      min={0}
-                      max={100}
-                      step={0.5}
-                      value={edited.percent.costs.unable}
-                      onChange={(e) => setPercentCost('unable', num(e.target.value, edited.percent.costs.unable))}
+                      min={1}
+                      max={20}
+                      value={edited.voice_max}
+                      onChange={(e) => setField('voice_max', clamp(num(e.target.value, edited.voice_max), 1, 20))}
                     />
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Tajweed major</TableCell>
-                  <TableCell className="text-zinc-500">{MISTAKE_MEANINGS.tajweed_major}</TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      aria-label="Tajweed major cost"
-                      className="ml-auto max-w-24"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.5}
-                      value={edited.percent.costs.tajweed_major}
-                      onChange={(e) => setPercentCost('tajweed_major', num(e.target.value, edited.percent.costs.tajweed_major))}
-                    />
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Tajweed minor</TableCell>
-                  <TableCell className="text-zinc-500">{MISTAKE_MEANINGS.tajweed_minor}</TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      aria-label="Tajweed minor cost"
-                      className="ml-auto max-w-24"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.5}
-                      value={edited.percent.costs.tajweed_minor}
-                      onChange={(e) => setPercentCost('tajweed_minor', num(e.target.value, edited.percent.costs.tajweed_minor))}
-                    />
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-            <Text className="mt-3 text-sm text-zinc-500">
-              One Prompted mistake costs {edited.percent.costs.prompted}% of that question&apos;s memorization.
-            </Text>
-            {edited.model === 'escalating-v3' && (
-              <Text className="mt-1 text-sm text-zinc-500">
-                Each repeated memorization mistake in the same question costs {edited.percent.escalation_step} more
-                percentage points than the last. Tajweed costs stay flat.
+                  </Field>
+                </div>
+              </Fieldset>
+              <Text className="mt-3 text-sm text-zinc-500">
+                A Prompted mistake costs {edited.raw.costs.prompted} of the question&apos;s 100 points.
               </Text>
-            )}
-          </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <div className="flex items-baseline gap-3">
+                  <Subheading>What each part is worth</Subheading>
+                  <Badge color={valid && sum === 100 ? 'green' : 'red'}>{`= ${sum}${sum === 100 ? ' ✓' : ` — ${sum < 100 ? 'under' : 'over'}`}`}</Badge>
+                </div>
+                <Text className="mt-1">Out of the 100 points a contestant starts with.</Text>
+                <Fieldset className="mt-4">
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <Field>
+                      <Label>Hifz — memorization</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={edited.percent.weights.hifz}
+                        onChange={(e) =>
+                          patchPercent({
+                            weights: { ...edited.percent.weights, hifz: clamp(num(e.target.value, edited.percent.weights.hifz), 0, 100) },
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field>
+                      <Label>Tajweed — recitation</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={edited.percent.weights.tajweed}
+                        onChange={(e) =>
+                          patchPercent({
+                            weights: {
+                              ...edited.percent.weights,
+                              tajweed: clamp(num(e.target.value, edited.percent.weights.tajweed), 0, 100),
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field>
+                      <Label>Voice &amp; delivery</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={edited.percent.weights.voice}
+                        onChange={(e) =>
+                          patchPercent({
+                            weights: { ...edited.percent.weights, voice: clamp(num(e.target.value, edited.percent.weights.voice), 0, 100) },
+                          })
+                        }
+                      />
+                    </Field>
+                  </div>
+                </Fieldset>
+              </div>
+
+              <Divider className="my-8" />
+
+              <div>
+                <Subheading>What each mistake costs</Subheading>
+                <Text className="mt-1">The same buttons the judge sees, and what each one takes off.</Text>
+                <Table className="mt-4 [--gutter:--spacing(6)]">
+                  <TableHead>
+                    <TableRow>
+                      <TableHeader>Judge&apos;s button</TableHeader>
+                      <TableHeader>Meaning</TableHeader>
+                      <TableHeader className="text-right">% of the question&apos;s part</TableHeader>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(['prompted', 'unable', 'tajweed_major', 'tajweed_minor'] as const).map((key) => (
+                      <TableRow key={key}>
+                        <TableCell className="font-medium">{MISTAKE_MEANINGS[key].label}</TableCell>
+                        <TableCell className="text-zinc-500">{MISTAKE_MEANINGS[key].meaning}</TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            aria-label={`${MISTAKE_MEANINGS[key].label} cost`}
+                            className="ml-auto max-w-24"
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={0.5}
+                            value={edited.percent.costs[key]}
+                            onChange={(e) =>
+                              patchPercent({
+                                costs: {
+                                  ...edited.percent.costs,
+                                  [key]: clamp(num(e.target.value, edited.percent.costs[key]), 0, 100),
+                                },
+                              })
+                            }
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <Fieldset className="mt-4">
+                  <Field className="max-w-40">
+                    <Label>Judges rate voice 0–{edited.voice_max}</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={edited.voice_max}
+                      onChange={(e) => setField('voice_max', clamp(num(e.target.value, edited.voice_max), 1, 20))}
+                    />
+                  </Field>
+                </Fieldset>
+                {edited.model === 'escalating-v3' && (
+                  <Fieldset className="mt-4">
+                    <Field className="max-w-64">
+                      <Label>Each repeat costs this many more percentage points</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={50}
+                        value={edited.percent.escalation_step}
+                        onChange={(e) =>
+                          patchPercent({ escalation_step: clamp(num(e.target.value, edited.percent.escalation_step), 0, 50) })
+                        }
+                      />
+                    </Field>
+                  </Fieldset>
+                )}
+                <Text className="mt-3 text-sm text-zinc-500">
+                  {edited.model === 'escalating-v3'
+                    ? `Two Prompted mistakes in one question cost ${edited.percent.costs.prompted}% + ${
+                        edited.percent.costs.prompted + edited.percent.escalation_step
+                      }% = ${edited.percent.costs.prompted * 2 + edited.percent.escalation_step}% of that question's memorization.`
+                    : `One Prompted mistake costs ${edited.percent.costs.prompted}% of that question's memorization.`}
+                </Text>
+              </div>
+            </>
+          )}
 
           <Divider className="my-8" />
 

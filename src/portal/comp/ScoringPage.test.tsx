@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, cleanup, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, cleanup, waitFor, within } from '@testing-library/react';
 import type { DbBackend } from '../../data/backend';
 
 // Same import-safety pattern as CategoriesPage.test.tsx.
@@ -27,10 +27,22 @@ afterEach(() => {
   writeDocSpy.mockClear();
 });
 
-function seededBackend() {
+const DOC_PATH = 'orgs/ik/competitions/2026/config/scoring';
+
+function seededBackend(doc: Record<string, unknown> = DEFAULT_SCORING_CONFIG as unknown as Record<string, unknown>) {
   const backend = new InMemoryBackend();
-  backend.seed('orgs/ik/competitions/2026/config/scoring', DEFAULT_SCORING_CONFIG);
+  backend.seed(DOC_PATH, doc);
   return backend;
+}
+
+function renderPage(backend: DbBackend) {
+  return render(
+    <DbProvider backend={backend}>
+      <TenantProvider orgId="ik" compId="2026">
+        <ScoringPage />
+      </TenantProvider>
+    </DbProvider>,
+  );
 }
 
 /**
@@ -78,53 +90,17 @@ class DelayedDocBackend implements DbBackend {
 }
 
 describe('ScoringPage', () => {
-  it('renders the heading and a weights field with the seeded value', async () => {
-    const backend = seededBackend();
-    render(
-      <DbProvider backend={backend}>
-        <TenantProvider orgId="ik" compId="2026">
-          <ScoringPage />
-        </TenantProvider>
-      </DbProvider>,
-    );
-
-    expect(screen.getByRole('heading', { name: 'Scoring' })).toBeTruthy();
-    expect(await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz))).toBeTruthy();
-  });
-
-  it('shows a validateScoringConfig error when weights no longer sum to 100', async () => {
-    const backend = seededBackend();
-    render(
-      <DbProvider backend={backend}>
-        <TenantProvider orgId="ik" compId="2026">
-          <ScoringPage />
-        </TenantProvider>
-      </DbProvider>,
-    );
-
-    const hifzInput = (await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz))) as HTMLInputElement;
-    fireEvent.change(hifzInput, { target: { value: '60' } });
-
-    expect(await screen.findByText('weights must sum to 100 (got 90)')).toBeTruthy();
-  });
-
+  // (f) loading gate + seed-once.
   it('gates the form (and Save) behind the config load, and seeds from the resolved doc — never from defaults', async () => {
-    const path = 'orgs/ik/competitions/2026/config/scoring';
     const seededConfig = {
       ...DEFAULT_SCORING_CONFIG,
       percent: { ...DEFAULT_SCORING_CONFIG.percent, weights: { hifz: 55, tajweed: 40, voice: 5 } },
     };
     const inner = new InMemoryBackend();
-    inner.seed(path, seededConfig);
-    const backend = new DelayedDocBackend(inner, path);
+    inner.seed(DOC_PATH, seededConfig);
+    const backend = new DelayedDocBackend(inner, DOC_PATH);
 
-    render(
-      <DbProvider backend={backend}>
-        <TenantProvider orgId="ik" compId="2026">
-          <ScoringPage />
-        </TenantProvider>
-      </DbProvider>,
-    );
+    renderPage(backend);
 
     // Still loading: heading renders, but the form (incl. Save, and any input) is absent —
     // a click during this window must not be possible, since it would write
@@ -143,64 +119,124 @@ describe('ScoringPage', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
   });
 
-  it('selects escalating penalties and persists the model on save', async () => {
+  // (a) three radio cards render; seeded escalating-v3 shows the third checked.
+  it('renders all three scoring-system cards, with the seeded model checked', async () => {
+    const backend = seededBackend({ ...DEFAULT_SCORING_CONFIG, model: 'escalating-v3' });
+    renderPage(backend);
+    await screen.findByRole('radio', { name: /raw deductions/i });
+
+    expect(screen.getByText('Raw deductions')).toBeTruthy();
+    expect(screen.getByText('Percentage weights')).toBeTruthy();
+    expect(screen.getByText('Percentage weights + escalating penalties')).toBeTruthy();
+
+    const radios = screen.getAllByRole('radio');
+    const radioFor = (title: string) => radios.find((r) => within(r).queryByText(title));
+    expect(radioFor('Raw deductions')?.getAttribute('aria-checked')).toBe('false');
+    expect(radioFor('Percentage weights')?.getAttribute('aria-checked')).toBe('false');
+    expect(radioFor('Percentage weights + escalating penalties')?.getAttribute('aria-checked')).toBe('true');
+  });
+
+  // (b) knob visibility per system.
+  it('shows raw knobs and hides weights when Raw deductions is selected', async () => {
     const backend = seededBackend();
-    render(
-      <DbProvider backend={backend}>
-        <TenantProvider orgId="ik" compId="2026">
-          <ScoringPage />
-        </TenantProvider>
-      </DbProvider>,
-    );
+    renderPage(backend);
     await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz));
 
-    fireEvent.click(await screen.findByText('Escalating penalties'));
-    expect(screen.getByRole('radio', { name: /escalating penalties/i }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('radio', { name: /raw deductions/i }));
+
+    expect(screen.getByLabelText('Hesitation cost')).toBeTruthy();
+    expect(screen.getByLabelText(/Voice is worth/)).toBeTruthy();
+    expect(screen.queryByLabelText('Hifz — memorization')).toBeNull();
+    expect(screen.queryByLabelText('Tajweed — recitation')).toBeNull();
+  });
+
+  it('shows weights and the = 100 badge, and hides raw-only knobs, when Percentage weights is selected', async () => {
+    const backend = seededBackend(); // default model is weighted-v3
+    renderPage(backend);
+    await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz));
+
+    expect(screen.getByLabelText('Hifz — memorization')).toBeTruthy();
+    expect(screen.getByText('= 100 ✓')).toBeTruthy();
+    expect(screen.queryByLabelText('Hesitation cost')).toBeNull();
+    expect(screen.queryByLabelText('Each repeat costs this many more percentage points')).toBeNull();
+  });
+
+  it('shows the escalation-step knob only when escalating is selected', async () => {
+    const backend = seededBackend();
+    renderPage(backend);
+    await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz));
+
+    expect(screen.queryByLabelText('Each repeat costs this many more percentage points')).toBeNull();
+    fireEvent.click(screen.getByRole('radio', { name: /escalating penalties/i }));
+    expect(screen.getByLabelText('Each repeat costs this many more percentage points')).toBeTruthy();
+  });
+
+  // (c) persists both sub-objects without clobbering the untouched one.
+  it('persists an edited raw cost alongside the untouched percent config when saving under a different system', async () => {
+    const backend = seededBackend();
+    renderPage(backend);
+    await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz));
+
+    fireEvent.click(screen.getByRole('radio', { name: /raw deductions/i }));
+    fireEvent.change(screen.getByLabelText('Prompted cost'), { target: { value: '33' } });
+
+    fireEvent.click(screen.getByRole('radio', { name: /escalating penalties/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(writeDocSpy).toHaveBeenCalled());
+
+    const payload = writeDocSpy.mock.calls.at(-1)![1];
+    expect(payload).toMatchObject({
+      model: 'escalating-v3',
+      raw: { ...DEFAULT_SCORING_CONFIG.raw, costs: { ...DEFAULT_SCORING_CONFIG.raw.costs, prompted: 33 } },
+      percent: DEFAULT_SCORING_CONFIG.percent,
+    });
+  });
+
+  // (d) escalating caption computes live.
+  it('computes the escalating caption live from the prompted cost and escalation step', async () => {
+    const backend = seededBackend();
+    renderPage(backend);
+    await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz));
+    fireEvent.click(screen.getByRole('radio', { name: /escalating penalties/i }));
+
+    // Defaults: prompted = 10, step = 10 → 10% + 20% = 30%.
+    expect(screen.getByText(/10% \+ 20% = 30%/)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('Each repeat costs this many more percentage points'), {
+      target: { value: '20' },
+    });
+    expect(await screen.findByText(/10% \+ 30% = 40%/)).toBeTruthy();
+    expect(screen.queryByText(/10% \+ 20% = 30%/)).toBeNull();
+  });
+
+  // (e) legacy doc: flagged, seeded from defaults, saves a full valid v3 shape.
+  it('flags a legacy doc, seeds the form from defaults, and saves a full v3 shape', async () => {
+    const backend = seededBackend({ model: 'deduction-v1', hifz_base: 10 });
+    renderPage(backend);
+
+    expect(await screen.findByText(/unknown scoring system "deduction-v1"/)).toBeTruthy();
+    expect(await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz))).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(writeDocSpy).toHaveBeenCalled());
-    expect(writeDocSpy.mock.calls.at(-1)![1]).toMatchObject({ model: 'escalating-v3' });
+    expect(writeDocSpy.mock.calls.at(-1)![1]).toEqual(DEFAULT_SCORING_CONFIG);
   });
 
-  it('shows the escalation caption only when escalating-v3 is selected', async () => {
+  it('shows a validateScoringConfig error when weights no longer sum to 100', async () => {
     const backend = seededBackend();
-    render(
-      <DbProvider backend={backend}>
-        <TenantProvider orgId="ik" compId="2026">
-          <ScoringPage />
-        </TenantProvider>
-      </DbProvider>,
-    );
-    await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz));
+    renderPage(backend);
 
-    expect(screen.queryByText(/more\s+percentage points than the last/)).toBeNull();
-    fireEvent.click(await screen.findByText('Escalating penalties'));
-    expect(screen.getByText(/more\s+percentage points than the last/)).toBeTruthy();
-  });
+    const hifzInput = (await screen.findByDisplayValue(
+      String(DEFAULT_SCORING_CONFIG.percent.weights.hifz),
+    )) as HTMLInputElement;
+    fireEvent.change(hifzInput, { target: { value: '60' } });
 
-  it('surfaces an unknown-model error from a hand-edited doc', async () => {
-    const backend = new InMemoryBackend();
-    backend.seed('orgs/ik/competitions/2026/config/scoring', { ...DEFAULT_SCORING_CONFIG, model: 'bogus-v9' });
-    render(
-      <DbProvider backend={backend}>
-        <TenantProvider orgId="ik" compId="2026">
-          <ScoringPage />
-        </TenantProvider>
-      </DbProvider>,
-    );
-
-    expect(await screen.findByText(/unknown scoring system/)).toBeTruthy();
+    expect(await screen.findByText('weights must sum to 100 (got 90)')).toBeTruthy();
   });
 
   it('explains the disqualification flag as a per-category mistake limit', async () => {
     const backend = seededBackend();
-    render(
-      <DbProvider backend={backend}>
-        <TenantProvider orgId="ik" compId="2026">
-          <ScoringPage />
-        </TenantProvider>
-      </DbProvider>,
-    );
+    renderPage(backend);
 
     expect(await screen.findByText(/mistake limit/i)).toBeTruthy();
     expect(screen.queryByText(/memorization points hit zero/)).toBeNull();
@@ -208,13 +244,7 @@ describe('ScoringPage', () => {
 
   it('recomputes the cost caption from the live config when the Prompted cost changes', async () => {
     const backend = seededBackend();
-    render(
-      <DbProvider backend={backend}>
-        <TenantProvider orgId="ik" compId="2026">
-          <ScoringPage />
-        </TenantProvider>
-      </DbProvider>,
-    );
+    renderPage(backend);
 
     // Default: percent.costs.prompted = 10.
     await screen.findByDisplayValue(String(DEFAULT_SCORING_CONFIG.percent.weights.hifz));
