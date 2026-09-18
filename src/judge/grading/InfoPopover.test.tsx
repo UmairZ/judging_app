@@ -7,24 +7,59 @@ import StepperCard, { HIFZ_KEYS } from './StepperCard';
 
 afterEach(cleanup);
 
+const RAW = { ...DEFAULT_SCORING_CONFIG, model: 'raw-v3' };
+const WEI = DEFAULT_SCORING_CONFIG; // weighted-v3
+const ESC = { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v3' };
+
 describe('costLine', () => {
-  // Both languages are held on a placeholder while the operator finalizes
-  // scoring v3 (2026-09-18) — see InfoPopover.tsx costLine.
-  it('holds English on the [SCORING VALUE] placeholder regardless of deduction or model', () => {
-    expect(costLine('prompted_fixed', DEFAULT_SCORING_CONFIG, 'en')).toBe('[SCORING VALUE]');
-    expect(costLine('tajweed_minor', DEFAULT_SCORING_CONFIG, 'en')).toBe('[SCORING VALUE]');
-    const v2 = { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v3' };
-    expect(costLine('prompted_failed', v2, 'en')).toBe('[SCORING VALUE]');
-    expect(costLine('tajweed_major', v2, 'en')).toBe('[SCORING VALUE]');
-    expect(costLine('self_corrected', DEFAULT_SCORING_CONFIG, 'en')).toBe('[SCORING VALUE]');
+  describe('raw-v3', () => {
+    it('prices a mistake in raw points (en)', () => {
+      expect(costLine('prompted_fixed', RAW, 'en')).toBe('−10 points');
+    });
+    it('prices a mistake in raw points (ar)', () => {
+      expect(costLine('prompted_fixed', RAW, 'ar')).toBe('يُخصم 10 من النقاط');
+    });
+    it('shows no-penalty copy when hesitation costs 0', () => {
+      expect(costLine('self_corrected', RAW, 'en')).toBe('No penalty — tracked only');
+    });
+    it('prices hesitation once its raw cost is no longer 0', () => {
+      const cfg = { ...RAW, raw: { ...RAW.raw, costs: { ...RAW.raw.costs, hesitation: 2 } } };
+      expect(costLine('self_corrected', cfg, 'en')).toBe('−2 points');
+    });
   });
-  it('holds Arabic on the [قيمة الخصم] placeholder regardless of deduction or model', () => {
-    expect(costLine('prompted_fixed', DEFAULT_SCORING_CONFIG, 'ar')).toBe('[قيمة الخصم]');
-    expect(costLine('tajweed_minor', DEFAULT_SCORING_CONFIG, 'ar')).toBe('[قيمة الخصم]');
-    const v2 = { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v3' };
-    expect(costLine('prompted_failed', v2, 'ar')).toBe('[قيمة الخصم]');
-    expect(costLine('tajweed_major', v2, 'ar')).toBe('[قيمة الخصم]');
-    expect(costLine('self_corrected', DEFAULT_SCORING_CONFIG, 'ar')).toBe('[قيمة الخصم]');
+
+  describe('weighted-v3', () => {
+    it("prices a hifz mistake as a percent of memorization (en)", () => {
+      expect(costLine('prompted_fixed', WEI, 'en')).toBe("−10% of this question's memorization");
+    });
+    it('prices a hifz mistake as a percent of memorization (ar)', () => {
+      expect(costLine('prompted_fixed', WEI, 'ar')).toBe('يُخصم 10٪ من حفظ هذا السؤال');
+    });
+    it("prices a tajweed mistake as a percent of tajweed", () => {
+      expect(costLine('tajweed_minor', WEI, 'en')).toBe("−5% of this question's tajweed");
+    });
+    it('self_corrected is always free, regardless of raw cost', () => {
+      expect(costLine('self_corrected', WEI, 'en')).toBe('No penalty — tracked only');
+    });
+  });
+
+  describe('escalating-v3', () => {
+    it('appends the escalation suffix for hifz prompted/unable types (en)', () => {
+      expect(costLine('prompted_fixed', ESC, 'en')).toBe(
+        "−10% of this question's memorization · each repeat in this question costs 10 more percentage points",
+      );
+    });
+    it('appends the escalation suffix for hifz prompted/unable types (ar)', () => {
+      expect(costLine('prompted_fixed', ESC, 'ar')).toBe(
+        'يُخصم 10٪ من حفظ هذا السؤال · كل تكرار في هذا السؤال يزيد الخصم 10 نقطة مئوية',
+      );
+    });
+    it('does NOT repeat-suffix tajweed types', () => {
+      expect(costLine('tajweed_major', ESC, 'en')).toBe("−10% of this question's tajweed");
+    });
+    it('self_corrected stays free under escalating too', () => {
+      expect(costLine('self_corrected', ESC, 'en')).toBe('No penalty — tracked only');
+    });
   });
 });
 
@@ -43,7 +78,11 @@ describe('StepperCard ⓘ popover', () => {
     fireEvent.click(info);
     const tooltip = screen.getByRole('tooltip');
     expect(within(tooltip).getByText('Unable to continue after being prompted.')).toBeTruthy();
-    expect(within(tooltip).getByText('[SCORING VALUE]')).toBeTruthy();
+    expect(
+      within(tooltip).getByText(
+        "−20% of this question's memorization · each repeat in this question costs 10 more percentage points",
+      ),
+    ).toBeTruthy();
 
     fireEvent.mouseDown(screen.getByText('outside'));
     expect(screen.queryByRole('tooltip')).toBeNull();
