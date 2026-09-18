@@ -400,6 +400,105 @@ function OptionCMobile() {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Option D — split screen                                                 */
+/* ---------------------------------------------------------------------- */
+
+/** Small-caps collapsible section header for Option D's rail — chevron shows
+ * expanded (▾) or collapsed (▸). Static, like everything else here. */
+function RailSectionHeader({ label, open }: { label: string; open: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 6px 8px', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600, cursor: 'pointer' }}>
+      <span>{label}</span>
+      <span style={{ marginLeft: 'auto', fontSize: 11, color: C.muted }}>{open ? '▾' : '▸'}</span>
+    </div>
+  );
+}
+
+/** Option D's wider rail — the question cards on top, then Notes (expanded)
+ * and Panel completeness (collapsed) folded in below. No right side panel in
+ * this option; both residents live here instead. */
+function RailWithPanels() {
+  return (
+    <div style={{ width: 250, flex: 'none', borderRight: `1px solid ${C.line}`, background: C.cream, padding: '16px 12px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '0 6px 10px', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600 }}>Questions</div>
+      <div style={{ borderRadius: 8, padding: '11px 13px', border: `1.5px solid ${C.brass}`, background: '#FCF7E9', marginBottom: 8 }}>
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>Question 1</span>
+      </div>
+      <div style={{ borderRadius: 8, padding: '11px 13px', border: `1.5px solid ${C.line}`, background: '#fff', marginBottom: 8 }}>
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: '#41504B' }}>Question 2</span>
+      </div>
+      <div style={{ borderRadius: 8, padding: '11px 13px', border: `1.5px solid ${C.line}`, background: '#fff' }}>
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: '#41504B' }}>Question 3</span>
+      </div>
+      <div style={{ borderTop: `1px solid ${C.line}`, marginTop: 16 }}>
+        <RailSectionHeader label="Notes" open />
+        <div style={{ padding: '0 6px 12px' }}>
+          <div style={{ width: '100%', minHeight: 72, boxSizing: 'border-box', background: '#fff', border: `1px solid ${C.line}`, borderRadius: 8, padding: '10px 12px' }} />
+        </div>
+      </div>
+      <div style={{ borderTop: `1px solid ${C.line}` }}>
+        <RailSectionHeader label="Panel completeness" open={false} />
+      </div>
+    </div>
+  );
+}
+
+/** Voice & delivery row stub — section label + 0..5 rating buttons, "3" filled. */
+function VoiceRowStub() {
+  return (
+    <div style={{ marginTop: 22 }}>
+      <SectionLabel color={C.greenDeep}>Sawt wal-Adā' · Voice &amp; Delivery</SectionLabel>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {[0, 1, 2, 3, 4, 5].map((n) => (
+          <span
+            key={n}
+            style={{
+              width: 44, height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 16, fontWeight: 600,
+              border: n === 3 ? 'none' : `1.5px solid ${C.line}`,
+              background: n === 3 ? C.green : '#fff', color: n === 3 ? '#fff' : '#41504B',
+            }}
+          >
+            {n}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OptionDDesktop() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <DesktopHeader />
+      <DesktopUtilityStrip />
+      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+        <RailWithPanels />
+        {/* left pane — scoring content, ~55% */}
+        <div style={{ flex: '1 1 55%', minWidth: 0, padding: '24px 30px' }}>
+          <QuestionHeading />
+          <SectionLabel color={C.brassDark}>Hifz · Memorization</SectionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <StepperStub label="Self-corrected" desc="Caught and fixed without help." count={0} />
+            <StepperStub label="Prompted — fixed" desc="Needed a cue, then continued." count={1} />
+          </div>
+          <VoiceRowStub />
+        </div>
+        {/* thin vertical divider */}
+        <div style={{ width: 1, flex: 'none', background: C.line }} />
+        {/* right pane — the passage, ~45%, filling the pane height */}
+        <div style={{ flex: '1 1 45%', minWidth: 0, padding: '20px 22px', display: 'flex' }}>
+          <div style={{ flex: 1, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 10, padding: '16px 18px' }}>
+            <PassageMeta />
+            <PassageLines />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
 /* Fourth block — side selector overlay                                    */
 /* ---------------------------------------------------------------------- */
 
@@ -524,6 +623,22 @@ export default function MockQuestions() {
         desktop={<OptionCDesktop />}
         mobile={<OptionCMobile />}
       />
+
+      <div style={{ marginBottom: 56 }}>
+        <div style={{ fontFamily: serif, fontSize: 20, fontWeight: 600, color: C.greenDeep, marginBottom: 4 }}>Option D — split screen</div>
+        <div style={{ fontSize: 13.5, color: C.sub, marginBottom: 18, maxWidth: 900 }}>
+          Desktop: the main area splits side by side — scoring controls on the left (~55%), the passage card on the right (~45%)
+          filling the pane height, a thin divider between them. No right side panel: Notes (expanded) and Panel completeness
+          (collapsed) move into the left question rail as collapsible sections.
+        </div>
+        <div style={{ maxWidth: 1100, borderRadius: 10, overflow: 'hidden', boxShadow: '0 4px 14px rgba(0,0,0,0.10)', marginBottom: 12, position: 'relative' }}>
+          <OptionDDesktop />
+        </div>
+        <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 4 }}>
+          Passage anchored right (Arabic reads right-to-left); flip is a one-line change if you prefer scoring on the right.
+        </div>
+        <div style={{ fontSize: 12.5, color: C.muted }}>Mobile treatment TBD — operator deciding after seeing desktop.</div>
+      </div>
 
       <div style={{ marginBottom: 8 }}>
         <div style={{ fontFamily: serif, fontSize: 20, fontWeight: 600, color: C.greenDeep, marginBottom: 4 }}>Side selector overlay</div>
