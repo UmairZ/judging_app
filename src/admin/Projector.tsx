@@ -85,6 +85,11 @@ export default function Projector() {
   const scoreStr = (r: Row) =>
     r.summary.score == null ? '—' : r.summary.score.toFixed(1);
 
+  // Component means are only meaningful for the percent-family systems (weighted-v3,
+  // escalating-v3); raw-v3 leaves H/T at 0 by design (session.ts), so captioning them
+  // here would misleadingly project "Hifz 0% · Tajweed 0%" for every contestant.
+  const percentFamily = cfg.model !== 'raw-v3';
+
   const subLine = (r: Row) =>
     `Hifz ${pct(r.summary.hBar)} · Tajweed ${pct(r.summary.tBar)}`;
 
@@ -246,9 +251,11 @@ export default function Projector() {
               >
                 {first.name}
               </div>
-              <div style={{ fontSize: 13, color: '#5A4A1C', fontWeight: 600 }}>
-                {subLine(first)}
-              </div>
+              {percentFamily && (
+                <div style={{ fontSize: 13, color: '#5A4A1C', fontWeight: 600 }}>
+                  {subLine(first)}
+                </div>
+              )}
             </div>
             <span
               style={{
@@ -305,9 +312,11 @@ export default function Projector() {
                   >
                     {r.name}
                   </div>
-                  <div style={{ fontSize: 12.5, color: TEXT_DIM }}>
-                    {subLine(r)}
-                  </div>
+                  {percentFamily && (
+                    <div style={{ fontSize: 12.5, color: TEXT_DIM }}>
+                      {subLine(r)}
+                    </div>
+                  )}
                 </div>
                 <span
                   style={{

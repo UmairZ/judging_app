@@ -45,18 +45,19 @@ const COST_NAMES = {
   tajweed_minor: 'Tajweed minor',
 } as const;
 
-/**
- * Plain-language validation. Tolerates legacy/half-shaped docs (missing
- * `raw`/`percent`) without crashing — the unknown-model error prompts a
- * re-pick, and the engine scores with the defaults meanwhile.
- */
-export function validateScoringConfig(cfg: ScoringConfig): string[] {
+/** Shared checks — apply to every model, regardless of which sub-object is in view. */
+function sharedErrors(cfg: ScoringConfig): string[] {
   const errors: string[] = [];
   if (!(KNOWN_MODELS as readonly string[]).includes(cfg.model))
     errors.push(`unknown scoring system "${cfg.model}" — pick a scoring system (scores use the defaults meanwhile)`);
   if (typeof cfg.voice_max === 'number' && cfg.voice_max < 1)
     errors.push('voice scale must be at least 1');
+  return errors;
+}
 
+/** percent-family (weighted-v3 / escalating-v3) knob checks. */
+function percentErrors(cfg: ScoringConfig): string[] {
+  const errors: string[] = [];
   const percent = cfg.percent;
   if (percent != null) {
     const sum = weightsSum(cfg);
@@ -68,7 +69,12 @@ export function validateScoringConfig(cfg: ScoringConfig): string[] {
     if (percent.escalation_step < 0 || percent.escalation_step > 50)
       errors.push('the escalation step must be between 0 and 50 percentage points');
   }
+  return errors;
+}
 
+/** raw-v3 knob checks. */
+function rawErrors(cfg: ScoringConfig): string[] {
+  const errors: string[] = [];
   const raw = cfg.raw;
   if (raw != null) {
     for (const key of ['hesitation', 'prompted', 'unable', 'tajweed_major', 'tajweed_minor'] as const) {
@@ -78,6 +84,29 @@ export function validateScoringConfig(cfg: ScoringConfig): string[] {
     if (raw.voice_worth < 1 || raw.voice_worth > 30)
       errors.push("voice's share of each question must be between 1 and 30 points");
   }
-
   return errors;
+}
+
+/**
+ * Plain-language validation. Tolerates legacy/half-shaped docs (missing
+ * `raw`/`percent`) without crashing — the unknown-model error prompts a
+ * re-pick, and the engine scores with the defaults meanwhile.
+ *
+ * Validates BOTH sub-objects unconditionally (both persist on save regardless
+ * of which system is selected) — order preserved: shared, percent, raw.
+ */
+export function validateScoringConfig(cfg: ScoringConfig): string[] {
+  return [...sharedErrors(cfg), ...percentErrors(cfg), ...rawErrors(cfg)];
+}
+
+/**
+ * Same shared checks, but only the knobs the given model actually exposes —
+ * for a UI that shows one system's inputs at a time and shouldn't gate Save
+ * on an error the organizer can't see or fix (final-review M2). `model` is
+ * typically `cfg.model`, but is taken separately so callers can validate a
+ * cfg against a model it doesn't (yet) carry.
+ */
+export function validateScoringConfigFor(cfg: ScoringConfig, model: string): string[] {
+  const familyErrors = model === 'raw-v3' ? rawErrors(cfg) : percentErrors(cfg);
+  return [...sharedErrors(cfg), ...familyErrors];
 }

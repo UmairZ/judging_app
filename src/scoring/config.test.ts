@@ -3,6 +3,7 @@ import {
   DEFAULT_SCORING_CONFIG,
   weightsSum,
   validateScoringConfig,
+  validateScoringConfigFor,
   resolveScoringConfig,
 } from './config';
 import type { ScoringConfig } from './types';
@@ -120,6 +121,46 @@ describe('validateScoringConfig', () => {
     expect(validateScoringConfig(withPercent({ escalation_step: 51 })).length).toBeGreaterThan(0);
     expect(validateScoringConfig(withPercent({ escalation_step: 0 }))).toEqual([]);
     expect(validateScoringConfig(withPercent({ escalation_step: 50 }))).toEqual([]);
+  });
+});
+
+describe('validateScoringConfigFor', () => {
+  const withPercent = (percent: Partial<ScoringConfig['percent']>): ScoringConfig => ({
+    ...DEFAULT_SCORING_CONFIG,
+    percent: { ...DEFAULT_SCORING_CONFIG.percent, ...percent },
+  });
+  const withRaw = (raw: Partial<ScoringConfig['raw']>): ScoringConfig => ({
+    ...DEFAULT_SCORING_CONFIG,
+    raw: { ...DEFAULT_SCORING_CONFIG.raw, ...raw },
+  });
+
+  it('ignores a weight-sum violation when validating against raw-v3', () => {
+    const bad = withPercent({ weights: { hifz: 60, tajweed: 25, voice: 5 } });
+    expect(validateScoringConfigFor(bad, 'raw-v3')).toEqual([]);
+  });
+
+  it('catches a weight-sum violation when validating against a percent-family model', () => {
+    const bad = withPercent({ weights: { hifz: 60, tajweed: 25, voice: 5 } });
+    expect(validateScoringConfigFor(bad, 'weighted-v3')).toContain('weights must sum to 100 (got 90)');
+    expect(validateScoringConfigFor(bad, 'escalating-v3')).toContain('weights must sum to 100 (got 90)');
+  });
+
+  it('ignores an out-of-range raw cost when validating against a percent-family model', () => {
+    const bad = withRaw({ voice_worth: 0 });
+    expect(validateScoringConfigFor(bad, 'weighted-v3')).toEqual([]);
+  });
+
+  it('catches an out-of-range raw cost when validating against raw-v3', () => {
+    const bad = withRaw({ voice_worth: 0 });
+    expect(validateScoringConfigFor(bad, 'raw-v3').length).toBeGreaterThan(0);
+  });
+
+  it('catches a shared error (voice_max 0) regardless of model family', () => {
+    const bad = { ...DEFAULT_SCORING_CONFIG, voice_max: 0 };
+    expect(validateScoringConfigFor(bad, 'raw-v3').some((e) => e.toLowerCase().includes('voice scale'))).toBe(true);
+    expect(validateScoringConfigFor(bad, 'weighted-v3').some((e) => e.toLowerCase().includes('voice scale'))).toBe(
+      true,
+    );
   });
 });
 

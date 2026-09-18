@@ -15,6 +15,7 @@ export {
   DEFAULT_SCORING_CONFIG,
   weightsSum,
   validateScoringConfig,
+  validateScoringConfigFor,
   resolveScoringConfig,
 } from './config';
 export {

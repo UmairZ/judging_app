@@ -7,6 +7,7 @@ import {
   weightsSum,
   resolveScoringConfig,
   validateScoringConfig,
+  validateScoringConfigFor,
   type ScoringConfig,
 } from '../../scoring';
 import { Badge } from '../vendor/badge';
@@ -127,11 +128,14 @@ export function ScoringPage() {
     seeded.current = true;
   }, [data]);
 
-  // Live validation covers the user's edits. When the loaded doc itself carries
-  // an unknown/legacy model id, surface that flag too (it describes the SAVED
-  // doc, which the seeded `edited` no longer does after resolveScoringConfig) —
-  // deduped against the live errors so it never doubles up.
-  const editedErrors = validateScoringConfig(edited);
+  // Live validation covers the user's edits — but only the knobs the SELECTED
+  // system actually renders (final-review M2): validateScoringConfig always checks
+  // both sub-objects, since both persist on save, but a Percentage-weights error
+  // must not block Save while Raw deductions is on screen (and vice versa). When
+  // the loaded doc itself carries an unknown/legacy model id, surface that flag too
+  // (it describes the SAVED doc, which the seeded `edited` no longer does after
+  // resolveScoringConfig) — deduped against the live errors so it never doubles up.
+  const editedErrors = validateScoringConfigFor(edited, edited.model);
   const docUnknownModel =
     data && !(KNOWN_MODELS as readonly string[]).includes(data.model)
       ? validateScoringConfig(data).find((e) => e.startsWith('unknown scoring system'))

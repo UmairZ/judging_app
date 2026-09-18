@@ -41,6 +41,14 @@ describe('costLine', () => {
     it('self_corrected is always free, regardless of raw cost', () => {
       expect(costLine('self_corrected', WEI, 'en')).toBe('No penalty — tracked only');
     });
+    it('shows no-penalty copy when a percent cost is 0 (en)', () => {
+      const cfg = { ...WEI, percent: { ...WEI.percent, costs: { ...WEI.percent.costs, tajweed_minor: 0 } } };
+      expect(costLine('tajweed_minor', cfg, 'en')).toBe('No penalty — tracked only');
+    });
+    it('shows no-penalty copy when a percent cost is 0 (ar)', () => {
+      const cfg = { ...WEI, percent: { ...WEI.percent, costs: { ...WEI.percent.costs, tajweed_minor: 0 } } };
+      expect(costLine('tajweed_minor', cfg, 'ar')).toBe('لا خصم — يُسجَّل فقط');
+    });
   });
 
   describe('escalating-v3', () => {
@@ -59,6 +67,10 @@ describe('costLine', () => {
     });
     it('self_corrected stays free under escalating too', () => {
       expect(costLine('self_corrected', ESC, 'en')).toBe('No penalty — tracked only');
+    });
+    it('shows no-penalty copy, with NO escalation suffix, for a 0-cost hifz type', () => {
+      const cfg = { ...ESC, percent: { ...ESC.percent, costs: { ...ESC.percent.costs, prompted: 0 } } };
+      expect(costLine('prompted_fixed', cfg, 'en')).toBe('No penalty — tracked only');
     });
   });
 });

@@ -31,6 +31,7 @@ export function costLine(type: DeductionEventType, cfg: ScoringConfig, lang: Jud
 
   const isTajweed = key === 'tajweed_major' || key === 'tajweed_minor';
   const n = cfg.percent.costs[key as 'prompted' | 'unable' | 'tajweed_major' | 'tajweed_minor'];
+  if (n === 0) return t('noPenalty', lang);
   let line = t(isTajweed ? 'costPercentTajweed' : 'costPercentHifz', lang).replace('{n}', String(n));
 
   if (cfg.model === 'escalating-v3' && HIFZ_TYPES.has(type) && !isTajweed) {

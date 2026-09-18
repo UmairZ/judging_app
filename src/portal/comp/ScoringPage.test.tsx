@@ -234,6 +234,29 @@ describe('ScoringPage', () => {
     expect(await screen.findByText('weights must sum to 100 (got 90)')).toBeTruthy();
   });
 
+  // (M2 fix) only the SELECTED system's errors gate Save.
+  it('hides a broken-percent-weights error and enables Save after switching to Raw deductions, then re-shows it on switching back', async () => {
+    const backend = seededBackend();
+    renderPage(backend);
+
+    const hifzInput = (await screen.findByDisplayValue(
+      String(DEFAULT_SCORING_CONFIG.percent.weights.hifz),
+    )) as HTMLInputElement;
+    fireEvent.change(hifzInput, { target: { value: '60' } });
+    expect(await screen.findByText('weights must sum to 100 (got 90)')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', true);
+
+    fireEvent.click(screen.getByRole('radio', { name: /raw deductions/i }));
+
+    expect(screen.queryByText('weights must sum to 100 (got 90)')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', false);
+
+    fireEvent.click(screen.getByRole('radio', { name: /each part of the recitation/i }));
+
+    expect(await screen.findByText('weights must sum to 100 (got 90)')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', true);
+  });
+
   it('explains the disqualification flag as a per-category mistake limit', async () => {
     const backend = seededBackend();
     renderPage(backend);
