@@ -416,11 +416,15 @@ function RailSectionHeader({ label, open }: { label: string; open: boolean }) {
 
 /** Option D's wider rail — the question cards on top, then Notes (expanded)
  * and Panel completeness (collapsed) folded in below. No right side panel in
- * this option; both residents live here instead. */
+ * this option; both residents live here instead. A « chevron at the top
+ * collapses it back down to the icon rail. */
 function RailWithPanels() {
   return (
     <div style={{ width: 250, flex: 'none', borderRight: `1px solid ${C.line}`, background: C.cream, padding: '16px 12px', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '0 6px 10px', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600 }}>Questions</div>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '0 6px 10px' }}>
+        <span style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: C.muted, fontWeight: 600 }}>Questions</span>
+        <span title="Collapse sidebar" style={{ marginLeft: 'auto', cursor: 'pointer', fontSize: 15, lineHeight: 1, color: C.muted }}>«</span>
+      </div>
       <div style={{ borderRadius: 8, padding: '11px 13px', border: `1.5px solid ${C.brass}`, background: '#FCF7E9', marginBottom: 8 }}>
         <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>Question 1</span>
       </div>
@@ -439,6 +443,46 @@ function RailWithPanels() {
       <div style={{ borderTop: `1px solid ${C.line}` }}>
         <RailSectionHeader label="Panel completeness" open={false} />
       </div>
+    </div>
+  );
+}
+
+/** Small circular item for the collapsed icon rail — question chip, add
+ * button, or notes glyph. Static, like everything else here. */
+function RailIconCircle({
+  children, active = false, dashed = false, dot = false, title,
+}: { children: React.ReactNode; active?: boolean; dashed?: boolean; dot?: boolean; title?: string }) {
+  return (
+    <span
+      title={title}
+      style={{
+        position: 'relative', width: 40, height: 40, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+        border: dashed ? `1.5px dashed ${C.line}` : `1.5px solid ${active ? C.brass : C.line}`,
+        background: active ? '#FCF7E9' : '#fff',
+        color: active ? C.ink : '#41504B',
+      }}
+    >
+      {children}
+      {dot && <span style={{ position: 'absolute', top: 2, right: 2, width: 8, height: 8, borderRadius: 999, background: '#C0392B' }} />}
+    </span>
+  );
+}
+
+/** Option D's DEFAULT working state — the sidebar collapsed horizontally into
+ * a narrow VS Code-style icon rail: expand chevron, question circles, add,
+ * notes glyph, and a tiny completeness count at the bottom. */
+function CollapsedIconRail() {
+  return (
+    <div style={{ width: 56, flex: 'none', boxSizing: 'border-box', borderRight: `1px solid ${C.line}`, background: C.cream, padding: '12px 0 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+      <span title="Expand sidebar" style={{ cursor: 'pointer', fontSize: 15, lineHeight: 1, color: C.muted, padding: '2px 0 4px' }}>»</span>
+      <RailIconCircle active title="Question 1">Q1</RailIconCircle>
+      <RailIconCircle dot title="Question 2">Q2</RailIconCircle>
+      <RailIconCircle title="Question 3">Q3</RailIconCircle>
+      <RailIconCircle dashed title="Add question">+</RailIconCircle>
+      <div style={{ width: 28, height: 1, background: C.line, margin: '2px 0' }} />
+      <RailIconCircle title="Notes — opens the sidebar">✎</RailIconCircle>
+      <span title="Panel completeness" style={{ marginTop: 'auto', fontSize: 10.5, fontWeight: 600, color: C.muted }}>3/4</span>
     </div>
   );
 }
@@ -467,6 +511,49 @@ function VoiceRowStub() {
   );
 }
 
+/** The 55/45 scoring|passage panes — identical in both Option D frames; the
+ * collapsed rail just hands them more width. */
+function SplitPanes() {
+  return (
+    <>
+      {/* left pane — scoring content, ~55% */}
+      <div style={{ flex: '1 1 55%', minWidth: 0, padding: '24px 30px' }}>
+        <QuestionHeading />
+        <SectionLabel color={C.brassDark}>Hifz · Memorization</SectionLabel>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <StepperStub label="Self-corrected" desc="Caught and fixed without help." count={0} />
+          <StepperStub label="Prompted — fixed" desc="Needed a cue, then continued." count={1} />
+        </div>
+        <VoiceRowStub />
+      </div>
+      {/* thin vertical divider */}
+      <div style={{ width: 1, flex: 'none', background: C.line }} />
+      {/* right pane — the passage, ~45%, filling the pane height */}
+      <div style={{ flex: '1 1 45%', minWidth: 0, padding: '20px 22px', display: 'flex' }}>
+        <div style={{ flex: 1, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 10, padding: '16px 18px' }}>
+          <PassageMeta />
+          <PassageLines />
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** D1 — sidebar collapsed into the icon rail; the split gets the reclaimed width. */
+function OptionDCollapsedDesktop() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <DesktopHeader />
+      <DesktopUtilityStrip />
+      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+        <CollapsedIconRail />
+        <SplitPanes />
+      </div>
+    </div>
+  );
+}
+
+/** D2 — sidebar expanded on demand: full question cards, Notes, completeness. */
 function OptionDDesktop() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -474,25 +561,7 @@ function OptionDDesktop() {
       <DesktopUtilityStrip />
       <div style={{ display: 'flex', alignItems: 'stretch' }}>
         <RailWithPanels />
-        {/* left pane — scoring content, ~55% */}
-        <div style={{ flex: '1 1 55%', minWidth: 0, padding: '24px 30px' }}>
-          <QuestionHeading />
-          <SectionLabel color={C.brassDark}>Hifz · Memorization</SectionLabel>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <StepperStub label="Self-corrected" desc="Caught and fixed without help." count={0} />
-            <StepperStub label="Prompted — fixed" desc="Needed a cue, then continued." count={1} />
-          </div>
-          <VoiceRowStub />
-        </div>
-        {/* thin vertical divider */}
-        <div style={{ width: 1, flex: 'none', background: C.line }} />
-        {/* right pane — the passage, ~45%, filling the pane height */}
-        <div style={{ flex: '1 1 45%', minWidth: 0, padding: '20px 22px', display: 'flex' }}>
-          <div style={{ flex: 1, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 10, padding: '16px 18px' }}>
-            <PassageMeta />
-            <PassageLines />
-          </div>
-        </div>
+        <SplitPanes />
       </div>
     </div>
   );
@@ -628,12 +697,26 @@ export default function MockQuestions() {
         <div style={{ fontFamily: serif, fontSize: 20, fontWeight: 600, color: C.greenDeep, marginBottom: 4 }}>Option D — split screen</div>
         <div style={{ fontSize: 13.5, color: C.sub, marginBottom: 18, maxWidth: 900 }}>
           Desktop: the main area splits side by side — scoring controls on the left (~55%), the passage card on the right (~45%)
-          filling the pane height, a thin divider between them. No right side panel: Notes (expanded) and Panel completeness
-          (collapsed) move into the left question rail as collapsible sections.
+          filling the pane height, a thin divider between them. No right side panel: Notes and Panel completeness live in the
+          left sidebar, which itself collapses horizontally into a narrow icon rail (VS Code activity-bar style).
         </div>
-        <div style={{ maxWidth: 1100, borderRadius: 10, overflow: 'hidden', boxShadow: '0 4px 14px rgba(0,0,0,0.10)', marginBottom: 12, position: 'relative' }}>
+
+        <div style={{ fontFamily: serif, fontSize: 16, fontWeight: 600, color: C.greenDeep, marginBottom: 8 }}>D1 — sidebar collapsed (icon rail)</div>
+        <div style={{ maxWidth: 1100, borderRadius: 10, overflow: 'hidden', boxShadow: '0 4px 14px rgba(0,0,0,0.10)', marginBottom: 8, position: 'relative' }}>
+          <OptionDCollapsedDesktop />
+        </div>
+        <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 24 }}>
+          Default state — the rail is icons; tapping ✎ (or ») expands the sidebar.
+        </div>
+
+        <div style={{ fontFamily: serif, fontSize: 16, fontWeight: 600, color: C.greenDeep, marginBottom: 8 }}>D2 — sidebar expanded</div>
+        <div style={{ maxWidth: 1100, borderRadius: 10, overflow: 'hidden', boxShadow: '0 4px 14px rgba(0,0,0,0.10)', marginBottom: 8, position: 'relative' }}>
           <OptionDDesktop />
         </div>
+        <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 12 }}>
+          Expanded on demand — full question cards, Notes, panel completeness.
+        </div>
+
         <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 4 }}>
           Passage anchored right (Arabic reads right-to-left); flip is a one-line change if you prefer scoring on the right.
         </div>
