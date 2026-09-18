@@ -104,6 +104,9 @@ export const JUDGE_LABELS = {
   ownQuestion:     { en: "Judge's own question",       ar: 'سؤال من اختيار الحكم' },
   passage:         { en: 'Passage',                    ar: 'المقطع' },
   loadingPassage:  { en: 'Loading passage…',           ar: 'جارٍ تحميل المقطع…' },
+  // desktop icon-rail sidebar (task 6)
+  expandSidebar:   { en: 'Expand sidebar',             ar: 'توسيع الشريط الجانبي' },
+  collapseSidebar: { en: 'Collapse sidebar',           ar: 'طيّ الشريط الجانبي' },
   // per-deduction ⓘ popover (live model-aware costs)
   moreInfo:        { en: 'About this mistake',           ar: 'عن هذا الخطأ' },
   noPenalty:       { en: 'No penalty — tracked only',    ar: 'لا خصم — يُسجَّل فقط' },

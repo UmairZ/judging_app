@@ -138,12 +138,15 @@ describe('MobileShell (phone viewport)', () => {
 });
 
 describe('shell picker (desktop viewport)', () => {
-  it('still renders the side rail when the phone query does not match', async () => {
+  it('still renders the desktop shell when the phone query does not match', async () => {
     mockDesktop();
     renderScreen(new InMemoryBackend(), 5);
-    expect(await screen.findByText('Questions')).toBeTruthy(); // rail header
+    // Task 6: desktop's sidebar defaults to the collapsed icon rail.
+    expect(await screen.findByLabelText('Expand sidebar')).toBeTruthy();
+    expect(screen.queryByText('+ Add')).toBeNull(); // no mobile add chip
+    fireEvent.click(screen.getByLabelText('Expand sidebar'));
+    expect(screen.getByText('Questions')).toBeTruthy(); // expanded rail header
     expect(screen.queryByText('3 questions')).toBeNull(); // count dropped from the rail header
-    expect(screen.queryByText('Q1')).toBeNull(); // no chips
   });
 });
 

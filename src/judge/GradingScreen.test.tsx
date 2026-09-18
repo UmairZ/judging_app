@@ -5,6 +5,19 @@ import type { ReactNode } from 'react';
 
 vi.mock('../firebase/app', () => ({ db: {}, auth: { currentUser: null } }));
 
+// The quran module lazy-loads a 2MB dataset — jsdom must never touch it (only the
+// desktop passage-pane tests exercise it; the mock keeps loadDataset lazy + tiny).
+vi.mock('../quran', () => ({
+  loadDataset: vi.fn(() => Promise.resolve({ fake: true })),
+  getPassage: vi.fn((_d: unknown, surah: number, ayah: number, lineCount: number) => ({
+    startPage: 3,
+    endPage: 3,
+    lines: Array.from({ length: lineCount }, (_, i) => ({ page: 3, line: i + 1, text: `LINE-${i + 1}`, surah, ayah })),
+  })),
+  getPage: vi.fn(() => 3),
+}));
+
+const quran = await import('../quran');
 const { DbProvider, InMemoryBackend } = await import('../data/backend');
 const { TenantProvider } = await import('../tenant/TenantContext');
 const { DEFAULT_SCORING_CONFIG } = await import('../scoring');
@@ -13,7 +26,7 @@ const { useGradingSession } = await import('./useGradingSession');
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
-function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimit: number, onEnd: () => void = () => {}) {
+function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimit: number, onEnd: () => void = () => {}, tieBreak = false) {
   return render(
     <DbProvider backend={backend}>
       <TenantProvider orgId="demo" compId="demo">
@@ -25,10 +38,43 @@ function renderScreen(backend: InstanceType<typeof InMemoryBackend>, mistakeLimi
           mistakeLimit={mistakeLimit}
           meta={{ position: 1, total: 1, panelName: '', judgeIndex: 0, panelSize: 0, startedCount: 0 }}
           onEnd={onEnd}
+          tieBreak={tieBreak}
         />
       </TenantProvider>
     </DbProvider>,
   );
+}
+
+const SESSION_PATH = 'orgs/demo/competitions/demo/sessions/e1__j1';
+
+/** InMemoryBackend has no synchronous read — a momentary doc subscription is one
+ * (subscribeDoc invokes the callback synchronously with the current snapshot). */
+function readDoc(backend: InstanceType<typeof InMemoryBackend>, path: string) {
+  let out: Record<string, unknown> | null = null;
+  const unsub = backend.subscribeDoc(path, (d) => { out = d; });
+  unsub();
+  return out as Record<string, unknown> | null;
+}
+
+/** T4-seed-shaped questionSets doc for enrollment e1 (rows = PoolRow + additive juz/crosses). */
+function seedQuestionSet(backend: InstanceType<typeof InMemoryBackend>) {
+  backend.seed('orgs/demo/competitions/demo/questionSets/e1', {
+    enrollmentId: 'e1',
+    begin: [
+      { surah: 1, ayah: 1, ref: 'Al-Fatihah 1:1', text: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', juz: 1, crosses: false },
+      { surah: 2, ayah: 60, ref: 'Al-Baqarah 2:60', text: 'وَإِذِ اسْتَسْقَىٰ مُوسَىٰ', juz: 1, crosses: false },
+      { surah: 2, ayah: 155, ref: 'Al-Baqarah 2:155', text: 'وَلَنَبْلُوَنَّكُم', juz: 2, crosses: false },
+    ],
+    end: [
+      { surah: 67, ayah: 1, ref: 'Al-Mulk 67:1', text: 'تَبَارَكَ الَّذِي', juz: 29, crosses: false },
+      { surah: 78, ayah: 31, ref: "An-Naba' 78:31", text: 'إِنَّ لِلْمُتَّقِينَ مَفَازًا', juz: 30, crosses: false },
+      { surah: 112, ayah: 1, ref: 'Al-Ikhlas 112:1', text: 'قُلْ هُوَ اللَّهُ أَحَدٌ', juz: 30, crosses: false },
+    ],
+    beginLabel: 'Juz 1–5',
+    endLabel: 'Juz 26–30',
+    assignedAt: 1,
+    assignedBy: null,
+  });
 }
 
 describe('GradingScreen live config', () => {
@@ -130,9 +176,11 @@ describe('back arrow replaces Save & exit (desktop header)', () => {
   });
 });
 
-it('rail header shows the "Questions" label with no count and no "min N"', async () => {
+it('expanded rail header shows the "Questions" label with no count and no "min N"', async () => {
   const backend = new InMemoryBackend();
   renderScreen(backend, 5); // minQuestions=3 in the harness
+  // Task 6: the sidebar defaults to the collapsed icon rail — expand it first.
+  fireEvent.click(await screen.findByLabelText('Expand sidebar'));
   expect(await screen.findByText('Questions')).toBeTruthy();
   expect(screen.queryByText('3 questions')).toBeNull();
   expect(screen.queryByText(/min 3/)).toBeNull();
@@ -194,15 +242,6 @@ describe('count-based auto-flag', () => {
 });
 
 describe('useGradingSession hook contract (spec §7)', () => {
-  // InMemoryBackend has no synchronous read — a momentary doc subscription is one
-  // (subscribeDoc invokes the callback synchronously with the current snapshot).
-  function readDoc(backend: InstanceType<typeof InMemoryBackend>, path: string) {
-    let out: Record<string, unknown> | null = null;
-    const unsub = backend.subscribeDoc(path, (d) => { out = d; });
-    unsub();
-    return out as Record<string, unknown> | null;
-  }
-
   function renderHookWithProviders(backend: InstanceType<typeof InMemoryBackend>, opts: { tieBreak?: boolean } = {}) {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <DbProvider backend={backend}>
@@ -254,27 +293,6 @@ describe('useGradingSession hook contract (spec §7)', () => {
     expect(doc.questions.some((q) => !q.isTieBreak && q.events.length === 1)).toBe(true); // primary preserved
     expect(doc.questions.some((q) => q.isTieBreak)).toBe(true);
   });
-
-  /** T4-seed-shaped questionSets doc for enrollment e1 (rows = PoolRow + additive juz/crosses). */
-  function seedQuestionSet(backend: InstanceType<typeof InMemoryBackend>) {
-    backend.seed('orgs/demo/competitions/demo/questionSets/e1', {
-      enrollmentId: 'e1',
-      begin: [
-        { surah: 1, ayah: 1, ref: 'Al-Fatihah 1:1', text: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', juz: 1, crosses: false },
-        { surah: 2, ayah: 60, ref: 'Al-Baqarah 2:60', text: 'وَإِذِ اسْتَسْقَىٰ مُوسَىٰ', juz: 1, crosses: false },
-        { surah: 2, ayah: 155, ref: 'Al-Baqarah 2:155', text: 'وَلَنَبْلُوَنَّكُم', juz: 2, crosses: false },
-      ],
-      end: [
-        { surah: 67, ayah: 1, ref: 'Al-Mulk 67:1', text: 'تَبَارَكَ الَّذِي', juz: 29, crosses: false },
-        { surah: 78, ayah: 31, ref: "An-Naba' 78:31", text: 'إِنَّ لِلْمُتَّقِينَ مَفَازًا', juz: 30, crosses: false },
-        { surah: 112, ayah: 1, ref: 'Al-Ikhlas 112:1', text: 'قُلْ هُوَ اللَّهُ أَحَدٌ', juz: 30, crosses: false },
-      ],
-      beginLabel: 'Juz 1–5',
-      endLabel: 'Juz 26–30',
-      assignedAt: 1,
-      assignedBy: null,
-    });
-  }
 
   it('questionSet subscription: doc surfaces with verbatim labels; null without a doc', async () => {
     const backend = new InMemoryBackend();
@@ -376,6 +394,10 @@ describe('per-system session scoring (task 4 integration sweep)', () => {
     fireEvent.click(within(card).getByTitle('Add one'));
     fireEvent.click(within(card).getByTitle('Add one'));
 
+    // Task 6: the sidebar defaults to the collapsed icon rail — expand it so the
+    // full "Question N" cards are addressable below.
+    fireEvent.click(screen.getByLabelText('Expand sidebar'));
+
     // Voice bars render a bare "5" text node (voice_max defaults to 5 and is
     // untouched by these configs) — scoped queries aren't needed since no other
     // element on the screen has that exact text at any point in this sequence.
@@ -419,5 +441,130 @@ describe('per-system session scoring (task 4 integration sweep)', () => {
     // Q2 = Q3 (no mistakes) = (100 − 5) − 0 + 5·(5/5) = 95 + 5 = 100
     // avg = (80 + 100 + 100) / 3 = 280 / 3 = 93.333... → '93.3'
     expect(await screen.findByText('93.3')).toBeTruthy();
+  });
+});
+
+describe('desktop icon-rail sidebar (task 6, D1/D2)', () => {
+  it('defaults collapsed: » + Q icons + ✎, no "Questions" header, no Notes textarea (old right panel gone)', async () => {
+    renderScreen(new InMemoryBackend(), 5);
+    expect(await screen.findByLabelText('Expand sidebar')).toBeTruthy();
+    expect(screen.getByTitle('Question 1')).toBeTruthy();
+    expect(screen.getByTitle('Question 3')).toBeTruthy();
+    expect(screen.getByTitle('Notes')).toBeTruthy(); // the ✎ glyph
+    expect(screen.queryByText('Questions')).toBeNull();
+    // Notes/completeness live ONLY in the (collapsed) sidebar now — no right panel.
+    expect(screen.queryByPlaceholderText('Private notes for this contestant…')).toBeNull();
+    expect(screen.queryByText('judges started')).toBeNull();
+  });
+
+  it('» expands: full cards + NOTES (open) + PANEL COMPLETENESS (collapsed, toggleable); « collapses back', async () => {
+    renderScreen(new InMemoryBackend(), 5);
+    fireEvent.click(await screen.findByLabelText('Expand sidebar'));
+    expect(screen.getByText('Questions')).toBeTruthy();
+    // Full question cards ('Question 1' would also match the main heading — Q2 is rail-only).
+    expect(screen.getByText('Question 2')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Private notes for this contestant…')).toBeTruthy(); // NOTES expanded default
+    expect(screen.getByText('Panel completeness')).toBeTruthy();
+    expect(screen.queryByText('judges started')).toBeNull(); // completeness collapsed default
+    fireEvent.click(screen.getByText('Panel completeness'));
+    expect(screen.getByText('judges started')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('Collapse sidebar'));
+    expect(screen.queryByText('Questions')).toBeNull();
+    expect(screen.getByLabelText('Expand sidebar')).toBeTruthy();
+  });
+
+  it('✎ expands the sidebar straight to the Notes box', async () => {
+    renderScreen(new InMemoryBackend(), 5);
+    fireEvent.click(await screen.findByTitle('Notes'));
+    expect(screen.getByPlaceholderText('Private notes for this contestant…')).toBeTruthy();
+  });
+
+  it('collapse state persists across remount (localStorage judge-rail)', async () => {
+    const backend = new InMemoryBackend();
+    renderScreen(backend, 5);
+    fireEvent.click(await screen.findByLabelText('Expand sidebar'));
+    cleanup();
+    renderScreen(backend, 5);
+    expect(await screen.findByText('Questions')).toBeTruthy(); // still expanded
+    expect(screen.queryByLabelText('Expand sidebar')).toBeNull();
+  });
+});
+
+describe('desktop side machinery + scoring/passage split (task 6, phase E)', () => {
+  it('no questionSet: no overlay, no side pill, no passage pane — screen exactly as today', async () => {
+    renderScreen(new InMemoryBackend(), 5);
+    await screen.findByLabelText('Expand sidebar');
+    expect(screen.queryByText('Which side is the recitation from?')).toBeNull();
+    expect(screen.queryByText(/Juz 1–5/)).toBeNull();
+    expect(screen.queryByText('LINE-1')).toBeNull();
+    expect(screen.queryByText("Judge's own question")).toBeNull();
+  });
+
+  it('set + no side: SideSelect on open; choosing Beginning persists, raises the strip pill and the passage pane (row 0 ref + lines)', async () => {
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    renderScreen(backend, 5);
+    expect(await screen.findByText('Which side is the recitation from?')).toBeTruthy();
+    fireEvent.click(screen.getByText('Beginning'));
+    expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('begin');
+    expect(screen.queryByText('Which side is the recitation from?')).toBeNull();
+    expect(screen.getByText('Beginning · Juz 1–5')).toBeTruthy();
+    expect(await screen.findByText('Al-Fatihah 1:1 · page 3')).toBeTruthy();
+    expect(screen.getByText('LINE-1')).toBeTruthy();
+    expect(vi.mocked(quran.getPassage)).toHaveBeenCalledWith(expect.anything(), 1, 1, 7);
+  });
+
+  it('pane follows the active question; an added question shows the own-question copy', async () => {
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    renderScreen(backend, 5);
+    expect(await screen.findByText('Al-Fatihah 1:1 · page 3')).toBeTruthy();
+    fireEvent.click(screen.getByTitle('Question 2')); // collapsed-rail icon
+    expect(await screen.findByText('Al-Baqarah 2:60 · page 3')).toBeTruthy();
+    fireEvent.click(screen.getByTitle('+ Add question')); // Q4 — beyond the drawn set
+    expect(await screen.findByText("Judge's own question")).toBeTruthy();
+  });
+
+  it('side pill reopens SideSelect (explicit re-choice, never a toggle) until the first mark, then is static', async () => {
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    renderScreen(backend, 5);
+    // one click must NOT change the side — it reopens the two-button overlay instead
+    fireEvent.click(await screen.findByText('Beginning · Juz 1–5'));
+    expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('begin');
+    expect(await screen.findByText('Which side is the recitation from?')).toBeTruthy();
+    fireEvent.click(screen.getByText('End'));
+    expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('end');
+    expect(screen.queryByText('Which side is the recitation from?')).toBeNull();
+    // first mark → sideLocked → the pill goes static: no overlay, no change
+    const label = await screen.findByText('Prompted');
+    const card = label.parentElement!.parentElement!.parentElement as HTMLElement;
+    fireEvent.click(within(card).getByTitle('Add one'));
+    fireEvent.click(screen.getByText('End · Juz 26–30'));
+    expect(screen.queryByText('Which side is the recitation from?')).toBeNull();
+    expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('end'); // unchanged
+  });
+
+  it('tie-break regression: with set + recorded side, no side pill, no overlay, no passage pane; side untouched', async () => {
+    vi.mocked(quran.loadDataset).mockClear();
+    const backend = new InMemoryBackend();
+    seedQuestionSet(backend);
+    backend.seed(SESSION_PATH, { enrollmentId: 'e1', judgeId: 'j1', questions: [], side: 'begin' });
+    renderScreen(backend, 5, () => {}, true);
+    await screen.findByText('Prompted'); // grading UI is up
+    expect(screen.queryByText('Beginning · Juz 1–5')).toBeNull(); // no side pill
+    expect(screen.queryByText('Which side is the recitation from?')).toBeNull(); // no overlay
+    // Layout decision: the pane is ABSENT entirely during a tie-break (the
+    // tie-break question is always the judge's own) — no passage, no own-question
+    // copy, and the dataset chunk is never pulled.
+    expect(screen.queryByText('LINE-1')).toBeNull();
+    expect(screen.queryByText(/Al-Fatihah 1:1/)).toBeNull();
+    expect(screen.queryByText("Judge's own question")).toBeNull();
+    expect(vi.mocked(quran.loadDataset)).not.toHaveBeenCalled();
+    expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('begin'); // untouched
+    // the rail stays hidden in tie-break mode, exactly as today
+    expect(screen.queryByLabelText('Expand sidebar')).toBeNull();
   });
 });

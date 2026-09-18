@@ -48,10 +48,10 @@ describe('DemoGrading', () => {
   it('stays on the desktop layout on a phone viewport (forcedShell="desktop" — the card is not a real judge device)', async () => {
     mockPhone();
     render(<DemoGrading />);
-    // Desktop-only question-rail header.
-    expect(await screen.findByText('Questions')).toBeTruthy();
-    // MobileShell-only chip/markers must not render.
-    expect(screen.queryByText('Q1')).toBeNull();
+    // Desktop-only collapsed icon rail (task 6 default state).
+    expect(await screen.findByLabelText('Expand sidebar')).toBeTruthy();
+    // MobileShell-only add chip must not render ('Q1' now exists on BOTH shells:
+    // mobile chip and desktop rail icon — no longer a discriminator).
     expect(screen.queryByText('+ Add')).toBeNull();
   });
 });
