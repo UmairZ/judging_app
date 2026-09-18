@@ -505,6 +505,9 @@ describe('desktop side machinery + scoring/passage split (task 6, phase E)', () 
     seedQuestionSet(backend);
     renderScreen(backend, 5);
     expect(await screen.findByText('Which side is the recitation from?')).toBeTruthy();
+    // No pane may mount behind the overlay while side is still null.
+    expect(screen.queryByText("Judge's own question")).toBeNull();
+    expect(screen.queryByText('LINE-1')).toBeNull();
     fireEvent.click(screen.getByText('Beginning'));
     expect((readDoc(backend, SESSION_PATH) as { side?: string }).side).toBe('begin');
     expect(screen.queryByText('Which side is the recitation from?')).toBeNull();
