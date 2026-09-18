@@ -55,24 +55,24 @@ describe('flagDismissed persistence (D1 parked fix)', () => {
     const label = await screen.findByText('Prompted');
     const card = label.parentElement!.parentElement!.parentElement as HTMLElement;
     fireEvent.click(within(card).getByTitle('Add one'));
-    fireEvent.click(await screen.findByText('Keep it'));
-    expect(screen.queryByText('Call it?')).toBeNull();
+    fireEvent.click(await screen.findByText('Keep question'));
+    expect(screen.queryByText('Hifz mistake limit reached')).toBeNull();
     // reload: fresh mount against the same backend — dismissal survives
     cleanup();
     renderScreen(backend, 1);
     await screen.findByText('Prompted');
-    expect(screen.queryByText('Call it?')).toBeNull();
+    expect(screen.queryByText('Hifz mistake limit reached')).toBeNull();
   });
-  it('Reset points clears the dismissal', async () => {
+  it('Reset scores clears the dismissal', async () => {
     const backend = new InMemoryBackend();
     renderScreen(backend, 1);
     const label = await screen.findByText('Prompted');
     const card = label.parentElement!.parentElement!.parentElement as HTMLElement;
     fireEvent.click(within(card).getByTitle('Add one'));
-    fireEvent.click(await screen.findByText('Keep it'));
-    fireEvent.click(screen.getByText('Reset points'));
+    fireEvent.click(await screen.findByText('Keep question'));
+    fireEvent.click(screen.getByText('Reset scores'));
     fireEvent.click(within(card).getByTitle('Add one'));
-    expect(await screen.findByText('Call it?')).toBeTruthy();
+    expect(await screen.findByText('Hifz mistake limit reached')).toBeTruthy();
   });
 
   it('Disqualify-then-Restore does not immediately re-prompt', async () => {
@@ -81,24 +81,24 @@ describe('flagDismissed persistence (D1 parked fix)', () => {
     const label = await screen.findByText('Prompted');
     const card = label.parentElement!.parentElement!.parentElement as HTMLElement;
     fireEvent.click(within(card).getByTitle('Add one'));
-    fireEvent.click(await screen.findByText('Disqualify'));
+    fireEvent.click(await screen.findByText('Score as zero'));
     fireEvent.click(await screen.findByText('Restore question'));
     // still at the limit, but the judge already ruled — no re-interrogation
-    expect(screen.queryByText('Call it?')).toBeNull();
+    expect(screen.queryByText('Hifz mistake limit reached')).toBeNull();
   });
 });
 
 describe('Disqualify button hidden on an already-disqualified question', () => {
-  it('hides "Disqualify question" once DQ\'d, restores it after Restore question', async () => {
+  it('hides "Score question as zero" once scored, restores it after Restore question', async () => {
     const backend = new InMemoryBackend();
     renderScreen(backend, 5);
     await screen.findByText('Prompted');
-    expect(screen.getByText('Disqualify question')).toBeTruthy();
-    fireEvent.click(screen.getByText('Disqualify question'));
+    expect(screen.getByText('Score question as zero')).toBeTruthy();
+    fireEvent.click(screen.getByText('Score question as zero'));
     expect(await screen.findByText('Restore question')).toBeTruthy();
-    expect(screen.queryByText('Disqualify question')).toBeNull();
+    expect(screen.queryByText('Score question as zero')).toBeNull();
     fireEvent.click(screen.getByText('Restore question'));
-    expect(await screen.findByText('Disqualify question')).toBeTruthy();
+    expect(await screen.findByText('Score question as zero')).toBeTruthy();
   });
 });
 
@@ -185,9 +185,9 @@ describe('count-based auto-flag', () => {
     const label = await screen.findByText('Prompted');
     const card = label.parentElement!.parentElement!.parentElement as HTMLElement;
     fireEvent.click(within(card).getByTitle('Add one'));
-    expect(screen.queryByText('Call it?')).toBeNull();
+    expect(screen.queryByText('Hifz mistake limit reached')).toBeNull();
     fireEvent.click(within(card).getByTitle('Add one'));
-    expect(await screen.findByText('Call it?')).toBeTruthy();
+    expect(await screen.findByText('Hifz mistake limit reached')).toBeTruthy();
     // limit language, not points language
     expect(screen.getByText(/2 hifz mistakes/)).toBeTruthy();
   });

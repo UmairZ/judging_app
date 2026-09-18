@@ -8,18 +8,24 @@ import StepperCard, { HIFZ_KEYS } from './StepperCard';
 afterEach(cleanup);
 
 describe('costLine', () => {
-  it('states the flat cost under standard deductions', () => {
-    expect(costLine('prompted_fixed', DEFAULT_SCORING_CONFIG, 'en')).toBe('Costs 1 point');
-    expect(costLine('tajweed_minor', DEFAULT_SCORING_CONFIG, 'en')).toBe('Costs 0.5 points');
-  });
-  it('adds the escalation sentence under escalating-v2', () => {
+  // English is held on a placeholder while the operator re-finalizes scoring
+  // weights (2026-09-18) — see InfoPopover.tsx costLine.
+  it('holds English on the [SCORING VALUE] placeholder regardless of deduction or model', () => {
+    expect(costLine('prompted_fixed', DEFAULT_SCORING_CONFIG, 'en')).toBe('[SCORING VALUE]');
+    expect(costLine('tajweed_minor', DEFAULT_SCORING_CONFIG, 'en')).toBe('[SCORING VALUE]');
     const v2 = { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v2' };
-    expect(costLine('prompted_failed', v2, 'en')).toBe('Costs 2 points — repeats in the same question cost 1 more each time');
-    // tajweed stays flat even under v2
-    expect(costLine('tajweed_major', v2, 'en')).toBe('Costs 1 point');
+    expect(costLine('prompted_failed', v2, 'en')).toBe('[SCORING VALUE]');
+    expect(costLine('tajweed_major', v2, 'en')).toBe('[SCORING VALUE]');
+    expect(costLine('self_corrected', DEFAULT_SCORING_CONFIG, 'en')).toBe('[SCORING VALUE]');
   });
-  it('self-corrected is free', () => {
-    expect(costLine('self_corrected', DEFAULT_SCORING_CONFIG, 'en')).toBe('No penalty — tracked only');
+  it('Arabic keeps the computed cost composition, unaffected by the English hold', () => {
+    expect(costLine('prompted_fixed', DEFAULT_SCORING_CONFIG, 'ar')).toBe('يُخصم 1 من النقاط');
+    expect(costLine('tajweed_minor', DEFAULT_SCORING_CONFIG, 'ar')).toBe('يُخصم 0.5 من النقاط');
+    const v2 = { ...DEFAULT_SCORING_CONFIG, model: 'escalating-v2' };
+    expect(costLine('prompted_failed', v2, 'ar')).toBe('يُخصم 2 من النقاط — يزيد الخصم نقطة مع كل تكرار في السؤال نفسه');
+    // tajweed stays flat even under v2
+    expect(costLine('tajweed_major', v2, 'ar')).toBe('يُخصم 1 من النقاط');
+    expect(costLine('self_corrected', DEFAULT_SCORING_CONFIG, 'ar')).toBe('لا خصم — يُسجَّل فقط');
   });
 });
 
@@ -34,11 +40,11 @@ describe('StepperCard ⓘ popover', () => {
         <button>outside</button>
       </div>,
     );
-    const info = screen.getByLabelText('More info');
+    const info = screen.getByLabelText('About this mistake');
     fireEvent.click(info);
     const tooltip = screen.getByRole('tooltip');
-    expect(within(tooltip).getByText('Hint given, but still could not continue the passage.')).toBeTruthy();
-    expect(within(tooltip).getByText('Costs 2 points — repeats in the same question cost 1 more each time')).toBeTruthy();
+    expect(within(tooltip).getByText('Unable to continue after being prompted.')).toBeTruthy();
+    expect(within(tooltip).getByText('[SCORING VALUE]')).toBeTruthy();
 
     fireEvent.mouseDown(screen.getByText('outside'));
     expect(screen.queryByRole('tooltip')).toBeNull();
@@ -46,7 +52,7 @@ describe('StepperCard ⓘ popover', () => {
 
   it('a tap (mouseenter then click, as touch fires them) leaves the popover OPEN', () => {
     render(<StepperCard def={promptedFailed} count={0} lang="en" cfg={DEFAULT_SCORING_CONFIG} onInc={() => {}} onDec={() => {}} />);
-    const info = screen.getByLabelText('More info');
+    const info = screen.getByLabelText('About this mistake');
     // touch tap sequence: mouseenter → (mousedown) → click
     fireEvent.mouseEnter(info.parentElement as HTMLElement);
     fireEvent.click(info);
@@ -58,7 +64,7 @@ describe('StepperCard ⓘ popover', () => {
 
   it('opens on focus and closes on blur (spec §3: keyboard users tabbing to the ⓘ)', () => {
     render(<StepperCard def={promptedFailed} count={0} lang="en" cfg={DEFAULT_SCORING_CONFIG} onInc={() => {}} onDec={() => {}} />);
-    const info = screen.getByLabelText('More info');
+    const info = screen.getByLabelText('About this mistake');
     fireEvent.focus(info);
     expect(screen.getByRole('tooltip')).toBeTruthy();
     fireEvent.blur(info);

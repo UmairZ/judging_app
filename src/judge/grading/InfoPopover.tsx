@@ -14,6 +14,8 @@ function pointsPhrase(n: number, lang: JudgeLang): string {
 /** The ONLY cost-copy source for deduction types. Hifz prompted types escalate
  * under `escalating-v2`; tajweed stays flat regardless of model; self-corrected is free. */
 export function costLine(type: DeductionEventType, cfg: ScoringConfig, lang: JudgeLang): string {
+  // temporary copy hold — operator is re-finalizing scoring weights, 2026-09-18
+  if (lang === 'en') return t('scoringValue', lang);
   if (type === 'self_corrected') return t('noPenalty', lang);
   if (type === 'tajweed_major' || type === 'tajweed_minor') {
     const n = type === 'tajweed_major' ? cfg.tajweed_deductions.major : cfg.tajweed_deductions.minor;

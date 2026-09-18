@@ -72,7 +72,7 @@ describe('MobileShell (phone viewport)', () => {
     mockPhone();
     renderScreen(new InMemoryBackend(), 5);
     fireEvent.click(await screen.findByText('Finish'));
-    expect(await screen.findByText(/Rate voice on every question/)).toBeTruthy();
+    expect(await screen.findByText(/Voice & delivery is still unrated/)).toBeTruthy();
   });
 
   it('a Prompted tap at limit 1 raises the DQ overlay', async () => {
@@ -81,7 +81,7 @@ describe('MobileShell (phone viewport)', () => {
     const label = await screen.findByText('Prompted');
     const card = label.parentElement!.parentElement!.parentElement as HTMLElement;
     fireEvent.click(within(card).getByTitle('Add one'));
-    expect(await screen.findByText('Call it?')).toBeTruthy();
+    expect(await screen.findByText('Hifz mistake limit reached')).toBeTruthy();
   });
 
   it('shows a back arrow in the header with the backToQueue aria-label', async () => {
@@ -110,16 +110,16 @@ describe('MobileShell (phone viewport)', () => {
     expect(screen.queryByText('Back to queue')).toBeNull();
   });
 
-  it('hides "Disqualify question" once DQ\'d, restores it after Restore question', async () => {
+  it('hides "Score question as zero" once scored, restores it after Restore question', async () => {
     mockPhone();
     renderScreen(new InMemoryBackend(), 5);
     await screen.findByText('Q1');
-    expect(screen.getByText('Disqualify question')).toBeTruthy();
-    fireEvent.click(screen.getByText('Disqualify question'));
+    expect(screen.getByText('Score question as zero')).toBeTruthy();
+    fireEvent.click(screen.getByText('Score question as zero'));
     expect(await screen.findByText('Restore question')).toBeTruthy();
-    expect(screen.queryByText('Disqualify question')).toBeNull();
+    expect(screen.queryByText('Score question as zero')).toBeNull();
     fireEvent.click(screen.getByText('Restore question'));
-    expect(await screen.findByText('Disqualify question')).toBeTruthy();
+    expect(await screen.findByText('Score question as zero')).toBeTruthy();
   });
 });
 
