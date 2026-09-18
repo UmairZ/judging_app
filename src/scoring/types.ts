@@ -14,6 +14,8 @@ export interface Question {
   index: number;
   isAdded?: boolean;
   isTieBreak?: boolean;
+  /** judge chose "Keep it" at the mistake limit — UI-only, engine ignores */
+  flagDismissed?: boolean;
   disqualified?: boolean;
   /** Per-question voice rating, 0..voice_max; null until rated. */
   voice?: number | null;

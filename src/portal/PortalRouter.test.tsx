@@ -66,6 +66,23 @@ describe('portal client-side router (PortalRoot + vendor Link + nav)', () => {
     expect(screen.getAllByText('Scoring').some((el) => el.closest('[data-current]'))).toBe(true);
   });
 
+  it('navigates to the Rules section from the sidebar', async () => {
+    window.history.replaceState({}, '', '/portal/c/2026');
+
+    render(
+      <DbProvider backend={seededBackend()}>
+        <PortalRoot />
+      </DbProvider>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Contestants' })).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Rules'));
+
+    expect(await screen.findByRole('heading', { name: 'Rules' })).toBeTruthy();
+    expect(window.location.pathname).toBe('/portal/c/2026/rules');
+  });
+
   it('leaves non-portal links native (no pushState, no in-place swap)', async () => {
     window.history.replaceState({}, '', '/portal/c/2026');
     const pushSpy = vi.spyOn(window.history, 'pushState');

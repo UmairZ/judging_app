@@ -24,6 +24,7 @@ const SECTION_LABELS = [
   'Categories & Divisions',
   'Judges & Panels',
   'Scoring',
+  'Rules',
   'Leaderboard',
   'Provisioning',
 ];

@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useMembership } from '../auth/MembershipContext';
 import { useTenant } from '../tenant/TenantContext';
@@ -7,6 +7,9 @@ import type { JudgeDoc, PanelDoc, AssignmentDoc, TiebreakDoc, SessionDoc, Contes
 import { DEFAULT_STRUCTURE_CONFIG, categoryMistakeLimit, DEFAULT_MISTAKE_LIMIT, type StructureConfig } from '../domain/structure';
 import { enrollmentId } from '../domain/ids';
 import { C, serif } from '../ui/theme';
+import RulesModal from './grading/RulesModal';
+import { t } from './labels';
+import { useJudgeLang } from './useJudgeLang';
 import WelcomeScreen from './WelcomeScreen';
 import Dashboard, { type TieBreakItem } from './Dashboard';
 import GradingScreen from './GradingScreen';
@@ -21,6 +24,8 @@ export default function JudgeApp() {
   const [selected, setSelected] = useState<JudgeQueueItem | null>(null);
   const [tbTarget, setTbTarget] = useState<TieBreakItem | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const { lang } = useJudgeLang();
 
   const judges = useCollection<JudgeDoc>(tp('judges'));
   const panels = useCollection<PanelDoc>(tp('panels'));
@@ -30,6 +35,9 @@ export default function JudgeApp() {
   const contestants = useCollection<ContestantDoc>(tp('contestants'));
   const enrollments = useCollection<EnrollmentDoc>(tp('enrollments'));
   const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
+  // Subscribed once here for Dashboard's Rules button — GradingScreen's own
+  // useGradingSession subscribes independently for the grading-screen pill.
+  const rulesText = useDocData<{ rulesText?: string }>(tp('config/policies')).data?.rulesText ?? '';
 
   // Single source for the queue — collections are subscribed once here, not again inside the hook.
   const items = useMemo(
@@ -38,10 +46,10 @@ export default function JudgeApp() {
   );
   const startedCountFor = (enr: string) => sessions.filter((s) => s.enrollmentId === enr).length;
 
-  const judgeName = judges.find((j) => j.id === judgeId)?.name ?? 'Judge';
+  const judgeName = judges.find((j) => j.id === judgeId)?.name ?? t('judgeFallback', lang);
   const myPanel = panels.find((p) => p.judgeIds.includes(judgeId));
   const slots = [...new Set(items.map((i) => i.slotLabel))];
-  const subtitle = slots.length ? slots.join(' · ') : 'Your assigned contestants';
+  const subtitle = slots.length ? slots.join(' · ') : t('yourAssigned', lang);
   const catLabel = (id: string) => structure.categories.find((c) => c.id === id)?.label ?? id;
   const divLabel = (id: string) => structure.divisions.find((d) => d.id === id)?.label ?? id;
   const panelMeta = { panelName: myPanel?.name ?? '', judgeIndex: myPanel ? myPanel.judgeIds.indexOf(judgeId) + 1 : 0, panelSize: myPanel?.judgeIds.length ?? 0 };
@@ -65,10 +73,28 @@ export default function JudgeApp() {
       }),
     );
 
-  // Hidden admin re-entry: long-press the top-left corner for ~1.2s.
+  // Hidden admin re-entry: long-press the top-left corner (64×64) for ~1.2s.
+  // Window-level listeners instead of an overlay div: the old invisible
+  // 64×64 fixed div swallowed clicks on anything beneath it — which now
+  // includes the grading screen's back arrow. Coordinate-gated listeners
+  // keep the gesture while letting every click pass through.
   const pressTimer = useRef<number | null>(null);
-  const startPress = () => { pressTimer.current = window.setTimeout(() => setAdminOpen(true), 1200); };
-  const endPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+  useEffect(() => {
+    const endPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+    const startPress = (e: PointerEvent) => {
+      if (e.clientX > 64 || e.clientY > 64) return;
+      pressTimer.current = window.setTimeout(() => setAdminOpen(true), 1200);
+    };
+    window.addEventListener('pointerdown', startPress);
+    window.addEventListener('pointerup', endPress);
+    window.addEventListener('pointercancel', endPress);
+    return () => {
+      endPress();
+      window.removeEventListener('pointerdown', startPress);
+      window.removeEventListener('pointerup', endPress);
+      window.removeEventListener('pointercancel', endPress);
+    };
+  }, []);
 
   let content;
   if (screen === 'welcome') {
@@ -112,6 +138,8 @@ export default function JudgeApp() {
         tieBreaks={tieBreaks}
         onGrade={(c) => { setSelected(c); setScreen('grading'); }}
         onTieBreak={(t) => { setTbTarget(t); setScreen('tiebreak'); }}
+        rulesText={rulesText}
+        onOpenRules={() => setRulesOpen(true)}
       />
     );
   }
@@ -119,14 +147,7 @@ export default function JudgeApp() {
   return (
     <>
       {content}
-      <div
-        onPointerDown={startPress}
-        onPointerUp={endPress}
-        onPointerLeave={endPress}
-        onPointerCancel={endPress}
-        title="Hold to switch to admin"
-        style={{ position: 'fixed', top: 0, left: 0, width: 64, height: 64, zIndex: 60 }}
-      />
+      {rulesOpen && rulesText && <RulesModal text={rulesText} lang={lang} onClose={() => setRulesOpen(false)} />}
       {adminOpen && <AdminReentry onClose={() => setAdminOpen(false)} signInEmail={signInEmail} />}
     </>
   );

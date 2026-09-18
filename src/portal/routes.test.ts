@@ -22,6 +22,10 @@ describe('parsePortalRoute', () => {
     expect(parsePortalRoute('/portal/c/2026/scoring')).toEqual({ kind: 'comp', compId: '2026', section: 'scoring' });
   });
 
+  it('parses /portal/c/2026/rules as comp with rules section', () => {
+    expect(parsePortalRoute('/portal/c/2026/rules')).toEqual({ kind: 'comp', compId: '2026', section: 'rules' });
+  });
+
   it('returns null for invalid section', () => {
     expect(parsePortalRoute('/portal/c/2026/bogus')).toBeNull();
   });

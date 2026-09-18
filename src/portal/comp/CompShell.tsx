@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { ArrowLeftIcon } from '@heroicons/react/16/solid';
 import {
+  BookOpenIcon,
   ChartBarIcon,
   ClipboardDocumentListIcon,
   Cog6ToothIcon,
@@ -40,6 +41,7 @@ const SECTIONS: { section: CompSection; label: string; icon: ComponentType<SVGPr
   { section: 'categories', label: 'Categories & Divisions', icon: RectangleGroupIcon },
   { section: 'judges', label: 'Judges & Panels', icon: UsersIcon },
   { section: 'scoring', label: 'Scoring', icon: Cog6ToothIcon },
+  { section: 'rules', label: 'Rules', icon: BookOpenIcon },
   { section: 'leaderboard', label: 'Leaderboard', icon: ChartBarIcon },
   { section: 'provisioning', label: 'Provisioning', icon: DevicePhoneMobileIcon },
 ];

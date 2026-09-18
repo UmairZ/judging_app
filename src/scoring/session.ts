@@ -25,7 +25,8 @@ export function componentMeans(session: Session, cfg: ScoringConfig): ComponentM
 
   // Unrated voice counts as 0 (same rule as questionScore), so the session score
   // equals the mean of the per-question rail scores. Voice is required to finish
-  // (see GradingScreen), so a finalized session never carries an unrated question.
+  // (the canFinish gate in useGradingSession), so a finalized session never
+  // carries an unrated question.
   const V = qs.reduce((a, q) => a + (voiceFraction(q, cfg) ?? 0), 0) / qs.length;
 
   return { H, T, V };
