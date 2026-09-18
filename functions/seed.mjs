@@ -28,12 +28,20 @@ const STRUCTURE = {
     { id: '30', label: "30 Ajzā'", minQuestions: 6, divisions: ['combined'], zeffyLabels: ['30 Juz (Ages 35 and Under)'] },
   ],
 };
+// v3 shape (2026-09-18) — mirrors src/scoring DEFAULT_SCORING_CONFIG at the
+// escalating system, since that's what the demo comp exercises.
 const SCORING = {
-  weights: { hifz: 70, tajweed: 25, voice: 5 },
-  hifz_base: 10, tajweed_base: 10, voice_max: 5,
-  hifz_deductions: { prompted_fixed: 1, prompted_failed: 2 },
-  tajweed_deductions: { major: 1, minor: 0.5 },
-  model: 'deduction-v1',
+  model: 'escalating-v3',
+  voice_max: 5,
+  raw: {
+    costs: { hesitation: 0, prompted: 10, unable: 20, tajweed_major: 10, tajweed_minor: 5 },
+    voice_worth: 5,
+  },
+  percent: {
+    weights: { hifz: 70, tajweed: 25, voice: 5 },
+    costs: { prompted: 10, unable: 20, tajweed_major: 10, tajweed_minor: 5 },
+    escalation_step: 10,
+  },
 };
 
 const ev = (type, n) => Array.from({ length: n }, () => ({ type, ts: '2026-06-18T00:00:00.000Z' }));
