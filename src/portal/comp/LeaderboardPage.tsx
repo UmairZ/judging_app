@@ -17,6 +17,7 @@ import GradingScreen from '../../judge/GradingScreen';
 import Projector from '../../admin/Projector';
 import { Badge } from '../vendor/badge';
 import { Button } from '../vendor/button';
+import { Dialog, DialogActions, DialogDescription, DialogTitle } from '../vendor/dialog';
 import { Field, Fieldset, Label } from '../vendor/fieldset';
 import { Heading, Subheading } from '../vendor/heading';
 import { Input } from '../vendor/input';
@@ -107,6 +108,7 @@ export function LeaderboardPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [projecting, setProjecting] = useState(false);
+  const [resetting, setResetting] = useState<Row | null>(null); // confirm dialog for Reset scoring
   const slot: Slot | undefined = slots[sel] ?? slots[0];
 
   // Projector mode: Esc exits.
@@ -260,6 +262,17 @@ export function LeaderboardPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
+  // Admin Reset scoring: delete every judge's session doc for this enrollment —
+  // the contestant recomputes to "Not started" live. A judge with the contestant's
+  // screen still OPEN keeps local state and would re-create the doc on their next
+  // tap, so the dialog tells the admin to have judges exit first.
+  const resetScoring = async () => {
+    if (!resetting) return;
+    const docs = sessions.filter((s) => s.enrollmentId === resetting.enrollmentId);
+    await Promise.all(docs.map((s) => removeDoc(tp(`sessions/${s.id}`))));
+    setResetting(null);
+  };
+
   // Open one judge's session for the admin to correct (reuses the grading screen).
   const openEdit = (r: Row, jid: string) => {
     if (!slot || !panel) return;
@@ -463,6 +476,13 @@ export function LeaderboardPage() {
                             );
                           })}
                       </div>
+                      {sessions.some((s) => s.enrollmentId === r.enrollmentId) && (
+                        <div className="mt-3 max-w-xl">
+                          <Button outline onClick={() => setResetting(r)} className="!text-red-600">
+                            Reset scoring…
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 )}
@@ -496,6 +516,24 @@ export function LeaderboardPage() {
           <Projector />
         </div>
       )}
+
+      <Dialog open={resetting != null} onClose={() => setResetting(null)}>
+        <DialogTitle>Reset scoring for {resetting?.name}?</DialogTitle>
+        <DialogDescription>
+          This deletes every judge&apos;s marks for this contestant — they go back to Not
+          started. Make sure no judge has this contestant&apos;s grading screen open first
+          (an open screen re-saves its marks on the judge&apos;s next tap). The assigned
+          questions are untouched. This cannot be undone.
+        </DialogDescription>
+        <DialogActions>
+          <Button plain onClick={() => setResetting(null)}>
+            Cancel
+          </Button>
+          <Button color="red" onClick={resetScoring}>
+            Reset scoring
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

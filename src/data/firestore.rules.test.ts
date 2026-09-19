@@ -75,12 +75,14 @@ describe('sessions — one writer per doc, judgeId from the member doc', () => {
     await assertFails(updateDoc(doc(as('uJudgeA'), `${P1}/sessions/s5`), { judgeId: 'jB' }));
   });
 
-  it('nobody can delete a session — not even org staff', async () => {
+  it('staff can delete a session (admin Reset scoring); judges cannot — not even their own', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), `${P1}/sessions/s4`), { judgeId: 'jA', enrollmentId: 'e1', questions: [] });
+      await setDoc(doc(ctx.firestore(), `${P1}/sessions/s4b`), { judgeId: 'jA', enrollmentId: 'e1', questions: [] });
     });
-    await assertFails(deleteDoc(doc(as('uJudgeA'), `${P1}/sessions/s4`)));
-    await assertFails(deleteDoc(doc(as('staff1'), `${P1}/sessions/s4`)));
+    await assertFails(deleteDoc(doc(as('uJudgeA'), `${P1}/sessions/s4`))); // own seat's doc
+    await assertFails(deleteDoc(doc(as('uDisplay1'), `${P1}/sessions/s4`)));
+    await assertSucceeds(deleteDoc(doc(as('staff1'), `${P1}/sessions/s4b`)));
   });
 
   it("org staff can create and update any judge's session (correct-marks feature)", async () => {

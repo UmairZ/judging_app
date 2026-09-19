@@ -105,7 +105,9 @@ service cloud.firestore {
                         && compMember(orgId, compId).role == 'judge'
                         && resource.data.judgeId == compMember(orgId, compId).judgeId
                         && request.resource.data.judgeId == compMember(orgId, compId).judgeId);
-          allow delete: if false;
+          // Staff only: the admin "Reset scoring" action wipes a contestant's sessions
+          // (back to Not started). Judges still cannot delete — not even their own.
+          allow delete: if isOrgStaff(orgId);
         }
 
         // Join codes are secrets between org staff and the function that redeems them.

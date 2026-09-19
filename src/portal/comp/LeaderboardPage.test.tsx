@@ -88,6 +88,39 @@ describe('LeaderboardPage', () => {
   });
 });
 
+describe('LeaderboardPage — admin Reset scoring', () => {
+  it('expand row → Reset scoring… → confirm dialog → deletes every session doc for the enrollment', async () => {
+    const { removeDoc } = await import('../../data/db');
+    const { fireEvent } = await import('@testing-library/react');
+    const backend = seededBackend();
+    // second judge session for Amina proves ALL of the enrollment's sessions are deleted
+    backend.seed('orgs/ik/competitions/2026/sessions/c1_1__j2', {
+      enrollmentId: 'c1_1', judgeId: 'j2',
+      questions: [{ index: 0, events: [], voice: 4, disqualified: false }],
+      updatedAt: 1,
+    });
+    render(
+      <DbProvider backend={backend}>
+        <TenantProvider orgId="ik" compId="2026">
+          <LeaderboardPage />
+        </TenantProvider>
+      </DbProvider>,
+    );
+    fireEvent.click(await screen.findByText('Amina Noor')); // expand the drill-down
+    fireEvent.click(await screen.findByText('Reset scoring…'));
+    // confirm dialog names the contestant and requires the explicit red action
+    expect(await screen.findByText(/Reset scoring for Amina Noor\?/)).toBeTruthy();
+    expect(vi.mocked(removeDoc)).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset scoring' }));
+    await vi.waitFor(() => {
+      expect(vi.mocked(removeDoc)).toHaveBeenCalledWith('orgs/ik/competitions/2026/sessions/c1_1__j1');
+      expect(vi.mocked(removeDoc)).toHaveBeenCalledWith('orgs/ik/competitions/2026/sessions/c1_1__j2');
+    });
+    // Bilal's session untouched
+    expect(vi.mocked(removeDoc)).not.toHaveBeenCalledWith('orgs/ik/competitions/2026/sessions/c2_1__j1');
+  });
+});
+
 describe('LeaderboardPage component-column gating (spec §1: raw-v3 has no components)', () => {
   it('hides the Hifz/Tajweed columns under raw-v3, but still ranks the rows', async () => {
     const backend = seededBackend();
