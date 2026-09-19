@@ -438,7 +438,11 @@ export function LeaderboardPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {r.summary.score == null ? '—' : r.summary.score.toFixed(1)}
+                    {/* hover reveals full precision — near-ties like 92.638889 vs 92.618056
+                        both display "92.6", and the exact value settles which is ahead */}
+                    <span title={r.summary.score == null ? undefined : r.summary.score.toFixed(6)}>
+                      {r.summary.score == null ? '—' : r.summary.score.toFixed(1)}
+                    </span>
                     {partial && r.summary.score != null ? <span className="text-zinc-400">*</span> : null}
                   </TableCell>
                   {percentFamily && <TableCell>{pct(r.summary.hBar)}</TableCell>}
@@ -470,7 +474,7 @@ export function LeaderboardPage() {
                                 <span className="flex-1 text-sm font-semibold">{judges.find((j) => j.id === jid)?.name ?? jid}</span>
                                 {replacedQs.length > 0 && <Badge color="amber">Replaced: {replacedQs.join(', ')}</Badge>}
                                 <Badge color={finalized ? 'green' : has ? 'amber' : 'zinc'}>{finalized ? 'Graded' : has ? 'In progress' : 'Not started'}</Badge>
-                                <span className="min-w-[50px] text-right text-sm font-bold">{js == null ? '—' : js.toFixed(1)}</span>
+                                <span className="min-w-[50px] text-right text-sm font-bold" title={js == null ? undefined : js.toFixed(6)}>{js == null ? '—' : js.toFixed(1)}</span>
                                 <Button onClick={() => openEdit(r, jid)}>Edit</Button>
                               </div>
                             );
