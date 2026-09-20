@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useCollection, useDocData } from '../data/db';
 import { useTenant } from '../tenant/TenantContext';
-import type { EnrollmentDoc, ContestantDoc, SessionDoc, PanelDoc, AssignmentDoc } from '../data/types';
+import type { EnrollmentDoc, ContestantDoc, SessionDoc, PanelDoc, AssignmentDoc, TiebreakDoc } from '../data/types';
 import {
   resolveScoringConfig,
   enrollmentSummary,
   compareForLeaderboard,
+  tieBreakMean,
   type ScoringConfig,
   type EnrollmentSummary,
 } from '../scoring';
 import { DEFAULT_STRUCTURE_CONFIG, generateSlots, type StructureConfig } from '../domain/structure';
+import { enrollmentId } from '../domain/ids';
 import { C, serif, pct } from '../ui/theme';
 
 interface Row {
@@ -29,6 +31,9 @@ export default function Projector() {
   const sessions = useCollection<SessionDoc>(tp('sessions'));
   const panels = useCollection<PanelDoc>(tp('panels'));
   const assignments = useCollection<AssignmentDoc>(tp('assignments'));
+  // Admin placement overrides + sudden-death results. The board MUST honour these:
+  // the leaderboard does, and the two must never disagree in front of an audience.
+  const tiebreaks = useCollection<TiebreakDoc>(tp('tiebreaks'));
   const structure = useDocData<StructureConfig>(tp('config/structure')).data ?? DEFAULT_STRUCTURE_CONFIG;
   const cfg: ScoringConfig = resolveScoringConfig(useDocData<ScoringConfig>(tp('config/scoring')).data);
 
@@ -59,6 +64,25 @@ export default function Projector() {
   const panel = panels.find((p) => p.id === assignment?.panelId);
   const panelSize = panel?.judgeIds.length ?? 3;
 
+  // Ranking mirrors LeaderboardPage.rankRowsForSlot exactly — an admin override sets
+  // the order outright; a completed sudden-death orders the tied contestants; other-
+  // wise score decides and the tie-break order only separates genuine ties.
+  const tb = tiebreaks.find((t) => t.category === slot?.category && t.division === slot?.division);
+  const tbOrder: string[] = (() => {
+    const raw = ((tb?.resolution as { order?: string[] } | undefined)?.order) ?? [];
+    if (tb?.method !== 'question') return raw;
+    const scored = (tb.contestantIds ?? []).map((cid) => ({
+      cid,
+      m: tieBreakMean(sessions.filter((s) => s.enrollmentId === enrollmentId(cid, tb.category)), cfg),
+    }));
+    if (scored.length === 0 || scored.some((x) => x.m == null)) return [];
+    return [...scored].sort((a, b) => (b.m as number) - (a.m as number)).map((x) => x.cid);
+  })();
+  const tbIdx = (cid: string) => {
+    const i = tbOrder.indexOf(cid);
+    return i < 0 ? Number.POSITIVE_INFINITY : i;
+  };
+
   const rows: Row[] = !slot
     ? []
     : enrollments
@@ -72,7 +96,12 @@ export default function Projector() {
             panelSize,
           };
         })
-        .sort((a, b) => compareForLeaderboard(a.summary, b.summary));
+        .sort((a, b) => {
+          if (tb?.method === 'override' && tbOrder.length) return tbIdx(a.contestantId) - tbIdx(b.contestantId);
+          const c = compareForLeaderboard(a.summary, b.summary);
+          if (c !== 0) return c;
+          return tbIdx(a.contestantId) - tbIdx(b.contestantId);
+        });
 
   // ── derived display values ──────────────────────────────────────────────────
 
